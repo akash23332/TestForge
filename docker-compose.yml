@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: testforge-mongodb
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - testforge_mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=testforge
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/testforge --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: testforge-redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - testforge_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: testforge-api
+    restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '5000:5000'
+    environment:
+      - PORT=5000
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/testforge
+      - JWT_SECRET=testforge_docker_super_secret_key_32_characters_minimum
+      - JWT_EXPIRES_IN=15m
+      - CLIENT_ORIGIN=http://localhost:5173
+      - REDIS_URL=redis://redis:6379
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: testforge-client
+    restart: always
+    depends_on:
+      - server
+    ports:
+      - '5173:5173'
+
+volumes:
+  testforge_mongo_data:
+  testforge_redis_data:

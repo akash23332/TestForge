@@ -1,0 +1,5 @@
+question,optionA,optionB,optionC,optionD,correctAnswer,marks,topic,explanation
+"What is the time complexity of searching an element in a balanced Binary Search Tree?","O(1)","O(n)","O(log n)","O(n log n)","C",2,"Data Structures","A balanced BST divides search space in half at each step resulting in logarithmic height."
+"Which HTTP method is idempotent?","POST","PUT","PATCH","CONNECT","B",1,"REST APIs","PUT replaces the target resource entirely and repeated identical requests produce the same state."
+"What does ACID stand for in database transactions?","Atomicity, Consistency, Isolation, Durability","Asynchrony, Concurrency, Indexing, Delivery","Action, Callback, Input, Data","Authentication, Cryptography, Integrity, Decryption","A",2,"Databases","ACID properties guarantee valid transactions even in the event of errors or power failures."
+"In MongoDB, which method is used to define an ascending index on the field 'email'?","db.users.createIndex({ email: -1 })","db.users.createIndex({ email: 1 })","db.users.index({ email: true })","db.users.addIndex('email')","B",1,"MongoDB","The value 1 indicates ascending index and -1 indicates descending index."

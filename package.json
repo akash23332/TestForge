@@ -1,0 +1,24 @@
+{
+  "name": "testforge-monorepo",
+  "version": "1.0.0",
+  "description": "TestForge - AI-assisted Coding Assessment Preparation & Validation Platform",
+  "private": true,
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "test:server": "npm --prefix server run test",
+    "build:client": "npm --prefix client run build",
+    "install:all": "npm --prefix server install && npm --prefix client install"
+  },
+  "keywords": [
+    "assessment",
+    "coding",
+    "mutation-testing",
+    "full-stack",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "TestForge Development Team",
+  "license": "ISC"
+}
