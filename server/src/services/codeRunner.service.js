@@ -834,6 +834,285 @@ except Exception as e:
   }
 };
 
+// ─── C++ Runner Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Splits a C++ parameter list string by commas, respecting angle-bracket depth.
+ */
+const splitCppParams = (paramsStr) => {
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of paramsStr) {
+    if (ch === '<') depth++;
+    else if (ch === '>') depth--;
+    else if (ch === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+};
+
+/**
+ * Parses C++ parameter list string into [{type, name}] objects.
+ * Handles: int n, vector<int>& nums, const string& s, etc.
+ */
+const parseCppParams = (paramsStr) => {
+  if (!paramsStr.trim()) return [];
+  return splitCppParams(paramsStr).map((p, i) => {
+    const cleaned = p.replace(/\bconst\b/g, '').replace(/[&*]/g, '').replace(/\s+/g, ' ').trim();
+    const lastSpace = cleaned.lastIndexOf(' ');
+    if (lastSpace === -1) return { type: cleaned, name: `arg${i}` };
+    const type = cleaned.slice(0, lastSpace).trim();
+    const name = cleaned.slice(lastSpace + 1).trim();
+    return { type, name };
+  });
+};
+
+/**
+ * Extracts the first public non-constructor function from a C++ Solution class.
+ * Returns { funcName, returnType, params } or null.
+ */
+const extractCppFunctionInfo = (code) => {
+  const funcRegex = /(?:static\s+|virtual\s+|inline\s+)?([\w][\w\s:<>,]*?)\s+(\w+)\s*\(([^)]*)\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{/g;
+  let match;
+  while ((match = funcRegex.exec(code)) !== null) {
+    const returnType = match[1].trim();
+    const funcName   = match[2].trim();
+    const paramsStr  = match[3].trim();
+    if (['Solution', 'main', 'class', 'struct', 'if', 'for', 'while', 'switch'].includes(funcName)) continue;
+    if (returnType === 'class' || returnType === 'struct') continue;
+    const params = parseCppParams(paramsStr);
+    return { funcName, returnType, params };
+  }
+  return null;
+};
+
+/**
+ * Converts a JS runtime value to a C++ literal string for the given C++ type.
+ */
+const jsValueToCppLiteral = (val, rawType) => {
+  const t = rawType.replace(/\bconst\b/g, '').replace(/[&*]/g, '').replace(/\s+/g, '').toLowerCase();
+
+  if (t === 'int' || t === 'int32_t' || t === 'short')
+    return String(parseInt(val, 10) || 0);
+  if (t === 'longlong' || t === 'long' || t === 'int64_t')
+    return String(parseInt(val, 10) || 0);
+  if (t === 'double' || t === 'float') {
+    const f = parseFloat(val);
+    return isNaN(f) ? '0.0' : String(f);
+  }
+  if (t === 'bool')
+    return val ? 'true' : 'false';
+  if (t === 'string' || t === 'std::string') {
+    const s = typeof val === 'string' ? val : String(val ?? '');
+    return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  if (t === 'char') {
+    const s = typeof val === 'string' ? val : String(val ?? '');
+    return `'${s.charAt(0)}'`;
+  }
+  if (t === 'vector<int>' || t === 'std::vector<int>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => String(parseInt(v, 10) || 0)).join(', ')}}`;
+  }
+  if (t === 'vector<longlong>' || t === 'vector<long>' || t === 'vector<longlong>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => String(parseInt(v, 10) || 0)).join(', ')}}`;
+  }
+  if (t === 'vector<double>' || t === 'vector<float>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => String(parseFloat(v) || 0.0)).join(', ')}}`;
+  }
+  if (t === 'vector<bool>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => v ? 'true' : 'false').join(', ')}}`;
+  }
+  if (t === 'vector<string>' || t === 'vector<std::string>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => `"${String(v ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(', ')}}`;
+  }
+  if (t === 'vector<char>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(v => `'${String(v ?? ' ').charAt(0)}'`).join(', ')}}`;
+  }
+  if (t === 'vector<vector<int>>' || t === 'std::vector<std::vector<int>>') {
+    const arr = Array.isArray(val) ? val : [val];
+    return `{${arr.map(row => {
+      const r = Array.isArray(row) ? row : [row];
+      return `{${r.map(v => String(parseInt(v, 10) || 0)).join(', ')}}`;
+    }).join(', ')}}`;
+  }
+  if (Array.isArray(val))
+    return `{${val.map(v => typeof v === 'string' ? `"${v}"` : String(v)).join(', ')}}`;
+  return String(val ?? 0);
+};
+
+/**
+ * Executes C++ code in an isolated process with ListNode/TreeNode support.
+ * Compiles with g++ -std=c++17 -O2 and runs the resulting binary.
+ */
+export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
+  const startTime = Date.now();
+  const tmpDir  = os.tmpdir();
+  const uid     = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+  const srcFile = path.join(tmpDir, `runner_${uid}.cpp`);
+  const binFile = path.join(tmpDir, `runner_${uid}`);
+
+  try {
+    // 1. Detect function info
+    const fnInfo = extractCppFunctionInfo(code);
+    if (!fnInfo) {
+      return {
+        status: 'runtime_error',
+        output: null,
+        error: 'No public function found in Solution class. Define your solution as: class Solution { public: returnType funcName(...) {} };',
+        runtimeMs: 0
+      };
+    }
+
+    const { funcName, params } = fnInfo;
+
+    // 2. Build per-argument declarations
+    const argDecls = params.map((p, i) => {
+      const jsVal   = inputArgs[i] !== undefined ? inputArgs[i] : null;
+      const literal = jsValueToCppLiteral(jsVal, p.type);
+      const declType = p.type.replace(/\s+/g, ' ').trim();
+      return `${declType} ${p.name} = ${literal};`;
+    }).join('\n    ');
+
+    const argNames = params.map(p => p.name).join(', ');
+
+    // 3. Generate full C++ harness
+    const harness = `
+#include <bits/stdc++.h>
+using namespace std;
+
+// ListNode
+struct ListNode {
+    int val; ListNode* next;
+    ListNode(int x=0,ListNode* n=nullptr):val(x),next(n){}
+    static ListNode* fromVec(const vector<int>& v){
+        ListNode dummy; ListNode* cur=&dummy;
+        for(int x:v){cur->next=new ListNode(x);cur=cur->next;}
+        return dummy.next;
+    }
+    static vector<int> toVec(ListNode* h){
+        vector<int> res; while(h){res.push_back(h->val);h=h->next;} return res;
+    }
+};
+
+// TreeNode
+struct TreeNode {
+    int val; TreeNode *left,*right;
+    TreeNode(int x=0,TreeNode* l=nullptr,TreeNode* r=nullptr):val(x),left(l),right(r){}
+};
+
+// Result printers
+void printOutput(int v)           { cout<<v<<"\\n"; }
+void printOutput(long long v)     { cout<<v<<"\\n"; }
+void printOutput(double v)        { cout<<fixed<<setprecision(6)<<v<<"\\n"; }
+void printOutput(float v)         { cout<<fixed<<setprecision(6)<<v<<"\\n"; }
+void printOutput(bool v)          { cout<<(v?"true":"false")<<"\\n"; }
+void printOutput(char v)          { cout<<'\x22'<<v<<'\x22'<<"\\n"; }
+void printOutput(const string& v) { cout<<'\x22'<<v<<'\x22'<<"\\n"; }
+void printOutput(const vector<int>& v){
+    cout<<"["; for(int i=0;i<(int)v.size();i++){if(i)cout<<",";cout<<v[i];} cout<<"]\\n";
+}
+void printOutput(const vector<long long>& v){
+    cout<<"["; for(int i=0;i<(int)v.size();i++){if(i)cout<<",";cout<<v[i];} cout<<"]\\n";
+}
+void printOutput(const vector<double>& v){
+    cout<<"["; for(int i=0;i<(int)v.size();i++){if(i)cout<<",";cout<<fixed<<setprecision(6)<<v[i];} cout<<"]\\n";
+}
+void printOutput(const vector<bool>& v){
+    cout<<"["; for(int i=0;i<(int)v.size();i++){if(i)cout<<",";cout<<(v[i]?"true":"false");} cout<<"]\\n";
+}
+void printOutput(const vector<string>& v){
+    cout<<"["; for(int i=0;i<(int)v.size();i++){if(i)cout<<",";cout<<'\x22'<<v[i]<<'\x22';} cout<<"]\\n";
+}
+void printOutput(const vector<vector<int>>& v){
+    cout<<"[";
+    for(int i=0;i<(int)v.size();i++){
+        if(i)cout<<","; cout<<"[";
+        for(int j=0;j<(int)v[i].size();j++){if(j)cout<<",";cout<<v[i][j];}
+        cout<<"]";
+    }
+    cout<<"]\\n";
+}
+void printOutput(ListNode* v){ printOutput(ListNode::toVec(v)); }
+
+// User solution
+${code}
+
+int main(){
+    try{
+        ${argDecls}
+        Solution sol;
+        auto result=sol.${funcName}(${argNames});
+        printOutput(result);
+    }catch(const exception& e){cerr<<e.what()<<endl;return 1;}
+    catch(...){cerr<<"Unknown runtime exception"<<endl;return 1;}
+    return 0;
+}
+`;
+
+    // 4. Write source
+    await fs.promises.writeFile(srcFile, harness, 'utf-8');
+
+    // 5. Compile
+    try {
+      execSync(`g++ -std=c++17 -O2 -o "${binFile}" "${srcFile}"`, {
+        encoding: 'utf-8', timeout: 15000, stdio: ['pipe','pipe','pipe']
+      });
+    } catch (compileErr) {
+      const errMsg = compileErr.stderr ? compileErr.stderr.toString().trim() : compileErr.message;
+      return {
+        status: 'compilation_error',
+        output: null,
+        error: errMsg.split('\n').slice(0, 5).join('\n'),
+        runtimeMs: Date.now() - startTime
+      };
+    }
+
+    // 6. Run binary
+    const out = execSync(`"${binFile}"`, {
+      encoding: 'utf-8', timeout: timeoutMs, stdio: ['pipe','pipe','pipe']
+    });
+
+    const runtimeMs = Date.now() - startTime;
+    let parsedOut;
+    try { parsedOut = JSON.parse(out.trim()); } catch { parsedOut = out.trim(); }
+
+    return { status: 'success', output: parsedOut, error: null, runtimeMs };
+
+  } catch (err) {
+    const runtimeMs = Date.now() - startTime;
+    const isTimeout =
+      err.code === 'ETIMEDOUT' ||
+      err.message?.includes('timed out') ||
+      runtimeMs >= timeoutMs;
+    const errMsg = err.stderr ? err.stderr.toString().trim() : err.message;
+    return {
+      status: isTimeout ? 'timeout' : 'runtime_error',
+      output: null,
+      error: isTimeout ? `Execution timed out after ${timeoutMs}ms.` : (errMsg || 'C++ runtime error'),
+      runtimeMs
+    };
+  } finally {
+    for (const f of [srcFile, binFile, `${binFile}.exe`]) {
+      try { if (fs.existsSync(f)) await fs.promises.unlink(f); } catch {}
+    }
+  }
+};
+
+// ─── End C++ Runner ──────────────────────────────────────────────────────────────────────
+
+
 /**
  * Validates a single test case against reference code.
  */
@@ -876,6 +1155,8 @@ export const validateSingleTestCase = async ({ code, testCase, questionContext =
     execResult = await runJavaIsolated({ code, inputArgs: parsedArgs, timeoutMs });
   } else if (lang === 'python') {
     execResult = await runPythonIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+  } else if (lang === 'cpp') {
+    execResult = await runCppIsolated({ code, inputArgs: parsedArgs, timeoutMs });
   } else {
     execResult = await runCodeIsolated({ code, inputArgs: parsedArgs, timeoutMs });
   }
@@ -936,5 +1217,6 @@ export default {
   runCodeIsolated,
   runJavaIsolated,
   runPythonIsolated,
+  runCppIsolated,
   validateSingleTestCase
 };
