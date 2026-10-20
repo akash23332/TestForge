@@ -1,237 +1,648 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { api } from '../../lib/api';
 import {
   UploadCloud,
   FileSpreadsheet,
   Download,
   CheckCircle2,
-  AlertTriangle,
-  FileCheck
+  Plus,
+  Trash2,
+  Edit2,
+  X
 } from 'lucide-react';
 
-export const McqImportView: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [previewData, setPreviewData] = useState<any | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+export interface McqItem {
+  id?: string;
+  rowNumber?: number;
+  question: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctAnswer: string; // 'A' | 'B' | 'C' | 'D'
+  marks: number;
+  topic: string;
+  explanation?: string;
+}
 
-  // Initial Demo Batch with 1 deliberate error row to demonstrate validation
-  const sampleBatch = [
+export const McqImportView: React.FC = () => {
+  // Questions in the current batch
+  const [questions, setQuestions] = useState<McqItem[]>([
     {
-      question: 'What is the worst-case time complexity of QuickSort?',
-      optionA: 'O(n log n)',
+      rowNumber: 1,
+      question: 'What is the time complexity of searching an element in a balanced Binary Search Tree?',
+      optionA: 'O(1)',
       optionB: 'O(n)',
-      optionC: 'O(n^2)',
-      optionD: 'O(1)',
+      optionC: 'O(log n)',
+      optionD: 'O(n log n)',
       correctAnswer: 'C',
       marks: 2,
-      topic: 'Algorithms'
+      topic: 'Data Structures',
+      explanation: 'A balanced BST divides search space in half at each step resulting in logarithmic height.'
     },
     {
-      question: 'Which data structure uses LIFO (Last In First Out)?',
-      optionA: 'Queue',
-      optionB: 'Stack',
-      optionC: 'Tree',
-      optionD: 'Graph',
-      correctAnswer: 'B',
-      marks: 1,
-      topic: 'Data Structures'
-    },
-    {
-      // Malformed row: invalid answer key 'Z' and missing option D
-      question: 'In JavaScript, which keyword declares a block-scoped variable?',
-      optionA: 'var',
-      optionB: 'let',
-      optionC: 'function',
-      optionD: '',
-      correctAnswer: 'Z',
-      marks: 1,
-      topic: 'JavaScript'
-    },
-    {
-      question: 'What is an idempotent REST HTTP method?',
+      rowNumber: 2,
+      question: 'Which HTTP method is idempotent?',
       optionA: 'POST',
       optionB: 'PUT',
-      optionC: 'CONNECT',
-      optionD: 'PATCH',
+      optionC: 'PATCH',
+      optionD: 'CONNECT',
       correctAnswer: 'B',
       marks: 1,
-      topic: 'REST APIs'
+      topic: 'REST APIs',
+      explanation: 'PUT replaces the target resource entirely and repeated identical requests produce the same state.'
+    },
+    {
+      rowNumber: 3,
+      question: 'What does ACID stand for in database transactions?',
+      optionA: 'Atomicity, Consistency, Isolation, Durability',
+      optionB: 'Asynchrony, Concurrency, Indexing, Delivery',
+      optionC: 'Action, Callback, Input, Data',
+      optionD: 'Authentication, Cryptography, Integrity, Decryption',
+      correctAnswer: 'A',
+      marks: 2,
+      topic: 'Databases',
+      explanation: 'ACID properties guarantee valid transactions even in the event of errors or power failures.'
     }
-  ];
+  ]);
 
-  const handleParseBatch = async (rowsToParse = sampleBatch) => {
-    setLoading(true);
-    setSuccessNotice(null);
-    try {
-      const res = await api.post('/mcq-imports/preview', { rows: rowsToParse });
-      setPreviewData(res.data.data);
-    } catch {
-      alert('Failed to parse MCQ batch.');
-    } finally {
-      setLoading(false);
+  // Form input states
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [questionText, setQuestionText] = useState('');
+  const [optionA, setOptionA] = useState('');
+  const [optionB, setOptionB] = useState('');
+  const [optionC, setOptionC] = useState('');
+  const [optionD, setOptionD] = useState('');
+  const [correctAnswer, setCorrectAnswer] = useState('A');
+  const [marks, setMarks] = useState(2);
+  const [topic, setTopic] = useState('Computer Science');
+  const [explanation, setExplanation] = useState('');
+
+  // Notifications
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // ── Save or Update Question ──────────────────────────────────────────────
+  const handleSaveQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!questionText.trim()) {
+      alert('Please enter a question statement.');
+      return;
+    }
+    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
+      alert('Please provide all 4 options (A, B, C, D).');
+      return;
+    }
+
+    const item: McqItem = {
+      question: questionText.trim(),
+      optionA: optionA.trim(),
+      optionB: optionB.trim(),
+      optionC: optionC.trim(),
+      optionD: optionD.trim(),
+      correctAnswer: correctAnswer.toUpperCase(),
+      marks: Number(marks) || 1,
+      topic: topic.trim() || 'General',
+      explanation: explanation.trim()
+    };
+
+    if (editingIndex !== null) {
+      // Update existing
+      setQuestions((prev) => {
+        const next = [...prev];
+        next[editingIndex] = { ...item, rowNumber: editingIndex + 1 };
+        return next;
+      });
+      setNotice(`Updated Question #${editingIndex + 1} successfully.`);
+      setEditingIndex(null);
+    } else {
+      // Add new
+      setQuestions((prev) => [...prev, { ...item, rowNumber: prev.length + 1 }]);
+      setNotice(`Added new question to the batch! Total questions: ${questions.length + 1}`);
+    }
+
+    // Reset fields for the next question
+    setQuestionText('');
+    setOptionA('');
+    setOptionB('');
+    setOptionC('');
+    setOptionD('');
+    setExplanation('');
+  };
+
+  // ── Start Editing a Question ─────────────────────────────────────────────
+  const handleStartEdit = (index: number) => {
+    const q = questions[index];
+    if (!q) return;
+    setEditingIndex(index);
+    setQuestionText(q.question);
+    setOptionA(q.optionA);
+    setOptionB(q.optionB);
+    setOptionC(q.optionC);
+    setOptionD(q.optionD);
+    setCorrectAnswer(q.correctAnswer);
+    setMarks(q.marks || 1);
+    setTopic(q.topic || 'General');
+    setExplanation(q.explanation || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setQuestionText('');
+    setOptionA('');
+    setOptionB('');
+    setOptionC('');
+    setOptionD('');
+    setExplanation('');
+  };
+
+  // ── Delete a Question ───────────────────────────────────────────────────
+  const handleDeleteQuestion = (index: number) => {
+    setQuestions((prev) =>
+      prev.filter((_, idx) => idx !== index).map((q, idx) => ({ ...q, rowNumber: idx + 1 }))
+    );
+    if (editingIndex === index) {
+      handleCancelEdit();
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const csvContent =
-      'question,optionA,optionB,optionC,optionD,correctAnswer,marks,topic,explanation\n' +
-      '"What is O(log n)?","Linear","Logarithmic","Quadratic","Constant","B",1,"Complexity","Divides search space"\n' +
-      '"HTTP idempotent method?","POST","PUT","PATCH","CONNECT","B",1,"REST","Repeated requests produce same state"\n';
+  // ── Clear All ───────────────────────────────────────────────────────────
+  const handleClearAll = () => {
+    if (confirm('Are you sure you want to remove all questions from this batch?')) {
+      setQuestions([]);
+      handleCancelEdit();
+      setNotice('All questions cleared.');
+    }
+  };
 
+  // ── Upload Existing CSV ─────────────────────────────────────────────────
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          alert('CSV file is empty or missing headers.');
+          return;
+        }
+
+        const header = lines[0].split(',').map((h) => h.replace(/^"|"$/g, '').trim());
+        const qIdx = header.indexOf('question');
+        const aIdx = header.indexOf('optionA');
+        const bIdx = header.indexOf('optionB');
+        const cIdx = header.indexOf('optionC');
+        const dIdx = header.indexOf('optionD');
+        const ansIdx = header.indexOf('correctAnswer');
+        const marksIdx = header.indexOf('marks');
+        const topicIdx = header.indexOf('topic');
+        const expIdx = header.indexOf('explanation');
+
+        const parsedRows: McqItem[] = [];
+        const csvRegex = /(?:^|,)(?:"((?:[^"]|"")*)"|([^,]*))/g;
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowValues: string[] = [];
+          let match;
+          csvRegex.lastIndex = 0;
+          while ((match = csvRegex.exec(lines[i])) !== null) {
+            const val = match[1] !== undefined ? match[1].replace(/""/g, '"') : match[2];
+            rowValues.push(val ? val.trim() : '');
+            if (match.index === csvRegex.lastIndex) csvRegex.lastIndex++;
+          }
+
+          if (rowValues.length >= 5) {
+            parsedRows.push({
+              rowNumber: parsedRows.length + 1,
+              question: rowValues[qIdx >= 0 ? qIdx : 0] || '',
+              optionA: rowValues[aIdx >= 0 ? aIdx : 1] || '',
+              optionB: rowValues[bIdx >= 0 ? bIdx : 2] || '',
+              optionC: rowValues[cIdx >= 0 ? cIdx : 3] || '',
+              optionD: rowValues[dIdx >= 0 ? dIdx : 4] || '',
+              correctAnswer: (rowValues[ansIdx >= 0 ? ansIdx : 5] || 'A').toUpperCase(),
+              marks: Number(rowValues[marksIdx >= 0 ? marksIdx : 6]) || 1,
+              topic: rowValues[topicIdx >= 0 ? topicIdx : 7] || 'General',
+              explanation: rowValues[expIdx >= 0 ? expIdx : 8] || ''
+            });
+          }
+        }
+
+        setQuestions((prev) => {
+          const combined = [...prev, ...parsedRows];
+          return combined.map((q, idx) => ({ ...q, rowNumber: idx + 1 }));
+        });
+        setNotice(`Imported ${parsedRows.length} questions from CSV!`);
+      } catch {
+        alert('Failed to parse uploaded CSV. Please ensure column format matches standard template.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // ── Download TestPad-Ready CSV ──────────────────────────────────────────
+  const handleDownloadTestPadCSV = () => {
+    if (questions.length === 0) {
+      alert('Please add at least one question before downloading.');
+      return;
+    }
+
+    const escapeCsv = (val: string | number | undefined) => {
+      const str = String(val ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return `"${str}"`;
+    };
+
+    const header = 'question,optionA,optionB,optionC,optionD,correctAnswer,marks,topic,explanation';
+    const rows = questions.map((q) =>
+      [
+        escapeCsv(q.question),
+        escapeCsv(q.optionA),
+        escapeCsv(q.optionB),
+        escapeCsv(q.optionC),
+        escapeCsv(q.optionD),
+        escapeCsv(q.correctAnswer),
+        q.marks || 1,
+        escapeCsv(q.topic),
+        escapeCsv(q.explanation || '')
+      ].join(',')
+    );
+
+    const csvContent = [header, ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'testforge_mcq_template.csv');
+    link.setAttribute('download', 'testpad_bulk_mcqs.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    setNotice(`Downloaded ${questions.length} questions as 'testpad_bulk_mcqs.csv' ready for TestPad upload!`);
   };
 
-  const handleCommitApproved = () => {
-    if (!previewData) return;
-    const approvedCount = previewData.summary.valid;
-    setSuccessNotice(`Successfully imported ${approvedCount} approved MCQ questions into the Question Bank!`);
-  };
+  // Metrics
+  const totalQuestions = questions.length;
+  const totalMarks = questions.reduce((sum, q) => sum + (Number(q.marks) || 1), 0);
+  const uniqueTopics = new Set(questions.map((q) => q.topic)).size;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Header */}
+    <div className="space-y-6 animate-fadeIn max-w-7xl mx-auto">
+      {/* Top Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/80 p-6 rounded-3xl shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-5 h-0.5 bg-orange-600 rounded-full" />
             <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
-              Bulk Assessment Entry
+              TestPad Bulk Assessment Exporter
             </span>
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Bulk MCQ Import & Preview</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            Manual MCQ Studio & CSV Generator
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Upload CSV/XLSX spreadsheets, validate row-level syntax, correct errors, and import.
+            Manually enter your exam questions, set options and answer keys, then download a TestPad-compatible CSV sheet in 1 click.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-            <Download className="h-3.5 w-3.5" /> Sample Template (.csv)
-          </Button>
-          <Button size="sm" onClick={() => handleParseBatch(sampleBatch)} isLoading={loading}>
-            <UploadCloud className="h-3.5 w-3.5" /> Load & Validate Batch
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <label className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition-colors shadow-xs">
+            <UploadCloud className="h-3.5 w-3.5 text-slate-500" /> Upload Existing CSV
+            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+          </label>
+
+          <Button
+            size="sm"
+            onClick={handleDownloadTestPadCSV}
+            disabled={questions.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 shadow-md font-bold"
+          >
+            <Download className="h-3.5 w-3.5" /> Download TestPad CSV ({questions.length})
           </Button>
         </div>
       </div>
 
-      {successNotice && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-2 text-xs font-semibold shadow-xs">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-          <span>{successNotice}</span>
+      {/* Alert Notice */}
+      {notice && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between gap-2 text-xs font-semibold shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <span>{notice}</span>
+          </div>
+          <button onClick={() => setNotice(null)} className="text-emerald-600 hover:text-emerald-900">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
-      {/* Summary Metrics if parsed */}
-      {previewData && (
+      {/* ── TOP STATS ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Questions</span>
+          <div className="text-2xl font-extrabold text-slate-900 mt-1">{totalQuestions}</div>
+        </div>
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider">Total Exam Marks</span>
+          <div className="text-2xl font-extrabold text-orange-600 mt-1">{totalMarks}</div>
+        </div>
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Unique Topics</span>
+          <div className="text-2xl font-extrabold text-emerald-600 mt-1">{uniqueTopics}</div>
+        </div>
+      </div>
+
+      {/* ── QUESTION ENTRY FORM (ALWAYS AVAILABLE) ─────────────────────────── */}
+      <form
+        onSubmit={handleSaveQuestion}
+        className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              {editingIndex !== null ? <Edit2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                {editingIndex !== null ? `Edit Question #${editingIndex + 1}` : 'Add MCQ Question'}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Fill in the details below to add questions to your TestPad spreadsheet batch.
+              </p>
+            </div>
+          </div>
+
+          {editingIndex !== null && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-xs text-slate-500 hover:text-slate-800 font-bold"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
+
+        {/* Question Input */}
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">Question Statement *</label>
+          <textarea
+            rows={2}
+            required
+            value={questionText}
+            onChange={(e) => setQuestionText(e.target.value)}
+            placeholder="e.g. Which of the following data structures is used for implementing recursion?"
+            className="w-full bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl p-3.5 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium transition-colors"
+          />
+        </div>
+
+        {/* 4 Options Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Option A *</span>
+              {correctAnswer === 'A' && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                  Correct Answer
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              required
+              value={optionA}
+              onChange={(e) => setOptionA(e.target.value)}
+              placeholder="e.g. Stack"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Option B *</span>
+              {correctAnswer === 'B' && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                  Correct Answer
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              required
+              value={optionB}
+              onChange={(e) => setOptionB(e.target.value)}
+              placeholder="e.g. Queue"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Option C *</span>
+              {correctAnswer === 'C' && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                  Correct Answer
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              required
+              value={optionC}
+              onChange={(e) => setOptionC(e.target.value)}
+              placeholder="e.g. Binary Tree"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Option D *</span>
+              {correctAnswer === 'D' && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                  Correct Answer
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              required
+              value={optionD}
+              onChange={(e) => setOptionD(e.target.value)}
+              placeholder="e.g. Array"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium"
+            />
+          </div>
+        </div>
+
+        {/* Answer Key, Marks, Topic */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Batch Rows</span>
-            <div className="text-3xl font-extrabold text-slate-900 mt-1">
-              {previewData.summary.total}
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Correct Answer Key *</label>
+            <select
+              value={correctAnswer}
+              onChange={(e) => setCorrectAnswer(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-emerald-800 font-extrabold focus:outline-none focus:border-orange-500"
+            >
+              <option value="A">Option A</option>
+              <option value="B">Option B</option>
+              <option value="C">Option C</option>
+              <option value="D">Option D</option>
+            </select>
           </div>
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
-            <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Approved / Valid</span>
-            <div className="text-3xl font-extrabold text-emerald-600 mt-1">
-              {previewData.summary.valid}
-            </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Marks *</label>
+            <input
+              type="number"
+              min={1}
+              required
+              value={marks}
+              onChange={(e) => setMarks(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
+            />
           </div>
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
-            <span className="text-xs text-rose-600 font-bold uppercase tracking-wider">Flagged For Review</span>
-            <div className="text-3xl font-extrabold text-rose-600 mt-1">
-              {previewData.summary.invalid}
-            </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Topic / Subject</label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Data Structures"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-orange-500"
+            />
           </div>
         </div>
-      )}
 
-      {/* Table Preview */}
+        {/* Explanation */}
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Explanation (Optional)</label>
+          <input
+            type="text"
+            value={explanation}
+            onChange={(e) => setExplanation(e.target.value)}
+            placeholder="Brief reason or logic for the correct answer..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-orange-500"
+          />
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {editingIndex !== null && (
+            <Button variant="secondary" size="sm" type="button" onClick={handleCancelEdit}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" size="sm" className="font-bold">
+            <Plus className="h-4 w-4" /> {editingIndex !== null ? 'Save Changes' : 'Add to Question List'}
+          </Button>
+        </div>
+      </form>
+
+      {/* ── QUESTION LIST CARD ──────────────────────────────────────────────── */}
       <Card
-        title="Batch Row Preview & Validation Inspection"
-        subtitle="Flagged rows cannot be imported until errors are resolved"
+        title={`Configured Questions in Batch (${questions.length})`}
+        subtitle="Review your questions and download as a CSV spreadsheet ready for TestPad"
         action={
-          previewData && (
+          <div className="flex items-center gap-2">
+            {questions.length > 0 && (
+              <Button variant="secondary" size="sm" onClick={handleClearAll} className="text-rose-600 hover:text-rose-700">
+                Clear All
+              </Button>
+            )}
             <Button
               size="sm"
-              onClick={handleCommitApproved}
-              disabled={previewData.summary.valid === 0}
+              onClick={handleDownloadTestPadCSV}
+              disabled={questions.length === 0}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
             >
-              <FileCheck className="h-3.5 w-3.5" /> Import {previewData.summary.valid} Approved Rows
+              <Download className="h-3.5 w-3.5" /> Download TestPad CSV
             </Button>
-          )
+          </div>
         }
       >
-        {!previewData ? (
+        {questions.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs">
-            <FileSpreadsheet className="mx-auto h-10 w-10 text-slate-300 mb-2" />
-            Click "Load & Validate Batch" or upload a CSV file to inspect row integrity.
+            <FileSpreadsheet className="mx-auto h-12 w-12 text-slate-300 mb-2" />
+            <p className="font-bold text-slate-700 text-sm">No questions in this batch yet</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Use the form above to add questions manually, or upload an existing CSV sheet.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3 pr-2">Row</th>
-                  <th className="pb-3 pr-4">Question</th>
-                  <th className="pb-3 pr-2">Options (A-D)</th>
-                  <th className="pb-3 pr-2">Answer</th>
-                  <th className="pb-3 pr-2">Marks</th>
-                  <th className="pb-3 pr-2">Status</th>
-                  <th className="pb-3">Validation Notes</th>
+                  <th className="pb-3 pr-2 w-10">#</th>
+                  <th className="pb-3 pr-4">Question & Topic</th>
+                  <th className="pb-3 pr-3">Options (A, B, C, D)</th>
+                  <th className="pb-3 pr-2 w-16 text-center">Correct</th>
+                  <th className="pb-3 pr-2 w-14 text-center">Marks</th>
+                  <th className="pb-3 pr-2 w-20 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {previewData.rows.map((row: any) => (
-                  <tr
-                    key={row.rowNumber}
-                    className={`hover:bg-slate-50 transition-colors ${
-                      !row.isValid ? 'bg-rose-50/40' : ''
-                    }`}
-                  >
-                    <td className="py-3.5 pr-2 font-mono text-slate-400">{row.rowNumber}</td>
-                    <td className="py-3.5 pr-4 font-bold text-slate-900 max-w-xs">{row.question}</td>
-                    <td className="py-3.5 pr-2 text-slate-600 font-mono text-[11px]">
-                      A: {row.optionA} | B: {row.optionB} | C: {row.optionC} | D: {row.optionD || '—'}
+                {questions.map((q, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3.5 pr-2 font-mono text-slate-400">{idx + 1}</td>
+                    <td className="py-3.5 pr-4 max-w-sm">
+                      <div className="font-bold text-slate-900 leading-snug">{q.question}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                          {q.topic}
+                        </span>
+                        {q.explanation && (
+                          <span className="text-[10px] text-slate-400 truncate max-w-xs" title={q.explanation}>
+                            💡 {q.explanation}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-3.5 pr-2 font-bold text-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-md font-mono ${
-                          row.isValid ? 'bg-slate-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                        }`}
-                      >
-                        {row.correctAnswer}
+                    <td className="py-3.5 pr-3 text-[11px] font-mono text-slate-600 space-y-0.5">
+                      <div className={q.correctAnswer === 'A' ? 'text-emerald-700 font-bold' : ''}>
+                        <strong>A:</strong> {q.optionA}
+                      </div>
+                      <div className={q.correctAnswer === 'B' ? 'text-emerald-700 font-bold' : ''}>
+                        <strong>B:</strong> {q.optionB}
+                      </div>
+                      <div className={q.correctAnswer === 'C' ? 'text-emerald-700 font-bold' : ''}>
+                        <strong>C:</strong> {q.optionC}
+                      </div>
+                      <div className={q.correctAnswer === 'D' ? 'text-emerald-700 font-bold' : ''}>
+                        <strong>D:</strong> {q.optionD}
+                      </div>
+                    </td>
+                    <td className="py-3.5 pr-2 text-center">
+                      <span className="px-2.5 py-1 rounded-md font-mono font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {q.correctAnswer}
                       </span>
                     </td>
-                    <td className="py-3.5 pr-2 text-slate-700 font-bold">{row.marks}</td>
-                    <td className="py-3.5 pr-2">
-                      <Badge variant={row.isValid ? 'success' : 'error'}>
-                        {row.isValid ? 'Approved' : 'Error'}
-                      </Badge>
-                    </td>
-                    <td className="py-3.5 text-slate-600">
-                      {row.isValid ? (
-                        <span className="text-emerald-700 font-medium flex items-center gap-1">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> All options & key valid
-                        </span>
-                      ) : (
-                        <div className="text-rose-700 font-medium space-y-0.5">
-                          {row.errors.map((err: string, i: number) => (
-                            <div key={i} className="flex items-center gap-1 text-[11px]">
-                              <AlertTriangle className="h-3 w-3 shrink-0 text-rose-600" /> {err}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <td className="py-3.5 pr-2 text-center font-bold text-slate-800">{q.marks}</td>
+                    <td className="py-3.5 pr-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleStartEdit(idx)}
+                          title="Edit question"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuestion(idx)}
+                          title="Delete question"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

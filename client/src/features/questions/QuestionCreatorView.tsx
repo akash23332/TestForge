@@ -10,6 +10,56 @@ interface QuestionCreatorViewProps {
   initialQuestion?: any;
 }
 
+export const LANGUAGE_TEMPLATES: Record<string, { starterCode: string; referenceSolution: string }> = {
+  javascript: {
+    starterCode: `function solution(nums, target) {
+  // Implement solution
+}`,
+    referenceSolution: `function solution(nums, target) {
+  // Verified reference implementation
+  return [1, 2];
+}`
+  },
+  python: {
+    starterCode: `def solution(nums, target):
+    # Implement solution
+    pass`,
+    referenceSolution: `def solution(nums, target):
+    # Verified reference implementation
+    return [1, 2]`
+  },
+  java: {
+    starterCode: `class Solution {
+    public int[] solution(int[] nums, int target) {
+        // Implement solution
+        return new int[]{};
+    }
+}`,
+    referenceSolution: `class Solution {
+    public int[] solution(int[] nums, int target) {
+        // Verified reference implementation
+        return new int[]{1, 2};
+    }
+}`
+  },
+  cpp: {
+    starterCode: `class Solution {
+public:
+    vector<int> solution(vector<int>& nums, int target) {
+        // Implement solution
+        return {};
+    }
+};`,
+    referenceSolution: `class Solution {
+public:
+    vector<int> solution(vector<int>& nums, int target) {
+        // Verified reference implementation
+        return {1, 2};
+    }
+};`
+  }
+};
+
 export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
   onSuccess,
   onCancel,
@@ -57,6 +107,15 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
       setReferenceSolution(initialQuestion.referenceSolution || '');
     }
   }, [initialQuestion?._id]);
+
+  const handleLanguageChange = (newLang: string) => {
+    setLanguage(newLang);
+    const template = LANGUAGE_TEMPLATES[newLang];
+    if (template) {
+      setStarterCode(template.starterCode);
+      setReferenceSolution(template.referenceSolution);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +241,7 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Language Target</label>
               <select
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => handleLanguageChange(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-orange-500 font-semibold"
               >
                 <option value="javascript">JavaScript (ES6)</option>

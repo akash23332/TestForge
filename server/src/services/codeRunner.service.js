@@ -224,7 +224,14 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
       if (typeof ${fnName} !== 'function') {
         throw new TypeError("Identifier '${fnName}' is not a function.");
       }
-      var res = ${fnName}.apply(null, __args);
+      var isListNodeCode = ${code.includes('.next') || code.includes('ListNode') ? 'true' : 'false'};
+      var finalArgs = __args.map(function(arg) {
+        if (Array.isArray(arg) && isListNodeCode) {
+          return ListNode.fromArray(arg);
+        }
+        return arg;
+      });
+      var res = ${fnName}.apply(null, finalArgs);
       if (res && res instanceof ListNode) {
         __result = ListNode.toArray(res);
       } else {
@@ -399,6 +406,18 @@ public class ${runnerId} {
 
         if (List.class.isAssignableFrom(type)) {
             return parseList(json);
+        }
+
+        if (type == double.class || type == Double.class) {
+            return Double.parseDouble(json.replaceAll("[^0-9.-]", ""));
+        }
+
+        if (type == float.class || type == Float.class) {
+            return Float.parseFloat(json.replaceAll("[^0-9.-]", ""));
+        }
+
+        if (type == long.class || type == Long.class) {
+            return Long.parseLong(json.replaceAll("[^0-9-]", ""));
         }
 
         if (type == boolean.class || type == Boolean.class) {
@@ -771,11 +790,18 @@ class TreeNode:
 ${code}
 
 try:
-    args = ${JSON.stringify(inputArgs)}
+    args = json.loads(${JSON.stringify(JSON.stringify(inputArgs))})
+    has_ln = ${code.includes('ListNode') || code.includes('.next') ? 'True' : 'False'}
+    final_args = []
+    for a in args:
+        if isinstance(a, list) and has_ln:
+            final_args.append(ListNode.from_list(a))
+        else:
+            final_args.append(a)
     if 'Solution' in globals():
-        res = getattr(Solution(), '${fnName}')(*args)
+        res = getattr(Solution(), '${fnName}')(*final_args)
     else:
-        res = ${fnName}(*args)
+        res = ${fnName}(*final_args)
     if isinstance(res, ListNode):
         res = ListNode.to_list(res)
     print(json.dumps(res))
@@ -864,7 +890,8 @@ const splitCppParams = (paramsStr) => {
 const parseCppParams = (paramsStr) => {
   if (!paramsStr.trim()) return [];
   return splitCppParams(paramsStr).map((p, i) => {
-    const cleaned = p.replace(/\bconst\b/g, '').replace(/[&*]/g, '').replace(/\s+/g, ' ').trim();
+    let cleaned = p.replace(/\bconst\b/g, '').replace(/&/g, '').replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/\s*\*\s*/g, '* ');
     const lastSpace = cleaned.lastIndexOf(' ');
     if (lastSpace === -1) return { type: cleaned, name: `arg${i}` };
     const type = cleaned.slice(0, lastSpace).trim();
@@ -878,7 +905,7 @@ const parseCppParams = (paramsStr) => {
  * Returns { funcName, returnType, params } or null.
  */
 const extractCppFunctionInfo = (code) => {
-  const funcRegex = /(?:static\s+|virtual\s+|inline\s+)?([\w][\w\s:<>,]*?)\s+(\w+)\s*\(([^)]*)\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{/g;
+  const funcRegex = /(?:static\s+|virtual\s+|inline\s+)?([\w][\w\s:<>,*&]*?)\s*(\w+)\s*\(([^)]*)\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{/g;
   let match;
   while ((match = funcRegex.exec(code)) !== null) {
     const returnType = match[1].trim();
@@ -896,6 +923,10 @@ const extractCppFunctionInfo = (code) => {
  * Converts a JS runtime value to a C++ literal string for the given C++ type.
  */
 const jsValueToCppLiteral = (val, rawType) => {
+  if (rawType.includes('ListNode')) {
+    const arr = Array.isArray(val) ? val : [];
+    return `ListNode::fromVec({${arr.map(v => String(parseInt(v, 10) || 0)).join(', ')}})`;
+  }
   const t = rawType.replace(/\bconst\b/g, '').replace(/[&*]/g, '').replace(/\s+/g, '').toLowerCase();
 
   if (t === 'int' || t === 'int32_t' || t === 'short')
