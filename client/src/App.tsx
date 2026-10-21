@@ -65,16 +65,32 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('testforge_token');
+    localStorage.removeItem('testforge_user');
+    setCurrentUser(null);
+    setSelectedQuestion(null);
+    setQuestions([]);
+    setEditingQuestion(null);
+    setIsProfileOpen(false);
+    setActiveTab('login');
+  };
+
   const fetchQuestions = async () => {
     try {
       const res = await api.get('/questions?limit=50');
       const items = res.data.data || [];
       setQuestions(items);
-      if (items.length > 0 && !selectedQuestion) {
-        setSelectedQuestion(items[0]);
-      }
+
+      // Validate selectedQuestion: clear if deleted or not in list
+      setSelectedQuestion((prev: any) => {
+        if (!prev) return items.length > 0 ? items[0] : null;
+        const exists = items.find((q: any) => q._id === prev._id);
+        return exists || (items.length > 0 ? items[0] : null);
+      });
     } catch {
-      // Fallback
+      setQuestions([]);
+      setSelectedQuestion(null);
     }
   };
 
@@ -150,63 +166,49 @@ export const App: React.FC = () => {
                 />
                 <button
                   type="submit"
-                  title="Search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer"
+                  aria-label="Submit Search"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-orange-600 hover:bg-orange-500 text-white p-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center"
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-4 w-4" />
                 </button>
               </div>
             </form>
 
-            {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-              {navLinks.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.id === 'create') setEditingQuestion(null);
-                      setActiveTab(item.id);
-                    }}
-                    className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer relative ${
-                      isActive
-                        ? 'text-orange-600 font-bold bg-orange-50/80'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                    }`}
-                  >
-                    {item.label}
-                    {isActive && (
-                      <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-orange-600 rounded-full" />
-                    )}
-                  </button>
-                );
-              })}
+            {/* Navigation Pills */}
+            <nav className="hidden xl:flex items-center gap-1">
+              {navLinks.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    activeTab === item.id
+                      ? 'bg-orange-600 text-white shadow-xs shadow-orange-600/30'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </nav>
 
-            {/* Right Controls: Settings, Theme & Profile */}
-            <div className="flex items-center gap-3 shrink-0">
-              {/* Settings Quick-Action Button */}
-              <button
-                onClick={() => setIsProfileOpen(true)}
-                title="System Settings & Faculty Profile"
-                className="p-2 rounded-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-
-              {/* Theme Toggle Button - Marked Dark Theme Active */}
+            {/* Right Tools & User Info */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Dark mode button */}
               <button
                 onClick={() => setIsDarkTheme(!isDarkTheme)}
-                title={isDarkTheme ? "Dark Theme: Active (Click to switch to Light)" : "Switch to Dark Theme"}
-                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                  isDarkTheme
-                    ? 'bg-slate-800 text-amber-400 border border-slate-700 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                }`}
+                title={isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                <Moon className={`h-4 w-4 ${isDarkTheme ? 'fill-amber-400 text-amber-400' : ''}`} />
-                <span className="text-[11px] font-bold text-amber-400">Dark Active</span>
+                <Moon className="h-4 w-4" />
+              </button>
+
+              {/* Settings direct icon button */}
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                title="Workspace Settings"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <Settings className="h-4 w-4" />
               </button>
 
               {/* Teacher Account Button - Opens Profile & Settings Modal */}
@@ -225,12 +227,7 @@ export const App: React.FC = () => {
                     </span>
                   </button>
                   <button
-                    onClick={() => {
-                      localStorage.removeItem('testforge_token');
-                      localStorage.removeItem('testforge_user');
-                      setCurrentUser(null);
-                      setActiveTab('login');
-                    }}
+                    onClick={handleLogout}
                     title="Sign Out"
                     className="text-xs text-slate-500 hover:text-rose-600 font-bold px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer border border-transparent hover:border-rose-100"
                   >
@@ -249,7 +246,7 @@ export const App: React.FC = () => {
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-slate-600 hover:text-slate-900"
+                className="xl:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -363,6 +360,8 @@ export const App: React.FC = () => {
           <AuthPage
             onSuccess={(user) => {
               setCurrentUser(user);
+              setSelectedQuestion(null);
+              setEditingQuestion(null);
               setActiveTab('dashboard');
               fetchQuestions();
             }}
@@ -421,6 +420,9 @@ export const App: React.FC = () => {
         onClose={() => setIsAuthOpen(false)}
         onSuccess={(user) => {
           setCurrentUser(user);
+          setSelectedQuestion(null);
+          setEditingQuestion(null);
+          setActiveTab('dashboard');
           fetchQuestions();
         }}
         currentUser={currentUser}
@@ -431,13 +433,7 @@ export const App: React.FC = () => {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         currentUser={currentUser}
-        onLogout={() => {
-          localStorage.removeItem('testforge_token');
-          localStorage.removeItem('testforge_user');
-          setCurrentUser(null);
-          setIsProfileOpen(false);
-          setActiveTab('login');
-        }}
+        onLogout={handleLogout}
         health={health}
       />
     </div>

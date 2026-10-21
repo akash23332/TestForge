@@ -231,11 +231,20 @@ export const saveMcqBatch = async (req, res, next) => {
 export const getSavedMcqs = async (req, res, next) => {
   try {
     const { topic = '', search = '' } = req.query;
-    const filter = {};
 
-    if (req.user) {
-      filter.ownerId = req.user._id;
+    if (!req.user) {
+      return ApiResponse.success(
+        res,
+        200,
+        {
+          count: 0,
+          items: []
+        },
+        'Saved MCQs retrieved from MongoDB'
+      );
     }
+
+    const filter = { ownerId: req.user._id };
 
     if (topic && topic !== 'All') {
       filter.topic = topic;
@@ -267,11 +276,101 @@ export const getSavedMcqs = async (req, res, next) => {
 export const deleteSavedMcq = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deleted = await McqQuestion.findByIdAndDelete(id);
+    const filter = { _id: id };
+    if (req.user) {
+      filter.ownerId = req.user._id;
+    }
+    const deleted = await McqQuestion.findOneAndDelete(filter);
     if (!deleted) {
-      throw ApiError.notFound('MCQ question not found');
+      throw ApiError.notFound('MCQ question not found or unauthorized');
     }
     return ApiResponse.success(res, 200, { id }, 'MCQ deleted from MongoDB');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Clears all saved MCQs for the teacher from MongoDB.
+ */
+export const clearSavedMcqs = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return ApiResponse.success(res, 200, { deletedCount: 0 }, 'No MCQs to clear');
+    }
+    const filter = { ownerId: req.user._id };
+    const result = await McqQuestion.deleteMany(filter);
+    return ApiResponse.success(res, 200, { deletedCount: result.deletedCount }, 'All MCQs cleared from MongoDB');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Creates a single MCQ directly in MongoDB.
+ */
+export const createSingleMcq = async (req, res, next) => {
+  try {
+    const { question, optionA, optionB, optionC, optionD, correctAnswer, marks, topic, explanation } = req.body;
+
+    if (!question || !optionA || !optionB || !optionC || !optionD) {
+      throw ApiError.badRequest('Question statement and all 4 options (A, B, C, D) are required.');
+    }
+
+    let ownerId = req.user ? req.user._id : req.body.ownerId;
+    if (!ownerId || String(ownerId).length !== 24) {
+      const defaultUser = await User.findOne({ role: 'teacher' });
+      if (defaultUser) {
+        ownerId = defaultUser._id;
+      } else {
+        throw ApiError.unauthorized('User must be authenticated to save MCQs.');
+      }
+    }
+
+    const created = await McqQuestion.create({
+      ownerId,
+      question: question.trim(),
+      optionA: optionA.trim(),
+      optionB: optionB.trim(),
+      optionC: optionC.trim(),
+      optionD: optionD.trim(),
+      correctAnswer: (correctAnswer || 'A').toString().trim().toUpperCase(),
+      marks: Number(marks) || 1,
+      topic: (topic || 'General').trim(),
+      explanation: (explanation || '').trim()
+    });
+
+    return ApiResponse.success(res, 201, created, 'MCQ created successfully in MongoDB');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Updates an existing MCQ by ID in MongoDB.
+ */
+export const updateSavedMcq = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { question, optionA, optionB, optionC, optionD, correctAnswer, marks, topic, explanation } = req.body;
+
+    const updateData = {};
+    if (question !== undefined) updateData.question = question.trim();
+    if (optionA !== undefined) updateData.optionA = optionA.trim();
+    if (optionB !== undefined) updateData.optionB = optionB.trim();
+    if (optionC !== undefined) updateData.optionC = optionC.trim();
+    if (optionD !== undefined) updateData.optionD = optionD.trim();
+    if (correctAnswer !== undefined) updateData.correctAnswer = correctAnswer.toString().trim().toUpperCase();
+    if (marks !== undefined) updateData.marks = Number(marks) || 1;
+    if (topic !== undefined) updateData.topic = (topic || 'General').trim();
+    if (explanation !== undefined) updateData.explanation = (explanation || '').trim();
+
+    const updated = await McqQuestion.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    if (!updated) {
+      throw ApiError.notFound('MCQ question not found');
+    }
+
+    return ApiResponse.success(res, 200, updated, 'MCQ updated successfully in MongoDB');
   } catch (error) {
     next(error);
   }
@@ -447,8 +546,11 @@ export const previewMcq = async (req, res, next) => {
 
 export default {
   saveMcqBatch,
+  createSingleMcq,
   getSavedMcqs,
+  updateSavedMcq,
   deleteSavedMcq,
+  clearSavedMcqs,
   previewMcq,
   generateMcqBatch
 };

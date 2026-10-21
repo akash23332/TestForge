@@ -17,7 +17,6 @@ const envSchema = Joi.object({
   }),
   JWT_EXPIRES_IN: Joi.string().default('30d'),
   CLIENT_ORIGIN: Joi.string().default('http://localhost:5173'),
-  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional().allow(''),
   LLM_PROVIDER: Joi.string().optional().allow(''),
   LLM_API_KEY: Joi.string().optional().allow('')
 }).unknown(true);
@@ -43,10 +42,6 @@ export const config = {
     expiresIn: envVars.JWT_EXPIRES_IN
   },
   clientOrigin: envVars.CLIENT_ORIGIN,
-  redis: {
-    url: envVars.REDIS_URL || null,
-    enabled: Boolean(envVars.REDIS_URL)
-  },
   llm: {
     provider: envVars.LLM_PROVIDER || null,
     apiKey: envVars.LLM_API_KEY || null

@@ -1,7 +1,6 @@
 import app from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { initRedis } from './config/redis.js';
 
 const startServer = async () => {
   try {
@@ -9,9 +8,6 @@ const startServer = async () => {
 
     // Connect to MongoDB
     await connectDatabase();
-
-    // Initialize Redis (or disabled fallback)
-    initRedis();
 
     // Start HTTP listener
     const server = app.listen(config.port, () => {

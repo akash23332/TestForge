@@ -29,7 +29,6 @@ describe('Health and API Infrastructure Tests', () => {
     expect(res.body).toHaveProperty('service', 'TestForge REST API');
     expect(res.body).toHaveProperty('dependencies');
     expect(res.body.dependencies).toHaveProperty('mongodb');
-    expect(res.body.dependencies).toHaveProperty('redis');
     expect(res.body).toHaveProperty('system');
     expect(res.body).toHaveProperty('requestId');
     expect(res.headers).toHaveProperty('x-request-id');

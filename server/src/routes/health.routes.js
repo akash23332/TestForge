@@ -1,13 +1,11 @@
 import { Router } from 'express';
 import { getDatabaseState } from '../config/database.js';
-import { getRedisStatus } from '../config/redis.js';
 import { config } from '../config/env.js';
 
 const router = Router();
 
 router.get('/', (req, res) => {
   const dbState = getDatabaseState();
-  const redisStatus = getRedisStatus();
   const memoryUsage = process.memoryUsage();
 
   const isHealthy = dbState.isConnected;
@@ -26,8 +24,7 @@ router.get('/', (req, res) => {
         connected: dbState.isConnected,
         databaseName: dbState.name,
         host: dbState.host
-      },
-      redis: redisStatus
+      }
     },
     system: {
       nodeVersion: process.version,

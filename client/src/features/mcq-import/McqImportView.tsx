@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { api } from '../../lib/api';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -9,10 +10,12 @@ import {
   Plus,
   Trash2,
   Edit2,
+  Loader2,
   X
 } from 'lucide-react';
 
 export interface McqItem {
+  _id?: string;
   id?: string;
   rowNumber?: number;
   question: string;
@@ -27,45 +30,10 @@ export interface McqItem {
 }
 
 export const McqImportView: React.FC = () => {
-  // Questions in the current batch
-  const [questions, setQuestions] = useState<McqItem[]>([
-    {
-      rowNumber: 1,
-      question: 'What is the time complexity of searching an element in a balanced Binary Search Tree?',
-      optionA: 'O(1)',
-      optionB: 'O(n)',
-      optionC: 'O(log n)',
-      optionD: 'O(n log n)',
-      correctAnswer: 'C',
-      marks: 2,
-      topic: 'Data Structures',
-      explanation: 'A balanced BST divides search space in half at each step resulting in logarithmic height.'
-    },
-    {
-      rowNumber: 2,
-      question: 'Which HTTP method is idempotent?',
-      optionA: 'POST',
-      optionB: 'PUT',
-      optionC: 'PATCH',
-      optionD: 'CONNECT',
-      correctAnswer: 'B',
-      marks: 1,
-      topic: 'REST APIs',
-      explanation: 'PUT replaces the target resource entirely and repeated identical requests produce the same state.'
-    },
-    {
-      rowNumber: 3,
-      question: 'What does ACID stand for in database transactions?',
-      optionA: 'Atomicity, Consistency, Isolation, Durability',
-      optionB: 'Asynchrony, Concurrency, Indexing, Delivery',
-      optionC: 'Action, Callback, Input, Data',
-      optionD: 'Authentication, Cryptography, Integrity, Decryption',
-      correctAnswer: 'A',
-      marks: 2,
-      topic: 'Databases',
-      explanation: 'ACID properties guarantee valid transactions even in the event of errors or power failures.'
-    }
-  ]);
+  // Questions in the current batch / database
+  const [questions, setQuestions] = useState<McqItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form input states
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -82,8 +50,27 @@ export const McqImportView: React.FC = () => {
   // Notifications
   const [notice, setNotice] = useState<string | null>(null);
 
-  // ── Save or Update Question ──────────────────────────────────────────────
-  const handleSaveQuestion = (e: React.FormEvent) => {
+  // ── Fetch Saved Questions from MongoDB on Mount ─────────────────────────
+  const fetchQuestions = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/mcq/saved');
+      const items = res.data?.data?.items || [];
+      setQuestions(items.map((q: any, idx: number) => ({ ...q, rowNumber: idx + 1 })));
+    } catch (err) {
+      console.error('Failed to load MCQs from MongoDB:', err);
+      setQuestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  // ── Save or Update Question Directly to MongoDB ─────────────────────────
+  const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!questionText.trim()) {
       alert('Please enter a question statement.');
@@ -94,7 +81,7 @@ export const McqImportView: React.FC = () => {
       return;
     }
 
-    const item: McqItem = {
+    const itemPayload = {
       question: questionText.trim(),
       optionA: optionA.trim(),
       optionB: optionB.trim(),
@@ -106,28 +93,52 @@ export const McqImportView: React.FC = () => {
       explanation: explanation.trim()
     };
 
-    if (editingIndex !== null) {
-      // Update existing
-      setQuestions((prev) => {
-        const next = [...prev];
-        next[editingIndex] = { ...item, rowNumber: editingIndex + 1 };
-        return next;
-      });
-      setNotice(`Updated Question #${editingIndex + 1} successfully.`);
-      setEditingIndex(null);
-    } else {
-      // Add new
-      setQuestions((prev) => [...prev, { ...item, rowNumber: prev.length + 1 }]);
-      setNotice(`Added new question to the batch! Total questions: ${questions.length + 1}`);
-    }
+    setIsSubmitting(true);
+    try {
+      if (editingIndex !== null) {
+        // Update existing in MongoDB
+        const existing = questions[editingIndex];
+        const questionId = existing?._id || existing?.id;
 
-    // Reset fields for the next question
-    setQuestionText('');
-    setOptionA('');
-    setOptionB('');
-    setOptionC('');
-    setOptionD('');
-    setExplanation('');
+        if (questionId) {
+          const res = await api.put(`/mcq/saved/${questionId}`, itemPayload);
+          const updatedDoc = res.data?.data || { ...existing, ...itemPayload };
+          setQuestions((prev) => {
+            const next = [...prev];
+            next[editingIndex] = { ...updatedDoc, rowNumber: editingIndex + 1 };
+            return next;
+          });
+        } else {
+          const res = await api.post('/mcq', itemPayload);
+          const createdDoc = res.data?.data || itemPayload;
+          setQuestions((prev) => {
+            const next = [...prev];
+            next[editingIndex] = { ...createdDoc, rowNumber: editingIndex + 1 };
+            return next;
+          });
+        }
+        setNotice(`Question #${editingIndex + 1} updated directly in database!`);
+        setEditingIndex(null);
+      } else {
+        // Add new directly to MongoDB
+        const res = await api.post('/mcq', itemPayload);
+        const createdDoc = res.data?.data || itemPayload;
+        setQuestions((prev) => [...prev, { ...createdDoc, rowNumber: prev.length + 1 }]);
+        setNotice(`Question saved directly to database! Total questions: ${questions.length + 1}`);
+      }
+
+      // Reset fields for the next question
+      setQuestionText('');
+      setOptionA('');
+      setOptionB('');
+      setOptionC('');
+      setOptionD('');
+      setExplanation('');
+    } catch (err: any) {
+      alert(err?.customMessage || 'Failed to save question to database.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Start Editing a Question ─────────────────────────────────────────────
@@ -157,32 +168,53 @@ export const McqImportView: React.FC = () => {
     setExplanation('');
   };
 
-  // ── Delete a Question ───────────────────────────────────────────────────
-  const handleDeleteQuestion = (index: number) => {
-    setQuestions((prev) =>
-      prev.filter((_, idx) => idx !== index).map((q, idx) => ({ ...q, rowNumber: idx + 1 }))
-    );
-    if (editingIndex === index) {
-      handleCancelEdit();
+  // ── Delete a Question Directly from MongoDB ─────────────────────────────
+  const handleDeleteQuestion = async (index: number) => {
+    const q = questions[index];
+    if (!q) return;
+
+    if (!confirm(`Are you sure you want to delete Question #${index + 1}? This will remove it from the database.`)) {
+      return;
+    }
+
+    try {
+      const questionId = q._id || q.id;
+      if (questionId) {
+        await api.delete(`/mcq/saved/${questionId}`);
+      }
+      setQuestions((prev) =>
+        prev.filter((_, idx) => idx !== index).map((item, idx) => ({ ...item, rowNumber: idx + 1 }))
+      );
+      if (editingIndex === index) {
+        handleCancelEdit();
+      }
+      setNotice(`Question #${index + 1} deleted from database.`);
+    } catch (err: any) {
+      alert(err?.customMessage || 'Failed to delete question from database.');
     }
   };
 
-  // ── Clear All ───────────────────────────────────────────────────────────
-  const handleClearAll = () => {
-    if (confirm('Are you sure you want to remove all questions from this batch?')) {
-      setQuestions([]);
-      handleCancelEdit();
-      setNotice('All questions cleared.');
+  // ── Clear All from MongoDB ──────────────────────────────────────────────
+  const handleClearAll = async () => {
+    if (confirm('Are you sure you want to remove all questions from the database?')) {
+      try {
+        await api.delete('/mcq/saved');
+        setQuestions([]);
+        handleCancelEdit();
+        setNotice('All questions cleared from database.');
+      } catch (err: any) {
+        alert(err?.customMessage || 'Failed to clear questions.');
+      }
     }
   };
 
-  // ── Upload Existing CSV ─────────────────────────────────────────────────
+  // ── Upload Existing CSV and Save Directly to MongoDB ────────────────────
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
         const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -202,7 +234,7 @@ export const McqImportView: React.FC = () => {
         const topicIdx = header.indexOf('topic');
         const expIdx = header.indexOf('explanation');
 
-        const parsedRows: McqItem[] = [];
+        const parsedRows: any[] = [];
         const csvRegex = /(?:^|,)(?:"((?:[^"]|"")*)"|([^,]*))/g;
 
         for (let i = 1; i < lines.length; i++) {
@@ -217,7 +249,6 @@ export const McqImportView: React.FC = () => {
 
           if (rowValues.length >= 5) {
             parsedRows.push({
-              rowNumber: parsedRows.length + 1,
               question: rowValues[qIdx >= 0 ? qIdx : 0] || '',
               optionA: rowValues[aIdx >= 0 ? aIdx : 1] || '',
               optionB: rowValues[bIdx >= 0 ? bIdx : 2] || '',
@@ -231,13 +262,22 @@ export const McqImportView: React.FC = () => {
           }
         }
 
+        if (parsedRows.length === 0) {
+          alert('No valid questions found in CSV.');
+          return;
+        }
+
+        // Save directly to MongoDB
+        const res = await api.post('/mcq/save', { rows: parsedRows });
+        const saved = res.data?.data?.items || parsedRows;
+
         setQuestions((prev) => {
-          const combined = [...prev, ...parsedRows];
+          const combined = [...prev, ...saved];
           return combined.map((q, idx) => ({ ...q, rowNumber: idx + 1 }));
         });
-        setNotice(`Imported ${parsedRows.length} questions from CSV!`);
-      } catch {
-        alert('Failed to parse uploaded CSV. Please ensure column format matches standard template.');
+        setNotice(`Imported and saved ${saved.length} questions directly to database!`);
+      } catch (err: any) {
+        alert(err?.customMessage || 'Failed to parse and save uploaded CSV.');
       }
     };
     reader.readAsText(file);
@@ -307,7 +347,7 @@ export const McqImportView: React.FC = () => {
             Manual MCQ Studio & CSV Generator
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manually enter your exam questions, set options and answer keys, then download a TestPad-compatible CSV sheet in 1 click.
+            Questions are automatically saved to your database. Edit or delete any question anytime, and download a TestPad-compatible CSV sheet in 1 click.
           </p>
         </div>
 
@@ -349,61 +389,51 @@ export const McqImportView: React.FC = () => {
           <div className="text-2xl font-extrabold text-slate-900 mt-1">{totalQuestions}</div>
         </div>
         <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
-          <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider">Total Exam Marks</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Assessment Marks</span>
           <div className="text-2xl font-extrabold text-orange-600 mt-1">{totalMarks}</div>
         </div>
         <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-xs">
-          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Unique Topics</span>
-          <div className="text-2xl font-extrabold text-emerald-600 mt-1">{uniqueTopics}</div>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Distinct Topics Covered</span>
+          <div className="text-2xl font-extrabold text-indigo-600 mt-1">{uniqueTopics}</div>
         </div>
       </div>
 
-      {/* ── QUESTION ENTRY FORM (ALWAYS AVAILABLE) ─────────────────────────── */}
+      {/* ── MANUAL QUESTION ENTRY FORM ─────────────────────────────────────── */}
       <form
         onSubmit={handleSaveQuestion}
-        className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5"
+        className="bg-white border border-slate-200/80 p-6 rounded-3xl shadow-xs space-y-5"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-              {editingIndex !== null ? <Edit2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                {editingIndex !== null ? `Edit Question #${editingIndex + 1}` : 'Add MCQ Question'}
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Fill in the details below to add questions to your TestPad spreadsheet batch.
-              </p>
-            </div>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">
+              {editingIndex !== null ? `Edit Question #${editingIndex + 1}` : 'Add New MCQ to Database'}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Fill in the statement, options, marks, and answer key. It will be saved directly into MongoDB.
+            </p>
           </div>
-
           {editingIndex !== null && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="text-xs text-slate-500 hover:text-slate-800 font-bold"
-            >
-              Cancel Edit
-            </button>
+            <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+              Editing Mode Active
+            </span>
           )}
         </div>
 
-        {/* Question Input */}
+        {/* Question Statement */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5">Question Statement *</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Question Statement *</label>
           <textarea
-            rows={2}
             required
+            rows={2}
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}
-            placeholder="e.g. Which of the following data structures is used for implementing recursion?"
-            className="w-full bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl p-3.5 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium transition-colors"
+            placeholder="e.g. Which data structure follows the LIFO (Last In First Out) principle?"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-orange-500 font-medium"
           />
         </div>
 
-        {/* 4 Options Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Options 2x2 Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
               <span>Option A *</span>
@@ -536,20 +566,28 @@ export const McqImportView: React.FC = () => {
         {/* Submit Button */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {editingIndex !== null && (
-            <Button variant="secondary" size="sm" type="button" onClick={handleCancelEdit}>
+            <Button variant="secondary" size="sm" type="button" onClick={handleCancelEdit} disabled={isSubmitting}>
               Cancel
             </Button>
           )}
-          <Button type="submit" size="sm" className="font-bold">
-            <Plus className="h-4 w-4" /> {editingIndex !== null ? 'Save Changes' : 'Add to Question List'}
+          <Button type="submit" size="sm" className="font-bold" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> {editingIndex !== null ? 'Save Changes' : 'Save'}
+              </>
+            )}
           </Button>
         </div>
       </form>
 
       {/* ── QUESTION LIST CARD ──────────────────────────────────────────────── */}
       <Card
-        title={`Configured Questions in Batch (${questions.length})`}
-        subtitle="Review your questions and download as a CSV spreadsheet ready for TestPad"
+        title={`Questions (${questions.length})`}
+        subtitle="Review, edit, or delete questions stored in your MongoDB database, then export anytime as a TestPad CSV"
         action={
           <div className="flex items-center gap-2">
             {questions.length > 0 && (
@@ -568,12 +606,17 @@ export const McqImportView: React.FC = () => {
           </div>
         }
       >
-        {questions.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-slate-400 text-xs gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-orange-600" />
+            <span>Loading MCQs from MongoDB database...</span>
+          </div>
+        ) : questions.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-xs">
             <FileSpreadsheet className="mx-auto h-12 w-12 text-slate-300 mb-2" />
-            <p className="font-bold text-slate-700 text-sm">No questions in this batch yet</p>
+            <p className="font-bold text-slate-700 text-sm">No questions in database yet</p>
             <p className="text-xs text-slate-400 mt-1">
-              Use the form above to add questions manually, or upload an existing CSV sheet.
+              Use the form above to add questions directly into MongoDB, or upload an existing CSV sheet.
             </p>
           </div>
         ) : (
@@ -591,7 +634,7 @@ export const McqImportView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {questions.map((q, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                  <tr key={q._id || q.id || idx} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3.5 pr-2 font-mono text-slate-400">{idx + 1}</td>
                     <td className="py-3.5 pr-4 max-w-sm">
                       <div className="font-bold text-slate-900 leading-snug">{q.question}</div>
@@ -630,14 +673,14 @@ export const McqImportView: React.FC = () => {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleStartEdit(idx)}
-                          title="Edit question"
+                          title="Edit question in database"
                           className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteQuestion(idx)}
-                          title="Delete question"
+                          title="Delete question from database"
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

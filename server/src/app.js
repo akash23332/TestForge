@@ -57,6 +57,7 @@ app.get('/', (req, res) => {
 app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/questions', questionRouter);
+app.use('/api/v1/mcq', mcqRouter);
 app.use('/api/v1/mcq-imports', mcqRouter);
 
 // Catch 404 and route to error handler
