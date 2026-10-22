@@ -3,14 +3,7 @@ import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { X, Lock, Mail, User as UserIcon, CheckCircle2 } from 'lucide-react';
 
-interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (user: any) => void;
-  currentUser: any;
-}
-
-export const AuthModal: React.FC<AuthModalProps> = ({
+export const AuthModal = ({
   isOpen,
   onClose,
   onSuccess,
@@ -21,11 +14,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('teacher@testforge.edu');
   const [password, setPassword] = useState('Teacher@123');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -39,8 +32,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       localStorage.setItem('testforge_user', JSON.stringify(user));
       onSuccess(user);
       onClose();
-    } catch (err: any) {
-      setError(err.customMessage || 'Authentication failed. Please check credentials.');
+    } catch (err) {
+      setError(err?.customMessage || 'Authentication failed. Please check credentials.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +70,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div className="pt-3 flex justify-center gap-3">
               <Button variant="danger" size="sm" onClick={handleLogout}>
-                Sign Out
+                Logout
               </Button>
               <Button variant="secondary" size="sm" onClick={onClose}>
                 Close

@@ -23,15 +23,7 @@ import {
   Zap
 } from 'lucide-react';
 
-interface TestCaseStudioViewProps {
-  questions: any[];
-  selectedQuestion: any;
-  onSelectQuestion: (question: any) => void;
-  onEditQuestion?: (question: any) => void;
-  onNavigate?: (tab: string) => void;
-}
-
-export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
+export const TestCaseStudioView = ({
   questions,
   selectedQuestion,
   onSelectQuestion,
@@ -39,10 +31,10 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
   onNavigate
 }) => {
   const currentQ = selectedQuestion || questions[0];
-  const [testCases, setTestCases] = useState<any[]>([]);
+  const [testCases, setTestCases] = useState([]);
   const [validating, setValidating] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [validationResult, setValidationResult] = useState<any | null>(null);
+  const [validationResult, setValidationResult] = useState(null);
 
   // New Test Case Form State
   const [isAdding, setIsAdding] = useState(false);
@@ -52,7 +44,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
   const [visibility, setVisibility] = useState('hidden');
 
   // Edit Test Case Form State
-  const [editingTestId, setEditingTestId] = useState<string | null>(null);
+  const [editingTestId, setEditingTestId] = useState(null);
   const [editInput, setEditInput] = useState('');
   const [editExpectedOutput, setEditExpectedOutput] = useState('');
   const [editCategory, setEditCategory] = useState('normal');
@@ -77,7 +69,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
     fetchTests();
   }, [currentQ?._id]);
 
-  const handleAddTest = async (e: React.FormEvent) => {
+  const handleAddTest = async (e) => {
     e.preventDefault();
     if (!currentQ) return;
     try {
@@ -91,12 +83,12 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
       setInput('nums = [10, 20, 30], target = 50');
       setExpectedOutput('[1, 2]');
       await fetchTests();
-    } catch (err: any) {
+    } catch (err) {
       alert(err.customMessage || 'Failed to add test case');
     }
   };
 
-  const startEdit = (tc: any) => {
+  const startEdit = (tc) => {
     setEditingTestId(tc._id);
     setEditInput(tc.input);
     setEditExpectedOutput(tc.expectedOutput);
@@ -104,7 +96,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
     setEditVisibility(tc.visibility || 'hidden');
   };
 
-  const handleSaveEdit = async (testId: string) => {
+  const handleSaveEdit = async (testId) => {
     if (!currentQ) return;
     try {
       await api.patch(`/questions/${currentQ._id}/tests/${testId}`, {
@@ -115,18 +107,18 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
       });
       setEditingTestId(null);
       await fetchTests();
-    } catch (err: any) {
+    } catch (err) {
       alert(err.customMessage || 'Failed to update test case');
     }
   };
 
-  const handleDeleteTest = async (testId: string) => {
+  const handleDeleteTest = async (testId) => {
     if (!currentQ) return;
     if (!confirm('Are you sure you want to delete this test case?')) return;
     try {
       await api.delete(`/questions/${currentQ._id}/tests/${testId}`);
       await fetchTests();
-    } catch (err: any) {
+    } catch (err) {
       alert(err.customMessage || 'Failed to delete test case');
     }
   };
@@ -138,7 +130,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
       const res = await api.post(`/questions/${currentQ._id}/validate`);
       setValidationResult(res.data.data);
       await fetchTests();
-    } catch (err: any) {
+    } catch (err) {
       alert(err.customMessage || 'Validation execution failed');
     } finally {
       setValidating(false);
@@ -146,7 +138,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
   };
 
   // Helper to load test presets
-  const applyPreset = (presetInput: string, presetExpected: string, presetCat: string) => {
+  const applyPreset = (presetInput, presetExpected, presetCat) => {
     setInput(presetInput);
     setExpectedOutput(presetExpected);
     setCategory(presetCat);
@@ -424,7 +416,7 @@ export const TestCaseStudioView: React.FC<TestCaseStudioViewProps> = ({
               const isEditing = editingTestId === tc._id;
               // Find matching validation result if available
               const runInfo = validationResult?.results?.find(
-                (r: any) => String(r.testCaseId) === String(tc._id)
+                (r) => String(r.testCaseId) === String(tc._id)
               );
 
               // Render verification status badge

@@ -1,12 +1,6 @@
 import React from 'react';
 
-interface BadgeProps {
-  children: React.ReactNode;
-  variant?: 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'orange';
-  className?: string;
-}
-
-export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', className = '' }) => {
+export const Badge = ({ children, variant = 'neutral', className = '' }) => {
   const styles = {
     success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     warning: 'bg-amber-50 text-amber-700 border-amber-200',

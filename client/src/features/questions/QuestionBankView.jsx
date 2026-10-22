@@ -14,17 +14,8 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 
-interface QuestionBankViewProps {
-  questions: any[];
-  onRefresh: () => void;
-  onNavigate: (tab: string) => void;
-  onSelectQuestion: (question: any) => void;
-  onEditQuestion: (question: any) => void;
-  initialSearch?: string;
-}
-
-export const QuestionBankView: React.FC<QuestionBankViewProps> = ({
-  questions,
+export const QuestionBankView = ({
+  questions = [],
   onRefresh,
   onNavigate,
   onSelectQuestion,
@@ -34,13 +25,11 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({
   const [search, setSearch] = useState(initialSearch);
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const [languageFilter, setLanguageFilter] = useState('');
-  const [activeModalQuestion, setActiveModalQuestion] = useState<any | null>(null);
+  const [activeModalQuestion, setActiveModalQuestion] = useState(null);
 
   // Sync initialSearch if prop changes
   React.useEffect(() => {
-    if (initialSearch) {
-      setSearch(initialSearch);
-    }
+    setSearch(initialSearch || '');
   }, [initialSearch]);
 
   const filtered = questions.filter((q) => {
@@ -62,7 +51,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({
     return matchesSearch && matchesDifficulty && matchesLanguage;
   });
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+  const handleDelete = async (id, e) => {
     if (e) e.stopPropagation();
     if (!confirm('Are you sure you want to delete this question and its test cases?')) return;
     try {
@@ -174,7 +163,7 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({
 
                 {q.tags && q.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {q.tags.map((tag: string, idx: number) => (
+                    {q.tags.map((tag, idx) => (
                       <span
                         key={idx}
                         className="text-[10px] font-semibold bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md border border-orange-100"
@@ -380,4 +369,3 @@ export const QuestionBankView: React.FC<QuestionBankViewProps> = ({
 };
 
 export default QuestionBankView;
-

@@ -13,23 +13,16 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-interface MutationLabViewProps {
-  questions: any[];
-  selectedQuestion: any;
-  onSelectQuestion: (question: any) => void;
-  onNavigate: (tab: string) => void;
-}
-
-export const MutationLabView: React.FC<MutationLabViewProps> = ({
-  questions,
+export const MutationLabView = ({
+  questions = [],
   selectedQuestion,
   onSelectQuestion,
   onNavigate
 }) => {
   const currentQ = selectedQuestion || questions[0];
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
-  const [selectedMutant, setSelectedMutant] = useState<any | null>(null);
+  const [result, setResult] = useState(null);
+  const [selectedMutant, setSelectedMutant] = useState(null);
 
   const handleRunMutations = async () => {
     if (!currentQ) return;
@@ -40,8 +33,8 @@ export const MutationLabView: React.FC<MutationLabViewProps> = ({
       if (res.data.data.mutants && res.data.data.mutants.length > 0) {
         setSelectedMutant(res.data.data.mutants[0]);
       }
-    } catch (err: any) {
-      alert(err.customMessage || 'Failed to execute mutation tests.');
+    } catch (err) {
+      alert(err?.customMessage || 'Failed to execute mutation tests.');
     } finally {
       setRunning(false);
     }
@@ -159,7 +152,7 @@ export const MutationLabView: React.FC<MutationLabViewProps> = ({
             </div>
           ) : (
             <div className="space-y-2.5">
-              {result.mutants.map((mut: any) => (
+              {result.mutants.map((mut) => (
                 <div
                   key={mut.id}
                   onClick={() => setSelectedMutant(mut)}
@@ -253,7 +246,7 @@ export const MutationLabView: React.FC<MutationLabViewProps> = ({
                       ? 'Mutant Survived (Weak Test Suite)'
                       : 'Compilation Error / Invalid Mutant'}
                   </div>
-                    <div className="text-xs mt-0.5">
+                  <div className="text-xs mt-0.5">
                     {selectedMutant.status === 'killed'
                       ? `Caught by: ${selectedMutant.killedByTest}`
                       : selectedMutant.status === 'survived'
@@ -331,7 +324,7 @@ export const MutationLabView: React.FC<MutationLabViewProps> = ({
                     <Badge variant="warning">{result.candidateTests.length} Verified Candidate</Badge>
                   </div>
                   <div className="space-y-2">
-                    {result.candidateTests.map((cand: any, cIdx: number) => (
+                    {result.candidateTests.map((cand, cIdx) => (
                       <div
                         key={cIdx}
                         className="bg-white p-3.5 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"

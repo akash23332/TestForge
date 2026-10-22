@@ -3,14 +3,7 @@ import { Button } from '../../components/ui/Button';
 import { api } from '../../lib/api';
 import { Save, ArrowLeft, AlertCircle, Edit3 } from 'lucide-react';
 
-interface QuestionCreatorViewProps {
-  onSuccess: () => void;
-  onCancel: () => void;
-  currentUser: any;
-  initialQuestion?: any;
-}
-
-export const LANGUAGE_TEMPLATES: Record<string, { starterCode: string; referenceSolution: string }> = {
+export const LANGUAGE_TEMPLATES = {
   javascript: {
     starterCode: `function solution(nums, target) {
   // Implement solution
@@ -60,7 +53,7 @@ public:
   }
 };
 
-export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
+export const QuestionCreatorView = ({
   onSuccess,
   onCancel,
   currentUser,
@@ -91,7 +84,7 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
     initialQuestion?.referenceSolution || 'function solution(nums, target) {\n  // Verified reference implementation\n  return [1, 2];\n}'
   );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (initialQuestion) {
@@ -108,7 +101,7 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
     }
   }, [initialQuestion?._id]);
 
-  const handleLanguageChange = (newLang: string) => {
+  const handleLanguageChange = (newLang) => {
     setLanguage(newLang);
     const template = LANGUAGE_TEMPLATES[newLang];
     if (template) {
@@ -117,7 +110,7 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !statement) {
       setError('Title and problem statement are required.');
@@ -132,7 +125,7 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
         title,
         difficulty,
         language,
-        tags: tags.split(',').map((t: string) => t.trim()).filter(Boolean),
+        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         statement,
         constraints,
         examples: [
@@ -154,8 +147,8 @@ export const QuestionCreatorView: React.FC<QuestionCreatorViewProps> = ({
         await api.post('/questions', payload);
       }
       onSuccess();
-    } catch (err: any) {
-      const serverMsg = err.response?.data?.error?.message || err.customMessage || 'Failed to save question.';
+    } catch (err) {
+      const serverMsg = err.response?.data?.error?.message || err?.customMessage || 'Failed to save question.';
       setError(serverMsg);
     } finally {
       setLoading(false);

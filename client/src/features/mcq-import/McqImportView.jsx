@@ -14,29 +14,14 @@ import {
   X
 } from 'lucide-react';
 
-export interface McqItem {
-  _id?: string;
-  id?: string;
-  rowNumber?: number;
-  question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswer: string; // 'A' | 'B' | 'C' | 'D'
-  marks: number;
-  topic: string;
-  explanation?: string;
-}
-
-export const McqImportView: React.FC = () => {
+export const McqImportView = () => {
   // Questions in the current batch / database
-  const [questions, setQuestions] = useState<McqItem[]>([]);
+  const [questions, setQuestions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form input states
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState(null);
   const [questionText, setQuestionText] = useState('');
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
@@ -48,7 +33,7 @@ export const McqImportView: React.FC = () => {
   const [explanation, setExplanation] = useState('');
 
   // Notifications
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState(null);
 
   // ── Fetch Saved Questions from MongoDB on Mount ─────────────────────────
   const fetchQuestions = async () => {
@@ -56,7 +41,7 @@ export const McqImportView: React.FC = () => {
     try {
       const res = await api.get('/mcq/saved');
       const items = res.data?.data?.items || [];
-      setQuestions(items.map((q: any, idx: number) => ({ ...q, rowNumber: idx + 1 })));
+      setQuestions(items.map((q, idx) => ({ ...q, rowNumber: idx + 1 })));
     } catch (err) {
       console.error('Failed to load MCQs from MongoDB:', err);
       setQuestions([]);
@@ -70,7 +55,7 @@ export const McqImportView: React.FC = () => {
   }, []);
 
   // ── Save or Update Question Directly to MongoDB ─────────────────────────
-  const handleSaveQuestion = async (e: React.FormEvent) => {
+  const handleSaveQuestion = async (e) => {
     e.preventDefault();
     if (!questionText.trim()) {
       alert('Please enter a question statement.');
@@ -134,7 +119,7 @@ export const McqImportView: React.FC = () => {
       setOptionC('');
       setOptionD('');
       setExplanation('');
-    } catch (err: any) {
+    } catch (err) {
       alert(err?.customMessage || 'Failed to save question to database.');
     } finally {
       setIsSubmitting(false);
@@ -142,7 +127,7 @@ export const McqImportView: React.FC = () => {
   };
 
   // ── Start Editing a Question ─────────────────────────────────────────────
-  const handleStartEdit = (index: number) => {
+  const handleStartEdit = (index) => {
     const q = questions[index];
     if (!q) return;
     setEditingIndex(index);
@@ -169,7 +154,7 @@ export const McqImportView: React.FC = () => {
   };
 
   // ── Delete a Question Directly from MongoDB ─────────────────────────────
-  const handleDeleteQuestion = async (index: number) => {
+  const handleDeleteQuestion = async (index) => {
     const q = questions[index];
     if (!q) return;
 
@@ -189,7 +174,7 @@ export const McqImportView: React.FC = () => {
         handleCancelEdit();
       }
       setNotice(`Question #${index + 1} deleted from database.`);
-    } catch (err: any) {
+    } catch (err) {
       alert(err?.customMessage || 'Failed to delete question from database.');
     }
   };
@@ -202,21 +187,21 @@ export const McqImportView: React.FC = () => {
         setQuestions([]);
         handleCancelEdit();
         setNotice('All questions cleared from database.');
-      } catch (err: any) {
+      } catch (err) {
         alert(err?.customMessage || 'Failed to clear questions.');
       }
     }
   };
 
   // ── Upload Existing CSV and Save Directly to MongoDB ────────────────────
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const text = evt.target?.result as string;
+        const text = evt.target?.result;
         const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
         if (lines.length < 2) {
           alert('CSV file is empty or missing headers.');
@@ -234,11 +219,11 @@ export const McqImportView: React.FC = () => {
         const topicIdx = header.indexOf('topic');
         const expIdx = header.indexOf('explanation');
 
-        const parsedRows: any[] = [];
+        const parsedRows = [];
         const csvRegex = /(?:^|,)(?:"((?:[^"]|"")*)"|([^,]*))/g;
 
         for (let i = 1; i < lines.length; i++) {
-          const rowValues: string[] = [];
+          const rowValues = [];
           let match;
           csvRegex.lastIndex = 0;
           while ((match = csvRegex.exec(lines[i])) !== null) {
@@ -276,7 +261,7 @@ export const McqImportView: React.FC = () => {
           return combined.map((q, idx) => ({ ...q, rowNumber: idx + 1 }));
         });
         setNotice(`Imported and saved ${saved.length} questions directly to database!`);
-      } catch (err: any) {
+      } catch (err) {
         alert(err?.customMessage || 'Failed to parse and save uploaded CSV.');
       }
     };
@@ -291,7 +276,7 @@ export const McqImportView: React.FC = () => {
       return;
     }
 
-    const escapeCsv = (val: string | number | undefined) => {
+    const escapeCsv = (val) => {
       const str = String(val ?? '');
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;

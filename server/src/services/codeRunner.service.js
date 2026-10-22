@@ -295,6 +295,17 @@ export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => 
       })
       .replace(/package\s+[a-zA-Z0-9_.*]+;/g, '');
 
+    // Detect target class name (support Solution, Result, or any user-defined class)
+    const classMatches = [...cleanCode.matchAll(/(?:public\s+)?class\s+([A-Za-z0-9_$]+)/g)];
+    let targetClassName = 'Solution';
+    for (const match of classMatches) {
+      const cName = match[1];
+      if (!['ListNode', 'TreeNode', runnerId].includes(cName)) {
+        targetClassName = cName;
+        if (cName === 'Result' || cName === 'Solution') break;
+      }
+    }
+
     const harness = `
 import java.util.*;
 import java.lang.reflect.*;
@@ -303,23 +314,45 @@ ${imports.join('\n')}
 public class ${runnerId} {
     public static void main(String[] args) {
         try {
-            Solution sol = new Solution();
+            Class<?> targetClass = ${targetClassName}.class;
             Method targetMethod = null;
-            for (Method m : Solution.class.getDeclaredMethods()) {
+            for (Method m : targetClass.getDeclaredMethods()) {
                 if (Modifier.isPublic(m.getModifiers()) && !m.getName().equals("main")) {
                     targetMethod = m;
                     break;
                 }
             }
             if (targetMethod == null) {
-                System.err.println("No public method found in Solution class.");
+                System.err.println("No public method found in " + targetClass.getSimpleName() + " class.");
                 System.exit(1);
+            }
+
+            Object sol = null;
+            if (!Modifier.isStatic(targetMethod.getModifiers())) {
+                try {
+                    Constructor<?> ctor = targetClass.getDeclaredConstructor();
+                    ctor.setAccessible(true);
+                    sol = ctor.newInstance();
+                } catch (Exception ignored) {}
             }
 
             Class<?>[] paramTypes = targetMethod.getParameterTypes();
             Object[] invokedArgs = new Object[paramTypes.length];
             
             String[] rawArgJson = new String[]{ ${inputArgs.map((s) => JSON.stringify(JSON.stringify(s))).join(', ')} };
+
+            // Competitive programming input adapter: if method takes 1 array param but input provided length N and array
+            if (paramTypes.length == 1 && rawArgJson.length > 1) {
+                if (paramTypes[0].isArray() || List.class.isAssignableFrom(paramTypes[0])) {
+                    for (String item : rawArgJson) {
+                        String trimmed = item.trim();
+                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                            rawArgJson = new String[]{ item };
+                            break;
+                        }
+                    }
+                }
+            }
 
             for (int i = 0; i < paramTypes.length; i++) {
                 Class<?> pt = paramTypes[i];
@@ -1207,7 +1240,7 @@ export const validateSingleTestCase = async ({ code, testCase, questionContext =
     };
   }
 
-  if (execResult.status === 'runtime_error') {
+  if (execResult.status === 'runtime_error' || execResult.status === 'compilation_error') {
     return {
       testCaseId: testCase._id,
       category: testCase.category,

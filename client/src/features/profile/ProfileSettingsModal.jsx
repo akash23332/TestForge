@@ -10,30 +10,20 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
-interface ProfileSettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  currentUser: any;
-  onLogout: () => void;
-  health?: any;
-}
-
-export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
+export const ProfileSettingsModal = ({
   isOpen,
   onClose,
   currentUser,
   onLogout
 }) => {
-  const [defaultLang, setDefaultLang] = useState<string>('java');
-  const [runnerTimeout, setRunnerTimeout] = useState<string>('4000');
+  const [defaultLang, setDefaultLang] = useState('java');
   const [savedNotice, setSavedNotice] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSavePreferences = (e: React.FormEvent) => {
+  const handleSavePreferences = (e) => {
     e.preventDefault();
     localStorage.setItem('testforge_pref_lang', defaultLang);
-    localStorage.setItem('testforge_pref_timeout', runnerTimeout);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2000);
   };
@@ -94,36 +84,19 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               <span>Assessment & Runner Preferences</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Default Problem Language
-                </label>
-                <select
-                  value={defaultLang}
-                  onChange={(e) => setDefaultLang(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
-                >
-                  <option value="java">Java (Universal Harness)</option>
-                  <option value="javascript">JavaScript (Node VM)</option>
-                  <option value="python">Python 3 (Isolated Runner)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Sandbox Timeout Limit
-                </label>
-                <select
-                  value={runnerTimeout}
-                  onChange={(e) => setRunnerTimeout(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
-                >
-                  <option value="3000">3000 ms (Standard)</option>
-                  <option value="4000">4000 ms (Recommended for Java)</option>
-                  <option value="6000">6000 ms (Extended for Complex)</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Default Problem Language
+              </label>
+              <select
+                value={defaultLang}
+                onChange={(e) => setDefaultLang(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
+              >
+                <option value="java">Java (Universal Harness)</option>
+                <option value="javascript">JavaScript (Node VM)</option>
+                <option value="python">Python 3 (Isolated Runner)</option>
+              </select>
             </div>
 
             {/* Theme Mode Status */}
@@ -152,11 +125,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             </div>
           </form>
 
-          {/* Dedicated Sign Out Section */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+          {/* Dedicated Logout Section */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between bg-rose-50/40 p-4 rounded-2xl border border-rose-100">
             <div>
-              <span className="block text-xs font-bold text-slate-800">Sign Out of TestForge</span>
-              <span className="block text-[11px] text-slate-400">Terminates active session on this device</span>
+              <span className="block text-xs font-extrabold text-slate-900">Logout from Account</span>
+              <span className="block text-[11px] text-slate-500">Terminates active faculty session on this device</span>
             </div>
             <button
               type="button"
@@ -164,10 +137,10 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 onLogout();
                 onClose();
               }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors cursor-pointer border border-rose-200/80 shadow-xs"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs transition-all cursor-pointer shadow-md shadow-rose-600/30 hover:shadow-lg"
             >
-              <LogOut className="h-4 w-4 text-rose-600" />
-              Sign Out
+              <LogOut className="h-4 w-4 text-white" />
+              Logout
             </button>
           </div>
         </div>
@@ -175,3 +148,5 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     </div>
   );
 };
+
+export default ProfileSettingsModal;

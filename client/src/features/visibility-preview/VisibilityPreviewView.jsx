@@ -9,21 +9,15 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-interface VisibilityPreviewViewProps {
-  questions: any[];
-  selectedQuestion: any;
-  onSelectQuestion: (question: any) => void;
-}
-
-export const VisibilityPreviewView: React.FC<VisibilityPreviewViewProps> = ({
+export const VisibilityPreviewView = ({
   questions,
   selectedQuestion,
   onSelectQuestion
 }) => {
   const currentQ = selectedQuestion || questions[0];
-  const [activeView, setActiveView] = useState<'teacher' | 'student'>('teacher');
-  const [studentData, setStudentData] = useState<any | null>(null);
-  const [auditPassed, setAuditPassed] = useState<boolean | null>(null);
+  const [activeView, setActiveView] = useState('teacher');
+  const [studentData, setStudentData] = useState(null);
+  const [auditPassed, setAuditPassed] = useState(null);
 
   const fetchStudentView = async () => {
     if (!currentQ) return;
@@ -213,7 +207,7 @@ export const VisibilityPreviewView: React.FC<VisibilityPreviewViewProps> = ({
                 <h4 className="font-bold text-slate-800 mb-1.5">Public Test Samples</h4>
                 {studentData?.publicTestCases && studentData.publicTestCases.length > 0 ? (
                   <div className="space-y-2">
-                    {studentData.publicTestCases.map((tc: any, i: number) => (
+                    {studentData.publicTestCases.map((tc, i) => (
                       <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-[11px] flex items-center justify-between">
                         <span className="text-slate-600">Input: <span className="font-bold text-slate-900">{tc.input}</span></span>
                         <span className="text-emerald-700 font-bold">Expected: {tc.expectedOutput}</span>

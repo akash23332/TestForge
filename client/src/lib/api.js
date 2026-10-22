@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 
 export const api = axios.create({
   baseURL: '/api/v1',
@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 // Interceptor to handle responses and normalize errors
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ error?: { message?: string; code?: string; details?: any } }>) => {
+  (error) => {
     const errorData = error.response?.data?.error;
     const formattedMessage = errorData?.message || error.message || 'An unexpected error occurred';
     return Promise.reject({

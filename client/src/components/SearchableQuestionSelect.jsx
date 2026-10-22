@@ -2,16 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown, Check, X, FileCode2 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 
-interface SearchableQuestionSelectProps {
-  questions: any[];
-  selectedQuestion: any;
-  onSelectQuestion: (question: any) => void;
-  className?: string;
-  placeholder?: string;
-}
-
-export const SearchableQuestionSelect: React.FC<SearchableQuestionSelectProps> = ({
-  questions,
+export const SearchableQuestionSelect = ({
+  questions = [],
   selectedQuestion,
   onSelectQuestion,
   className = '',
@@ -19,15 +11,15 @@ export const SearchableQuestionSelect: React.FC<SearchableQuestionSelectProps> =
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [langFilter, setLangFilter] = useState<string>('all');
-  const [diffFilter, setDiffFilter] = useState<string>('all');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [langFilter, setLangFilter] = useState('all');
+  const [diffFilter, setDiffFilter] = useState('all');
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Close when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
@@ -239,3 +231,5 @@ export const SearchableQuestionSelect: React.FC<SearchableQuestionSelectProps> =
     </div>
   );
 };
+
+export default SearchableQuestionSelect;
