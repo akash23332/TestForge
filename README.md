@@ -7,6 +7,46 @@ TestForge is a teacher-facing assessment engineering web application. It empower
 
 ---
 
+## ⚡ Terminal Quickstart (Run Project)
+
+> 📘 **Full documentation:** See [REQUIREMENTS.md](file:///d:/TestForge/REQUIREMENTS.md) for detailed prerequisites, runtime options, and troubleshooting.
+
+### Option A: One-Click Runner (Recommended)
+- **Windows (Double-click or PowerShell):**
+  ```powershell
+  .\run-dev.ps1
+  # or double-click run-dev.bat
+  ```
+- **macOS / Linux:**
+  ```bash
+  chmod +x run-dev.sh
+  ./run-dev.sh
+  ```
+
+---
+
+### Option B: Manual Terminal Execution
+
+#### 1. Install All Dependencies
+From the project root:
+```bash
+npm run install:all
+```
+
+#### 2. Seed Database with Questions (Optional)
+```bash
+npm run seed
+```
+
+#### 3. Run Backend & Frontend
+
+| Service | Terminal Command | Local URL |
+| :--- | :--- | :--- |
+| **Backend API** | `npm run dev:server` (or `cd server && npm run dev`) | [http://localhost:5000](http://localhost:5000) |
+| **Frontend UI** | `npm run dev:client` (or `cd client && npm run dev`) | [http://localhost:5173](http://localhost:5173) |
+
+---
+
 ## 🎯 Executive Summary & Problem Solved
 
 | Faculty Problem | TestForge Solution |
@@ -23,13 +63,13 @@ TestForge is a teacher-facing assessment engineering web application. It empower
 
 | Layer | Technology | Purpose & Implementation |
 | :--- | :--- | :--- |
-| **Frontend** | React 18 + Vite + TypeScript | Modern component architecture, type safety, and fast HMR |
+| **Frontend** | React 18 + Vite | Modern component architecture, type safety, and fast HMR |
 | **Styling & Theme** | Tailwind CSS + Lucide Icons | Responsive wide-screen layout, accessible contrast, and Dark Theme active |
 | **State & Data** | React Hooks + Custom API Client | Deterministic data fetching, loading/empty states, and session persistence |
-| **Backend** | Node.js (v22) + Express REST API | Modular controllers, owner-scoped services, centralized error handling |
+| **Backend** | Node.js + Express REST API | Modular controllers, owner-scoped services, centralized error handling |
 | **Database** | MongoDB + Mongoose ODM | Strictly validated schemas, compound indexes, and relational references |
 | **Authentication** | JWT + Bcrypt | Secure password hashing, owner authorization, and 30-day session retention |
-| **Code Execution** | Isolated Process Runner | Java & JavaScript compilation and execution with strict time and memory limits |
+| **Code Execution** | Isolated Process Runner | Java, JS, Python, and C++ compilation/execution with strict timeout guardrails |
 | **Testing** | Jest + Supertest | Automated unit & integration testing suite (44/44 tests passing) |
 
 ---
@@ -58,72 +98,25 @@ TestForge is a teacher-facing assessment engineering web application. It empower
   - 🟢 **Killed**: Mutant produced an observable output difference or failure.
   - 🔴 **Survived**: Mutant passed all tests unnoticed (reveals blind spots in test suite).
   - 🟡 **Invalid / Compilation Error**: Syntax or compilation failure, isolated and strictly excluded from the score denominator.
-- **Accurate Score Formula**:
-  $$\text{Mutation Score} = \frac{\text{Killed Mutants}}{\text{Total Valid Mutants (Killed + Survived)}} \times 100\%$$
 
-### 4. Visibility Auditor (Zero-Leak Guarantee)
-- Enforces strict server-side boundary separation:
-  - **Student View**: Statement, constraints, starter code, and public sample tests only.
-  - **Teacher View**: Reference solution, hidden test cases, expected outputs, and grading notes.
-- The student endpoint completely omits private fields at the serialization layer (not hidden with CSS).
+### 4. Bulk MCQ Studio
+- Multi-format file ingestion supporting both `.csv` and `.xlsx` templates.
+- Client-side error parsing with instant row-level feedback for missing options, incorrect answer keys, or malformed choices.
 
-### 5. Bulk MCQ Import
-- Drag-and-drop CSV upload for objective questions.
-- Automated row-level validation: flags missing options, incorrect answer keys, invalid marks, and duplicates.
-- In-place row correction before permanent persistence.
+### 5. Student Visibility Auditor
+- Previews the stripped assessment bundle sent to students.
+- Mathematically guarantees that `referenceSolution`, `gradingNotes`, and `hidden` test suites are excluded at the serializer layer.
 
 ### 6. Smart Paper Designer
-- Interactive paper assembly based on total marks, duration, and question allocation.
-- Computes real-time difficulty distributions (Easy / Medium / Hard) and marks verification.
+- Automated exam paper assembly configured by total marks, duration, and difficulty percentage.
+- Section-wise allocation for MCQs, debugging questions, and coding problems.
 
 ---
 
-## 📡 REST API Specifications (`/api/v1`)
+## 🧪 Verification & Automated Tests
 
-### Authentication & Faculty Profile
-- `POST /api/v1/auth/register` — Register a faculty account (returns JWT token & user data)
-- `POST /api/v1/auth/login` — Authenticate faculty credentials (returns JWT token)
-- `GET /api/v1/auth/me` — Retrieve current authenticated session profile
-
-### Questions Management
-- `GET /api/v1/questions` — List questions with pagination (`?page=1&limit=10`), search (`?search=`), and filters
-- `POST /api/v1/questions` — Create a new problem statement with reference solution
-- `GET /api/v1/questions/:id` — Retrieve question details (owner scoped)
-- `PATCH /api/v1/questions/:id` — Update statement, starter code, or reference solution
-- `DELETE /api/v1/questions/:id` — Delete question and cascade delete associated tests
-
-### Test Cases & Verification
-- `GET /api/v1/questions/:id/tests` — Fetch test suite for a question
-- `POST /api/v1/questions/:id/tests` — Add a test case (input, expectedOutput, category, visibility)
-- `PATCH /api/v1/questions/:id/tests/:testId` — Update test case parameters
-- `DELETE /api/v1/questions/:id/tests/:testId` — Remove a test case
-- `POST /api/v1/questions/:id/validate` — Execute reference solution to verify test outputs
-
-### Mutation Testing & Security Audit
-- `POST /api/v1/questions/:id/mutation-runs` — Execute deterministic mutant suite and calculate score
-- `GET /api/v1/questions/:id/student-view` — Sanitized endpoint returning student-safe bundle
-- `POST /api/v1/mcq-imports/preview` — Parse, validate, and preview CSV MCQ uploads
-- `GET /api/v1/health` — Real-time health check (MongoDB Atlas, Node environment, memory)
-
----
-
-## 🗄️ Database Schemas (MongoDB + Mongoose)
-
-- **User**: `name`, `email` (unique index), `passwordHash`, `role` (`Faculty`), `createdAt`
-- **Question**: `ownerId`, `title`, `statement`, `constraints`, `language` (`java`/`python`/`javascript`), `difficulty` (`Easy`/`Medium`/`Hard`), `starterCode`, `referenceSolution`, `tags`
-- **TestCase**: `questionId`, `input`, `expectedOutput`, `category` (`normal`/`edge`/`performance`), `visibility` (`public`/`hidden`), `verificationStatus`
-- **MutationRun**: `questionId`, `operator`, `diff`, `status` (`killed`/`survived`/`invalid`/`timeout`), `perTestResults`, `runtimeMs`
-- **ExamPaper**: `ownerId`, `title`, `durationMinutes`, `totalMarks`, `questionRefs`
-
----
-
-## 🧪 Automated Testing & Verification
-
-The project includes automated regression tests using Jest and Supertest.
-
-```powershell
-# Run the complete test suite
-cd server
+```bash
+# Run automated Jest test suite
 npm test
 ```
 
@@ -139,39 +132,6 @@ Tests:       44 passed, 44 total
 Snapshots:   0 total
 Time:        27.68s
 ```
-
-Verified test coverage includes:
-- **Killed Mutants**: Detected and killed by test failures (`prefixSum - k + 1`).
-- **Survived Mutants**: Pass all tests and correctly reported as Survived.
-- **Invalid Mutants**: Deliberate Java syntax errors correctly classified as `Invalid`/`Compilation Error` and excluded from the score denominator.
-- **Reference Solution**: Passing 100% of valid test cases.
-- **Score Calculation**: 2 killed + 1 survived = 66.67%, all killed = 100%, zero mutants = N/A.
-- **Security Audit**: Student-view endpoint never leaks `referenceSolution` or `hidden` tests.
-
----
-
-## 💻 Quick Start Guide
-
-### Prerequisites
-- **Node.js**: v18+ (tested on v22.17.1)
-- **MongoDB**: Local MongoDB or MongoDB Atlas URI
-
-### 1. Backend Setup
-```powershell
-cd server
-cp .env.example .env
-npm install
-npm run dev
-```
-Backend runs on **`http://localhost:5000`**.
-
-### 2. Frontend Setup
-```powershell
-cd client
-npm install
-npm run dev
-```
-Frontend runs on **`http://localhost:5173`**.
 
 ---
 
