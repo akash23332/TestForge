@@ -204,6 +204,7 @@ export const QuestionCreatorView = ({
   const [saveStatus, setSaveStatus] = useState('Draft, not saved yet');
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [activeOutlineIndex, setActiveOutlineIndex] = useState(0);
+  const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
 
   // Refs for 3D Interactive Tilt & Confetti
   const heroRef = useRef(null);
@@ -212,6 +213,21 @@ export const QuestionCreatorView = ({
   const statementRef = useRef(null);
   const autoSaveTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
+
+  // Scroll detection: fixed action bar appears when scrolled down past hero, disappears at hero section
+  useEffect(() => {
+    const handleScroll = () => {
+      if (heroRef.current) {
+        const rect = heroRef.current.getBoundingClientRect();
+        setIsScrolledPastHero(rect.bottom < 70);
+      } else {
+        setIsScrolledPastHero(window.scrollY > 280);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Show Toast
   const showToast = (msg) => {
@@ -745,7 +761,7 @@ export const QuestionCreatorView = ({
           margin-right: 4px;
         }
 
-        /* 3D Dice (Cube) Stage - Aligned like the 3D Ball in the Right Half of Hero */
+        /* 3D Dice (Cube) Stage - Sized & Aligned like the 3D Ball */
         .tf-cq-root .stage {
           position: absolute;
           right: 12px;
@@ -761,10 +777,33 @@ export const QuestionCreatorView = ({
         .tf-cq-root .tilt {
           transform-style: preserve-3d;
           transition: transform .12s ease-out;
+          display: grid;
+          place-items: center;
+        }
+        .tf-cq-root .orbit-ring {
+          position: absolute;
+          width: 260px;
+          height: 100px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(237, 255, 114, 0.35);
+          transform: rotateX(72deg) rotateY(-18deg);
+          pointer-events: none;
+          transform-style: preserve-3d;
+        }
+        .tf-cq-root .orbit-node {
+          position: absolute;
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #ffffff;
+          box-shadow: 0 0 14px 4px rgba(237, 255, 114, 0.95);
+          top: -4px;
+          left: 50%;
+          transform: translateX(-50%);
         }
         .tf-cq-root .cube {
-          width: 136px;
-          height: 136px;
+          width: 156px;
+          height: 156px;
           transform-style: preserve-3d;
           animation: tfSpin 14s linear infinite;
           transform: rotateX(-18deg) rotateY(0);
@@ -774,43 +813,43 @@ export const QuestionCreatorView = ({
           inset: 0;
           display: grid;
           place-items: center;
-          font: 800 42px var(--mono);
+          font: 800 48px var(--mono);
           font-style: normal;
-          border-radius: 22px;
-          border: 2.5px solid #191A1D;
+          border-radius: 26px;
+          border: 2.8px solid #191A1D;
           backface-visibility: visible;
           user-select: none;
-          box-shadow: inset 0 0 16px rgba(0,0,0,0.12);
+          box-shadow: inset 0 0 20px rgba(0,0,0,0.14);
         }
         .tf-cq-root .f1 {
           background: var(--acc);
           color: #191A1D;
-          transform: translateZ(68px);
+          transform: translateZ(78px);
         }
         .tf-cq-root .f2 {
           background: #2c2f34;
           color: var(--acc);
-          transform: rotateY(180deg) translateZ(68px);
+          transform: rotateY(180deg) translateZ(78px);
         }
         .tf-cq-root .f3 {
           background: #e3f55f;
           color: #191A1D;
-          transform: rotateY(90deg) translateZ(68px);
+          transform: rotateY(90deg) translateZ(78px);
         }
         .tf-cq-root .f4 {
           background: #33363b;
           color: var(--acc);
-          transform: rotateY(-90deg) translateZ(68px);
+          transform: rotateY(-90deg) translateZ(78px);
         }
         .tf-cq-root .f5 {
           background: #f7ffa8;
           color: #191A1D;
-          transform: rotateX(90deg) translateZ(68px);
+          transform: rotateX(90deg) translateZ(78px);
         }
         .tf-cq-root .f6 {
           background: #23252a;
           color: var(--acc);
-          transform: rotateX(-90deg) translateZ(68px);
+          transform: rotateX(-90deg) translateZ(78px);
         }
         @keyframes tfSpin {
           0% { transform: rotateX(-18deg) rotateY(0deg); }
@@ -819,6 +858,8 @@ export const QuestionCreatorView = ({
         .tf-cq-root .stage .float {
           animation: tfFloat 3.2s ease-in-out infinite;
           transform-style: preserve-3d;
+          display: grid;
+          place-items: center;
         }
         @keyframes tfFloat {
           0%, 100% { transform: translateY(0px); }
@@ -826,17 +867,128 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .stage .shadow {
           position: absolute;
-          bottom: 24px;
-          width: 140px;
-          height: 22px;
+          bottom: 22px;
+          width: 160px;
+          height: 24px;
           border-radius: 50%;
           background: rgba(0,0,0,.55);
-          filter: blur(10px);
+          filter: blur(12px);
           animation: tfShadow 3.2s ease-in-out infinite;
         }
         @keyframes tfShadow {
           0%, 100% { transform: scale(1); opacity: 0.55; }
           50% { transform: scale(0.72); opacity: 0.28; }
+        }
+
+        /* Fixed Sticky Action Bar - slides in when scrolled down, disappears at hero */
+        .tf-cq-root .tf-fixed-bar {
+          position: fixed;
+          top: 14px;
+          left: 92px;
+          right: 20px;
+          z-index: 60;
+          background: rgba(255, 255, 255, 0.94);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid var(--line);
+          border-radius: 20px;
+          box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0,0,0,0.04);
+          padding: 8px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          transform: translateY(-140%);
+          opacity: 0;
+          pointer-events: none;
+          transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+        }
+        .tf-cq-root .tf-fixed-bar.visible {
+          transform: translateY(0);
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .tf-cq-root .tf-fixed-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .tf-cq-root .tf-fixed-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          border: 1px solid var(--line);
+          background: var(--surf);
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          color: var(--ink);
+          transition: 0.2s;
+          flex-shrink: 0;
+        }
+        .tf-cq-root .tf-fixed-icon:hover {
+          background: var(--card);
+          border-color: #171819;
+        }
+        .tf-cq-root .tf-fixed-meta {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .tf-cq-root .tf-fixed-title {
+          font-weight: 700;
+          font-size: 14px;
+          color: #171819;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 440px;
+        }
+        .tf-cq-root .tf-fixed-sub {
+          font-size: 11.5px;
+          color: var(--mute);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .tf-cq-root .tf-fixed-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .tf-cq-root .tf-btn-sm {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: 12px;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          border: 1px solid var(--line);
+          background: var(--card);
+          color: var(--ink);
+          transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+        }
+        .tf-cq-root .tf-btn-sm:hover {
+          transform: translateY(-1px);
+        }
+        .tf-cq-root .tf-btn-sm.pri {
+          background: var(--acc);
+          border-color: #d8ea4f;
+          color: #171819;
+        }
+        .tf-cq-root .tf-btn-sm.pri.ready {
+          box-shadow: 0 0 0 3px rgba(237, 255, 114, 0.45);
+        }
+        .tf-cq-root .tf-btn-sm.gh {
+          background: var(--surf);
+          border-color: var(--line);
+        }
+        .tf-cq-root .tf-btn-sm.gh:hover {
+          background: #dde1da;
         }
 
         /* 4 Quick Stats Cards */
@@ -998,7 +1150,8 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .tf-col {
           position: sticky;
-          top: 12px;
+          top: 76px;
+          transition: top 0.25s ease;
         }
         .tf-cq-root h3 {
           font-size: 15px;
@@ -1371,6 +1524,58 @@ export const QuestionCreatorView = ({
       `}</style>
 
       {/* ────────────────────────────────────────────────────────────────────────────
+          FIXED STICKY ACTION BAR
+          Stays fixed when scrolled down past hero; disappears at hero section
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div
+        className={`tf-fixed-bar ${isScrolledPastHero ? 'visible' : ''}`}
+        aria-hidden={!isScrolledPastHero}
+      >
+        <div className="tf-fixed-left">
+          <button
+            type="button"
+            onClick={() => (onCancel ? onCancel() : window.history.back())}
+            className="tf-fixed-icon"
+            title="Back to Question Bank"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="tf-fixed-meta">
+            <span className="tf-fixed-title">{title.trim() || 'Create Question'}</span>
+            <span className="tf-fixed-sub">
+              <span className="dot ok" /> {completedCount} of {outlineItems.length} checks • {completenessPercent}% complete • {language}
+            </span>
+          </div>
+        </div>
+
+        <div className="tf-fixed-actions">
+          <button
+            type="button"
+            onClick={() => setIsPreviewModalOpen(true)}
+            className="tf-btn-sm gh"
+          >
+            <Eye className="w-3.5 h-3.5" /> Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSaveQuestion('draft')}
+            disabled={saveDraftLoading}
+            className="tf-btn-sm gh"
+          >
+            <Save className="w-3.5 h-3.5" /> {saveDraftLoading ? 'Saving…' : 'Save draft'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSaveQuestion('published')}
+            disabled={loading}
+            className={`tf-btn-sm pri ${isReadyToPublish ? 'ready' : ''}`}
+          >
+            <Send className="w-3.5 h-3.5" /> {loading ? 'Publishing…' : 'Publish question'}
+          </button>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
           TOP BANNER GRID: HERO CARD (3D ISOMETRIC DICE) + 4 STATS CARDS
           ──────────────────────────────────────────────────────────────────────────── */}
       <div className="tf-top">
@@ -1441,6 +1646,9 @@ export const QuestionCreatorView = ({
           <div className="stage" aria-hidden="true">
             <div className="float">
               <div className="tilt" ref={tiltRef}>
+                <div className="orbit-ring">
+                  <div className="orbit-node" />
+                </div>
                 <div className="cube">
                   <i className="f1">0(n)</i>
                   <i className="f2">&#123;&#125;</i>

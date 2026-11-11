@@ -99,24 +99,24 @@ export const AuthModal = ({
           <div className="space-y-5 text-center py-4">
             <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center border ${
               currentUser.role === 'student'
-                ? 'bg-amber-100 text-amber-700 border-amber-200'
-                : 'bg-orange-100 text-orange-600 border-orange-200'
+                ? 'bg-[#E9ECE7] text-[#191A1D] border-[#DDE1DA]'
+                : 'bg-[#EDFF72] text-[#191A1D] border-[#d8ea4f]'
             }`}>
               {currentUser.role === 'student' ? (
-                <GraduationCap className="h-7 w-7" />
+                <GraduationCap className="h-7 w-7 text-[#191A1D]" />
               ) : (
-                <CheckCircle2 className="h-7 w-7" />
+                <CheckCircle2 className="h-7 w-7 text-[#191A1D]" />
               )}
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-900">
+              <h3 className="text-xl font-extrabold text-[#171819]">
                 {currentUser.role === 'student' ? 'Student Candidate' : 'Faculty Member'}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 font-medium">{currentUser.name} ({currentUser.email})</p>
+              <p className="text-xs text-[#777D78] mt-1 font-medium">{currentUser.name} ({currentUser.email})</p>
               <span className={`inline-block mt-3 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                 currentUser.role === 'student'
-                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                  : 'bg-orange-100 text-orange-800 border border-orange-200'
+                  ? 'bg-[#E9ECE7] text-[#171819] border border-[#DDE1DA]'
+                  : 'bg-[#EDFF72]/30 text-[#171819] border border-[#EDFF72]'
               }`}>
                 Role: {currentUser.role}
               </span>
@@ -134,13 +134,13 @@ export const AuthModal = ({
           <div>
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-1">
-                <span className="w-5 h-0.5 bg-orange-600 rounded-full" />
-                <span className="text-xs font-bold uppercase tracking-wider text-orange-600">Access Portal</span>
+                <span className="w-5 h-0.5 bg-[#EDFF72] rounded-full" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#171819]">Access Portal</span>
               </div>
-              <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              <h3 className="text-2xl font-extrabold text-[#171819] tracking-tight">
                 {isRegister ? 'Create Unique Account' : 'Sign In to Portal'}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              <p className="text-xs text-[#777D78] mt-1 leading-relaxed">
                 {isRegister
                   ? 'Choose your role and register to access the platform'
                   : 'Sign in to access your Teacher workspace or Student exam portal'}
@@ -156,81 +156,85 @@ export const AuthModal = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Account Role Selector (Available for BOTH Sign In & Register) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-[#171819] mb-1">
                   Access Portal as:
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-2 gap-2 p-1 bg-[#F2F3F0] rounded-xl border border-[#DDE1DA]">
                   <button
                     type="button"
                     onClick={() => handleRoleChange('teacher')}
-                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      role === 'teacher' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      role === 'teacher' ? 'bg-[#191A1D] text-white shadow-xs' : 'text-[#777D78] hover:text-[#171819]'
                     }`}
                   >
-                    <Sparkles className="h-3 w-3" /> Teacher / Faculty
+                    <Sparkles className="h-3 w-3 text-[#EDFF72]" /> Teacher / Faculty
                   </button>
                   <button
                     type="button"
                     onClick={() => handleRoleChange('student')}
-                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      role === 'student' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      role === 'student' ? 'bg-[#191A1D] text-white shadow-xs' : 'text-[#777D78] hover:text-[#171819]'
                     }`}
                   >
-                    <GraduationCap className="h-3 w-3" /> Student / Candidate
+                    <GraduationCap className="h-3 w-3 text-[#EDFF72]" /> Student / Candidate
                   </button>
                 </div>
               </div>
 
               {isRegister && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-[#171819] mb-1">
                     {role === 'teacher' ? 'Full Academic Name' : 'Candidate Full Name'}
                   </label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                    <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-[#777D78]" />
                     <input
                       type="text"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder={role === 'teacher' ? 'Dr. Sarah Mitchell' : 'Alex Rivera'}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-orange-500 font-medium"
+                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#171819] focus:outline-none focus:border-[#171819] font-medium"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-[#171819] mb-1">Email Address</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-[#777D78]" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="user@testforge.edu"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-orange-500 font-medium"
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#171819] focus:outline-none focus:border-[#171819] font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                <label className="block text-xs font-bold text-[#171819] mb-1">Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#777D78]" />
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-orange-500 font-medium"
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#171819] focus:outline-none focus:border-[#171819] font-medium"
                   />
                 </div>
               </div>
 
-              <Button type="submit" variant="primary" className="w-full py-2.5 mt-2" isLoading={loading}>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 mt-2 rounded-xl bg-[#EDFF72] hover:bg-[#e4fc57] text-[#171819] font-black text-xs transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+              >
                 {isRegister
                   ? role === 'teacher'
                     ? 'Register Faculty Account'
@@ -238,41 +242,41 @@ export const AuthModal = ({
                   : role === 'teacher'
                     ? 'Sign In as Faculty'
                     : 'Sign In as Student'}
-              </Button>
+              </button>
             </form>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div className="mt-4 pt-4 border-t border-[#DDE1DA] flex items-center justify-between text-xs">
               <button
                 type="button"
                 onClick={() => {
                   setIsRegister(!isRegister);
                   setError(null);
                 }}
-                className="font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
+                className="font-bold text-[#171819] hover:underline cursor-pointer"
               >
                 {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
               </button>
             </div>
 
             {/* Quick Demo Fill Buttons */}
-            <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="mt-4 pt-3 border-t border-[#DDE1DA] space-y-2">
+              <span className="text-[10px] uppercase font-bold text-[#777D78] block tracking-wider">
                 Quick Demo Sign-In
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={fillTeacher}
-                  className="py-1.5 px-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 text-[11px] font-bold border border-orange-200 cursor-pointer flex items-center justify-center gap-1"
+                  className="py-1.5 px-2 rounded-xl bg-[#E9ECE7] hover:bg-[#DDE1DA] text-[#171819] text-[11px] font-bold border border-[#DDE1DA] cursor-pointer flex items-center justify-center gap-1"
                 >
-                  <Sparkles className="h-3 w-3 text-orange-600" /> Faculty Demo
+                  <Sparkles className="h-3 w-3 text-[#171819]" /> Faculty Demo
                 </button>
                 <button
                   type="button"
                   onClick={fillStudent}
-                  className="py-1.5 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold border border-amber-200 cursor-pointer flex items-center justify-center gap-1"
+                  className="py-1.5 px-2 rounded-xl bg-[#E9ECE7] hover:bg-[#DDE1DA] text-[#171819] text-[11px] font-bold border border-[#DDE1DA] cursor-pointer flex items-center justify-center gap-1"
                 >
-                  <GraduationCap className="h-3 w-3 text-amber-600" /> Student Demo
+                  <GraduationCap className="h-3 w-3 text-[#171819]" /> Student Demo
                 </button>
               </div>
             </div>

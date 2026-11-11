@@ -4,7 +4,7 @@ const examQuestionSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['coding', 'mcq'],
+      enum: ['coding', 'mcq', 'subjective'],
       default: 'coding'
     },
     questionId: {
@@ -27,6 +27,11 @@ const examQuestionSchema = new mongoose.Schema(
       explanation: { type: String, default: '' },
       topic: { type: String, default: 'General' },
       difficulty: { type: String, default: 'Medium' }
+    },
+    subjectiveData: {
+      question: { type: String, default: '' },
+      rubric: { type: String, default: '' },
+      maxWords: { type: Number, default: 500 }
     },
     marks: {
       type: Number,

@@ -98,10 +98,14 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
 
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
-      const cx = W * 0.54;
-      const cy = H * 0.48;
-      // Prominent, eye-catching scale
-      const S = Math.min(W, H) * 0.27;
+
+      // Kinetic floating oscillation matching Test Suite float
+      const floatOffset = Math.sin(tm * 1.5) * 6;
+      const cx = W * 0.5;
+      const cy = H * 0.48 + floatOffset;
+
+      // Scaled down compact size (S = 0.155)
+      const S = Math.min(W, H) * 0.155;
 
       // Smooth gyroscopic physical inertia for cursor tilt
       curPx += (targetPx - curPx) * 0.08;
@@ -116,6 +120,21 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
       const sA = Math.sin(A);
       const cB = Math.cos(B);
       const sB = Math.sin(B);
+
+      // 0. Compact floor shadow
+      const shadowY = H - 24;
+      const shadowW = Math.max(18, S * 0.95 * (1 - floatOffset / 50));
+      const shadowH = Math.max(2, 6 * (1 - floatOffset / 50));
+      const shadowGrad = ctx.createRadialGradient(cx, shadowY, 0, cx, shadowY, shadowW);
+      shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+      shadowGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.24)');
+      shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(cx, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
+      ctx.fillStyle = shadowGrad;
+      ctx.fill();
+      ctx.restore();
 
       // 1. Draw floating ambient 3D dust particles in depth
       dust.forEach((pt) => {
@@ -172,8 +191,8 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
       };
 
       // Primary ring (tilted -0.45) & Secondary outer ring (tilted 0.55)
-      drawOrbitRing(2.35, -0.45, true, 0.45);
-      drawOrbitRing(2.8, 0.55, true, 0.25, true);
+      drawOrbitRing(1.32, -0.45, true, 0.45);
+      drawOrbitRing(1.50, 0.55, true, 0.25, true);
 
       // 3. Facet shading for 3D solidity
       F.forEach(([i1, i2, i3]) => {
@@ -201,7 +220,7 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
         const o = 0.3 + 0.65 * ((avgZ + 2) / 4);
 
         ctx.strokeStyle = `rgba(232, 255, 90, ${Math.min(o, 0.95)})`;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(q.x, q.y);
@@ -211,37 +230,37 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
       // 5. Glowing vertex nodes
       P.forEach((p, i) => {
         const isBeacon = i % 3 === 0;
-        const r = (isBeacon ? 6 : 3.5) * p.f;
+        const r = (isBeacon ? 4.5 : 2.5) * p.f;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fillStyle = isBeacon ? '#e8ff5a' : 'rgba(232, 255, 90, 0.9)';
         if (isBeacon) {
           ctx.shadowColor = '#e8ff5a';
-          ctx.shadowBlur = 18;
+          ctx.shadowBlur = 14;
         }
         ctx.fill();
         ctx.shadowBlur = 0;
       });
 
       // 6. Dual Concentric Orbit Rings (Front Half)
-      drawOrbitRing(2.35, -0.45, false, 0.65);
-      drawOrbitRing(2.8, 0.55, false, 0.35, true);
+      drawOrbitRing(1.32, -0.45, false, 0.65);
+      drawOrbitRing(1.50, 0.55, false, 0.35, true);
 
       // 7. Kinetic Orbiting Satellites with glowing trails
       // Satellite 1: Electric Lime (fast main ring)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(-0.45);
-      const ox1 = Math.cos(tm) * S * 2.35;
-      const oy1 = Math.sin(tm) * S * 2.35 * 0.38;
+      const ox1 = Math.cos(tm) * S * 1.32;
+      const oy1 = Math.sin(tm) * S * 1.32 * 0.38;
 
       // Glow halo
       ctx.beginPath();
-      ctx.arc(ox1, oy1, 7, 0, Math.PI * 2);
+      ctx.arc(ox1, oy1, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = '#e8ff5a';
-      ctx.shadowBlur = 22;
+      ctx.shadowBlur = 18;
       ctx.fill();
       ctx.restore();
 
@@ -249,14 +268,14 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(0.55);
-      const ox2 = Math.cos(-tm * 0.75 + 1.2) * S * 2.8;
-      const oy2 = Math.sin(-tm * 0.75 + 1.2) * S * 2.8 * 0.38;
+      const ox2 = Math.cos(-tm * 0.75 + 1.2) * S * 1.50;
+      const oy2 = Math.sin(-tm * 0.75 + 1.2) * S * 1.50 * 0.38;
 
       ctx.beginPath();
-      ctx.arc(ox2, oy2, 5, 0, Math.PI * 2);
+      ctx.arc(ox2, oy2, 3.5, 0, Math.PI * 2);
       ctx.fillStyle = '#e8ff5a';
       ctx.shadowColor = '#e8ff5a';
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = 12;
       ctx.fill();
       ctx.restore();
 
@@ -290,13 +309,14 @@ export const QuestionBankPolyhedronCanvas = ({ heroRef, className = '' }) => {
       className={className}
       style={{
         position: 'absolute',
-        right: '-2%',
+        right: '12px',
         top: 0,
-        width: '56%',
+        bottom: 0,
+        width: '46%',
         height: '100%',
-        zIndex: 0,
+        zIndex: 1,
         pointerEvents: 'none',
-        filter: 'drop-shadow(0 0 20px rgba(232, 255, 90, 0.15))'
+        filter: 'drop-shadow(0 0 24px rgba(232, 255, 90, 0.2))'
       }}
     />
   );

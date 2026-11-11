@@ -106,6 +106,119 @@ const submissionSchema = new mongoose.Schema(
       default: null,
       index: true
     },
+    recoveryOwner: {
+      type: String,
+      default: null,
+      index: true
+    },
+    recoveryStartedAt: {
+      type: Date,
+      default: null
+    },
+    recoveryLeaseExpiresAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+    recoveryAttempts: {
+      type: Number,
+      default: 0
+    },
+    recoveryFailureReason: {
+      type: String,
+      default: null
+    },
+    // Worker execution exclusivity & distributed lease
+    executionOwner: {
+      type: String,
+      default: null,
+      index: true
+    },
+    executionVersion: {
+      type: Number,
+      default: 0,
+      index: true
+    },
+    executionStartedAt: {
+      type: Date,
+      default: null
+    },
+    executionLeaseExpiresAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+    // Remote Runner Lifecycle & Distributed Reconciliation
+    remoteExecution: {
+      token: {
+        type: String,
+        default: null,
+        index: true
+      },
+      state: {
+        type: String,
+        enum: [
+          'NOT_CREATED',
+          'REQUESTING',
+          'CREATED',
+          'QUEUED',
+          'PROCESSING',
+          'COMPLETED',
+          'CANCELLATION_REQUESTED',
+          'CANCELLED',
+          'CANCELLATION_UNCONFIRMED',
+          'EXECUTION_UNAVAILABLE',
+          'NOT_FOUND'
+        ],
+        default: 'NOT_CREATED',
+        index: true
+      },
+      provider: {
+        type: String,
+        default: null
+      },
+      fencingToken: {
+        type: String,
+        default: null
+      },
+      requestedAt: {
+        type: Date,
+        default: null
+      },
+      completedAt: {
+        type: Date,
+        default: null
+      },
+      lastCheckedAt: {
+        type: Date,
+        default: null
+      },
+      cancellationRequestedAt: {
+        type: Date,
+        default: null
+      },
+      cancellationStatus: {
+        type: String,
+        default: null
+      },
+      lastObservedAt: {
+        type: Date,
+        default: null
+      },
+      lastObservedState: {
+        type: String,
+        default: null
+      },
+      confirmedTerminalAt: {
+        type: Date,
+        default: null
+      },
+      quarantineUntil: {
+        type: Date,
+        default: null,
+        index: true
+      }
+    },
     errorMessage: {
       type: String,
       default: null

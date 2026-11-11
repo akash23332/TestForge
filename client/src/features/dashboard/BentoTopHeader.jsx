@@ -58,6 +58,8 @@ export const BentoTopHeader = ({
     switch (activeTab) {
       case 'dashboard':
         return 'Dashboard';
+      case 'students':
+        return 'Students';
       case 'bank':
         return 'Question Bank';
       case 'create':
@@ -72,6 +74,8 @@ export const BentoTopHeader = ({
         return 'Paper Designer';
       case 'exams':
         return 'Examinations';
+      case 'analytics':
+        return 'Analytics Studio';
       default:
         return 'Workspace';
     }

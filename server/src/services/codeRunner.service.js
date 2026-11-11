@@ -186,6 +186,14 @@ export const extractFunctionName = (code) => {
  * Executes JavaScript code in an isolated VM sandbox with ListNode/TreeNode support.
  */
 export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => {
+  if (config.env === 'production' || process.env.NODE_ENV === 'production') {
+    return {
+      status: 'internal_error',
+      output: null,
+      error: '[CodeRunner FAIL-CLOSED] Direct host process execution is strictly forbidden in production.',
+      runtimeMs: 0
+    };
+  }
   const startTime = Date.now();
 
   try {
@@ -316,6 +324,14 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
  * Executes Java code with universal reflection, ListNode, and TreeNode support.
  */
 export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => {
+  if (config.env === 'production' || process.env.NODE_ENV === 'production') {
+    return {
+      status: 'internal_error',
+      output: null,
+      error: '[CodeRunner FAIL-CLOSED] Direct host process execution is strictly forbidden in production.',
+      runtimeMs: 0
+    };
+  }
   const startTime = Date.now();
   const tmpDir = os.tmpdir();
   const runnerId = `Runner_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -816,6 +832,14 @@ ${cleanCode}
  * Executes Python code in an isolated process with ListNode/TreeNode support.
  */
 export const runPythonIsolated = async ({ code, inputArgs, timeoutMs = 3500 }) => {
+  if (config.env === 'production' || process.env.NODE_ENV === 'production') {
+    return {
+      status: 'internal_error',
+      output: null,
+      error: '[CodeRunner FAIL-CLOSED] Direct host process execution is strictly forbidden in production.',
+      runtimeMs: 0
+    };
+  }
   const startTime = Date.now();
   const tmpDir = os.tmpdir();
   const runnerFile = path.join(tmpDir, `runner_${Date.now()}_${Math.floor(Math.random() * 10000)}.py`);
@@ -1056,6 +1080,14 @@ const jsValueToCppLiteral = (val, rawType) => {
  * Compiles with g++ -std=c++17 -O2 and runs the resulting binary.
  */
 export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
+  if (config.env === 'production' || process.env.NODE_ENV === 'production') {
+    return {
+      status: 'internal_error',
+      output: null,
+      error: '[CodeRunner FAIL-CLOSED] Direct host process execution is strictly forbidden in production.',
+      runtimeMs: 0
+    };
+  }
   const startTime = Date.now();
   const tmpDir  = os.tmpdir();
   const uid     = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -1220,7 +1252,9 @@ export const validateSingleTestCase = async ({
   testCase,
   questionContext = {},
   timeoutMs = 4500,
-  provider = null
+  provider = null,
+  signal = null,
+  onTokenCreated = null
 }) => {
   if (!testCase || typeof testCase !== 'object') {
     return {
@@ -1279,7 +1313,9 @@ export const validateSingleTestCase = async ({
       code,
       inputArgs: parsedArgs,
       timeoutMs,
-      questionContext
+      questionContext,
+      signal,
+      onTokenCreated
     });
   } else {
     // FAIL-CLOSED PRODUCTION GATE:
@@ -1300,6 +1336,21 @@ export const validateSingleTestCase = async ({
     } else {
       execResult = await runCodeIsolated({ code, inputArgs: parsedArgs, timeoutMs });
     }
+  }
+
+  if (execResult.status === 'cancelled') {
+    return {
+      testCaseId: testCase._id,
+      category: testCase.category,
+      visibility: testCase.visibility,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      actualOutput: null,
+      status: 'cancelled',
+      passed: false,
+      error: execResult.error || 'Execution cancelled',
+      runtimeMs: execResult.runtimeMs || 0
+    };
   }
 
   if (execResult.status === 'timeout') {

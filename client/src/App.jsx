@@ -13,6 +13,8 @@ import { ProfileSettingsModal } from './features/profile/ProfileSettingsModal';
 import { StudentPortalContainer } from './features/student-portal/StudentPortalContainer';
 import { StudentDashboardView } from './features/student-portal/StudentDashboardView';
 import { TeacherExamsView } from './features/exam-management/TeacherExamsView';
+import { StudentsView } from './features/students/StudentsView';
+import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { BentoSidebar } from './features/dashboard/BentoSidebar';
 import { BentoTopHeader } from './features/dashboard/BentoTopHeader';
 import './features/dashboard/bento-theme.css';
@@ -30,7 +32,8 @@ import {
   ClipboardList,
   ChartNoAxesCombined,
   Settings,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 
 export const App = () => {
@@ -115,21 +118,24 @@ export const App = () => {
     fetchHealth();
   }, []);
 
-  // 8 Core Modules for mobile drawer
+  // Core Navigation Modules for mobile drawer
   const mobileNavLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'students', label: 'Students', icon: Users },
     { id: 'bank', label: 'Question Bank', icon: BookOpen },
     { id: 'create', label: 'Create Question', icon: FilePlus },
     { id: 'tests', label: 'Test Studio', icon: FlaskConical },
     { id: 'mutation', label: 'Mutation Lab', icon: TestTube },
     { id: 'mcq', label: 'Bulk MCQ', icon: Files },
     { id: 'paper', label: 'Paper Designer', icon: FileText },
-    { id: 'exams', label: 'Examinations', icon: ClipboardList }
+    { id: 'exams', label: 'Examinations', icon: ClipboardList },
+    { id: 'analytics', label: 'Analytics', icon: ChartNoAxesCombined }
   ];
 
   // Top horizontal module navigation pills matching the sidebar order
   const navigationPills = [
     { id: 'dashboard', label: 'Overview' },
+    { id: 'students', label: 'Students' },
     { id: 'bank', label: 'Question Bank' },
     { id: 'create', label: 'Create Question' },
     { id: 'tests', label: 'Test Studio' },
@@ -137,34 +143,43 @@ export const App = () => {
     { id: 'mcq', label: 'Bulk MCQ' },
     { id: 'paper', label: 'Paper Designer' },
     { id: 'exams', label: 'Examinations' },
+    { id: 'analytics', label: 'Analytics' }
   ];
 
   // 1. If activeTab is 'login' or no user logged in, render dedicated AuthPage
-  if (activeTab === 'login' || !currentUser) {
-    return (
-      <div className="min-h-screen bg-[#F2F3F0]">
-        <AuthPage
-          onSuccess={(user) => {
-            setCurrentUser(user);
-            setSelectedQuestion(null);
-            setEditingQuestion(null);
-            if (user?.role === 'student' || user?.role === 'Student') {
-              // Automatically renders StudentDashboardView
-            } else {
-              setActiveTab('dashboard');
-              fetchQuestions();
-            }
-          }}
-          onNavigateHome={() => {
-            if (!currentUser) {
-              setActiveTab('login');
-            } else {
-              setActiveTab('dashboard');
-            }
-          }}
-        />
-      </div>
-    );
+  if (!currentUser || activeTab === 'login') {
+    if (currentUser) {
+      if (currentUser.role === 'student' || currentUser.role === 'Student') {
+        setActiveTab('student-dashboard');
+      } else {
+        setActiveTab('dashboard');
+      }
+    } else {
+      return (
+        <div className="min-h-screen bg-[#F2F3F0]">
+          <AuthPage
+            onSuccess={(user) => {
+              setCurrentUser(user);
+              setSelectedQuestion(null);
+              setEditingQuestion(null);
+              if (user?.role === 'student' || user?.role === 'Student') {
+                setActiveTab('student-dashboard');
+              } else {
+                setActiveTab('dashboard');
+                fetchQuestions();
+              }
+            }}
+            onNavigateHome={() => {
+              if (!currentUser) {
+                setActiveTab('login');
+              } else {
+                setActiveTab('dashboard');
+              }
+            }}
+          />
+        </div>
+      );
+    }
   }
 
   // 2. If authenticated as a Student, render dedicated Student Examination Portal
@@ -322,6 +337,10 @@ export const App = () => {
 
           {/* Main Workspace Body */}
           <main className="flex-1 mt-3">
+            {activeTab === 'students' && (
+              <StudentsView onNavigateToExams={() => setActiveTab('exams')} />
+            )}
+
             {activeTab === 'bank' && (
               <QuestionBankView
                 questions={questions}
@@ -398,6 +417,8 @@ export const App = () => {
               />
             )}
 
+            {activeTab === 'analytics' && <AnalyticsView />}
+
             {activeTab === 'student-portal' && (
               <StudentPortalContainer
                 initialExamCode={candidateExamCode}
@@ -406,7 +427,7 @@ export const App = () => {
             )}
 
             {/* Custom 404 Fallback View */}
-            {!['dashboard', 'bank', 'create', 'tests', 'mutation', 'mcq', 'paper', 'exams', 'student-portal'].includes(activeTab) && (
+            {!['dashboard', 'students', 'bank', 'create', 'tests', 'mutation', 'mcq', 'paper', 'exams', 'analytics', 'student-portal'].includes(activeTab) && (
               <div className="flex-1 flex items-center justify-center p-8 animate-fadeIn">
                 <div className="bg-white border border-[#DDE1DA] rounded-[32px] p-10 max-w-lg w-full text-center space-y-4 shadow-bento">
                   <div className="w-16 h-16 rounded-2xl bg-[#191A1D] text-[#EDFF72] flex items-center justify-center mx-auto text-2xl font-black">

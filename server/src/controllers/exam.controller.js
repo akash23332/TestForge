@@ -221,6 +221,21 @@ export const getExamAnalytics = async (req, res, next) => {
       .sort({ totalScore: -1, submittedAt: 1 })
       .lean();
 
+    const finalizedAttempts = attempts.filter((a) => !a.isProvisional && a.gradingStatus !== 'PROVISIONAL');
+    const provisionalAttempts = attempts.filter((a) => a.isProvisional || a.gradingStatus === 'PROVISIONAL');
+
+    const totalFinalizedScore = finalizedAttempts.reduce((sum, a) => sum + (Number(a.totalScore) || 0), 0);
+    const averageScore = finalizedAttempts.length > 0 ? Math.round((totalFinalizedScore / finalizedAttempts.length) * 100) / 100 : null;
+
+    const attemptsWithPct = finalizedAttempts.filter((a) => a.percentage !== null && a.percentage !== undefined);
+    const averagePercentage = attemptsWithPct.length > 0
+      ? Math.round((attemptsWithPct.reduce((sum, a) => sum + Number(a.percentage), 0) / attemptsWithPct.length) * 100) / 100
+      : null;
+
+    const highestScore = finalizedAttempts.length > 0
+      ? Math.max(...finalizedAttempts.map((a) => Number(a.totalScore) || 0))
+      : null;
+
     return ApiResponse.success(
       res,
       200,
@@ -232,6 +247,14 @@ export const getExamAnalytics = async (req, res, next) => {
           durationMinutes: exam.durationMinutes,
           totalMarks: exam.totalMarks,
           status: exam.status
+        },
+        summary: {
+          totalAttempts: attempts.length,
+          finalizedCount: finalizedAttempts.length,
+          provisionalCount: provisionalAttempts.length,
+          averageScore,
+          averagePercentage,
+          highestScore
         },
         attempts
       },

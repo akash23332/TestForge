@@ -10,7 +10,9 @@ import {
   ClipboardList,
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  Users,
+  BarChart3
 } from 'lucide-react';
 
 export const BentoSidebar = ({
@@ -23,9 +25,10 @@ export const BentoSidebar = ({
 }) => {
   const [tooltip, setTooltip] = useState({ text: '', top: 0, visible: false });
 
-  // Core Main Navigation Modules (without Analytics)
+  // Core Main Navigation Modules
   const mainNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'students', label: 'Students', icon: Users },
     { id: 'bank', label: 'Question Bank', icon: BookOpen },
     { id: 'create', label: 'Create Question', icon: FilePlus },
     { id: 'tests', label: 'Test Studio', icon: FlaskConical },
@@ -33,6 +36,7 @@ export const BentoSidebar = ({
     { id: 'mcq', label: 'Bulk MCQ', icon: Files },
     { id: 'paper', label: 'Paper Designer', icon: FileText },
     { id: 'exams', label: 'Examinations', icon: ClipboardList },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 }
   ];
 
   // Bottom Utility Actions: Settings & Logout

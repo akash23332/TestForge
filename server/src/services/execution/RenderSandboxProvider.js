@@ -43,6 +43,23 @@ export class RenderSandboxProvider extends ExecutionProvider {
       process.env.ALL_PROXY ||
       ''
     ).trim();
+
+    if (this.proxyUrl) {
+      const lower = this.proxyUrl.toLowerCase();
+      if (!lower.startsWith('http://') && !lower.startsWith('https://') && !lower.startsWith('socks5://')) {
+        throw new Error(
+          `[RenderSandboxProvider] Unsupported proxy protocol: '${this.proxyUrl}'. ` +
+          `Proxy URL must use http://, https://, or socks5://.`
+        );
+      }
+      if (lower.startsWith('socks5://')) {
+        console.warn(
+          `[RenderSandboxProvider] SOCKS5 proxy protocol configured (${this.proxyUrl}). ` +
+          `Node undici SOCKS5 support is experimental; prefer http://127.0.0.1:1056 for production stability.`
+        );
+      }
+    }
+
     this.authzToken = (
       options.authzToken ||
       config.execution?.sandboxAuthzToken ||
@@ -77,7 +94,9 @@ export class RenderSandboxProvider extends ExecutionProvider {
       inputArgs,
       timeoutMs = 3500,
       memoryLimitMb = this.defaultMemoryLimitMb,
-      questionContext = {}
+      questionContext = {},
+      signal = null,
+      onTokenCreated = null
     } = params;
 
     if (!this.isConfigured()) {
@@ -96,16 +115,226 @@ export class RenderSandboxProvider extends ExecutionProvider {
     }
 
     if (this.providerType === 'judge0') {
-      return this._executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext });
+      return this._executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext, signal, onTokenCreated });
     }
 
-    return this._executeViaTestForgeSandbox({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext });
+    return this._executeViaTestForgeSandbox({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext, signal });
+  }
+
+  /**
+   * Helper to parse and standardize Judge0 CE submission response payload.
+   */
+  _parseJudge0Response(data, startTime = 0, timeoutMs = 3500) {
+    const statusId = data.status?.id;
+    let status = 'success';
+    let error = null;
+
+    const desc = (data.status?.description || '').toLowerCase();
+    const msg = (data.message || '').toLowerCase();
+    const stderr = data.stderr || '';
+
+    // Status 1 = In Queue, 2 = Processing
+    if (statusId === 1) {
+      return {
+        token: data.token || null,
+        status: 'in_queue',
+        output: null,
+        error: null,
+        runtimeMs: 0,
+        memoryKb: 0,
+        statusId: 1
+      };
+    }
+    if (statusId === 2) {
+      return {
+        token: data.token || null,
+        status: 'processing',
+        output: null,
+        error: null,
+        runtimeMs: data.time ? Math.round(Number(data.time) * 1000) : (startTime ? Date.now() - startTime : 0),
+        memoryKb: data.memory || 0,
+        statusId: 2
+      };
+    }
+
+    // Evaluate Judge0 metadata and status:
+    // 1. Explicit status description or message reported by isolate/Judge0:
+    const hasMemoryStatusOrMessage =
+      desc.includes('memory') ||
+      msg.includes('memory') ||
+      msg.includes('exceeded memory');
+
+    // 2. Numerical memory consumption vs memory limit in Judge0 metadata:
+    const hasMemoryExhaustionMetadata =
+      data.memory !== undefined &&
+      data.memory !== null &&
+      data.memory_limit !== undefined &&
+      data.memory_limit !== null &&
+      Number(data.memory) >= Number(data.memory_limit);
+
+    // 3. Corroborating runtime stderr exception patterns:
+    const hasMemoryException =
+      stderr.includes('OutOfMemoryError') ||
+      stderr.includes('std::bad_alloc') ||
+      stderr.includes('MemoryError');
+
+    const isMemoryError = hasMemoryStatusOrMessage || hasMemoryExhaustionMetadata || hasMemoryException;
+
+    if (statusId === 5) {
+      status = 'timeout';
+      error = `Time limit exceeded (${timeoutMs}ms)`;
+    } else if (statusId === 6) {
+      status = 'compilation_error';
+      error = data.compile_output || 'Compilation failed';
+    } else if (isMemoryError) {
+      status = 'memory_limit_exceeded';
+      error = stderr || data.message || 'Memory limit exceeded';
+    } else if (statusId >= 7 && statusId <= 12) {
+      status = 'runtime_error';
+      error = stderr || data.message || `Runtime error (${data.status?.description || 'Error'})`;
+    } else if (statusId === 13) {
+      status = 'internal_error';
+      error = `Judge0 internal error: ${data.message || 'Unknown error'}`;
+    }
+
+    let parsedOutput = data.stdout?.trim() || null;
+    try {
+      if (parsedOutput !== null && parsedOutput !== undefined) {
+        parsedOutput = JSON.parse(parsedOutput);
+      }
+    } catch {
+      // Keep as string
+    }
+
+    return {
+      token: data.token || null,
+      status,
+      statusId,
+      output: parsedOutput,
+      error,
+      runtimeMs: data.time ? Math.round(Number(data.time) * 1000) : (startTime ? Date.now() - startTime : 0),
+      memoryKb: data.memory || 0
+    };
+  }
+
+  /**
+   * Retrieves remote submission status from Judge0 CE by token.
+   */
+  async getSubmission(token, { signal = null, timeoutMs = 3500 } = {}) {
+    if (!this.isConfigured() || !token) return null;
+    if (this.requireProxy && !this.dispatcher) {
+      throw new Error(
+        `[RenderSandboxProvider FAIL-CLOSED] Private endpoint requires an active proxy (TAILSCALE_PROXY).`
+      );
+    }
+
+    const cleanUrl = this.endpoint.endsWith('/')
+      ? `${this.endpoint}submissions/${token}?base64_encoded=false`
+      : `${this.endpoint}/submissions/${token}?base64_encoded=false`;
+
+    try {
+      const headers = {};
+      if (this.apiKey) headers['X-Auth-Token'] = this.apiKey;
+      if (this.authzToken) headers['X-Auth-User'] = this.authzToken;
+
+      const fetchOpts = {
+        method: 'GET',
+        headers,
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000)
+      };
+      if (this.dispatcher) {
+        fetchOpts.dispatcher = this.dispatcher;
+      }
+
+      const response = await fetch(cleanUrl, fetchOpts);
+      if (response.status === 404) {
+        return { token, status: 'not_found', exists: false };
+      }
+      if (!response.ok) {
+        return { token, status: 'internal_error', error: `HTTP ${response.status}`, exists: true };
+      }
+
+      const data = await response.json();
+      const parsed = this._parseJudge0Response(data, 0, timeoutMs);
+      parsed.exists = true;
+      return parsed;
+    } catch (err) {
+      return { token, status: 'internal_error', error: err.message, exists: null };
+    }
+  }
+
+  /**
+   * Requests deletion/cancellation of a submission on Judge0 CE.
+   * Note on Judge0 CE architecture:
+   * DELETE /submissions/:token removes the record from Postgres/Redis, but does NOT kill
+   * an in-flight isolate process executing on the runner host. The isolate process
+   * is terminated only when its kernel-enforced wall_time_limit expires.
+   */
+  async cancelSubmission(token, { signal = null } = {}) {
+    if (!this.isConfigured() || !token) {
+      return { success: false, cancellationStatus: 'UNCONFIGURED_OR_NO_TOKEN', isolateProcessKilled: false };
+    }
+    if (this.requireProxy && !this.dispatcher) {
+      throw new Error(
+        `[RenderSandboxProvider FAIL-CLOSED] Private endpoint requires an active proxy (TAILSCALE_PROXY).`
+      );
+    }
+
+    const cleanUrl = this.endpoint.endsWith('/')
+      ? `${this.endpoint}submissions/${token}`
+      : `${this.endpoint}/submissions/${token}`;
+
+    try {
+      const headers = {};
+      if (this.apiKey) headers['X-Auth-Token'] = this.apiKey;
+      if (this.authzToken) headers['X-Auth-User'] = this.authzToken;
+
+      const fetchOpts = {
+        method: 'DELETE',
+        headers,
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000)
+      };
+      if (this.dispatcher) {
+        fetchOpts.dispatcher = this.dispatcher;
+      }
+
+      const response = await fetch(cleanUrl, fetchOpts);
+      if (response.status === 200 || response.status === 204) {
+        // Judge0 CE limitation: Database row deleted, but isolate executes until wall_time_limit
+        return {
+          success: true,
+          cancellationStatus: 'DELETED_FROM_QUEUE_WALL_TIME_UNCONFIRMED',
+          wallTimeEnforced: false,
+          isolateProcessKilled: false
+        };
+      }
+      if (response.status === 404) {
+        return {
+          success: false,
+          cancellationStatus: 'NOT_FOUND',
+          isolateProcessKilled: false
+        };
+      }
+      return {
+        success: false,
+        cancellationStatus: 'REJECTED_OR_UNSUPPORTED',
+        statusCode: response.status,
+        isolateProcessKilled: false
+      };
+    } catch (err) {
+      return {
+        success: false,
+        cancellationStatus: 'NETWORK_ERROR',
+        error: err.message,
+        isolateProcessKilled: false
+      };
+    }
   }
 
   /**
    * Direct execution via TestForge Hardened Sandbox microservice (/execute).
    */
-  async _executeViaTestForgeSandbox({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext }) {
+  async _executeViaTestForgeSandbox({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext, signal = null }) {
     const startTime = Date.now();
     const cleanUrl = this.endpoint.endsWith('/') ? `${this.endpoint}execute` : `${this.endpoint}/execute`;
 
@@ -133,11 +362,15 @@ export class RenderSandboxProvider extends ExecutionProvider {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
+      const combinedSignal = signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs + 3000)])
+        : AbortSignal.timeout(timeoutMs + 3000);
+
       const fetchOpts = {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(timeoutMs + 3000)
+        signal: combinedSignal
       };
       if (this.dispatcher) {
         fetchOpts.dispatcher = this.dispatcher;
@@ -167,6 +400,15 @@ export class RenderSandboxProvider extends ExecutionProvider {
       };
     } catch (err) {
       const runtimeMs = Date.now() - startTime;
+      const isAborted = signal?.aborted || err.name === 'AbortError';
+      if (isAborted) {
+        return {
+          status: 'cancelled',
+          output: null,
+          error: 'Sandbox execution cancelled by caller or lease preemption.',
+          runtimeMs
+        };
+      }
       const isTimeout = err.name === 'TimeoutError' || runtimeMs >= timeoutMs;
 
       return {
@@ -183,7 +425,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
   /**
    * Execution via Judge0 CE API (/submissions?wait=true).
    */
-  async _executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb }) {
+  async _executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, signal = null, onTokenCreated = null }) {
     const startTime = Date.now();
     const cleanUrl = this.endpoint.endsWith('/')
       ? `${this.endpoint}submissions?wait=true&base64_encoded=false`
@@ -215,11 +457,15 @@ export class RenderSandboxProvider extends ExecutionProvider {
         headers['X-Auth-User'] = this.authzToken;
       }
 
+      const combinedSignal = signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs + 3500)])
+        : AbortSignal.timeout(timeoutMs + 3500);
+
       const fetchOpts = {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(timeoutMs + 3500)
+        signal: combinedSignal
       };
       if (this.dispatcher) {
         fetchOpts.dispatcher = this.dispatcher;
@@ -238,75 +484,27 @@ export class RenderSandboxProvider extends ExecutionProvider {
       }
 
       const data = await response.json();
-      const statusId = data.status?.id;
 
-      // Map Judge0 status IDs to standardized TestForge execution statuses
-      // 3 = Accepted, 4 = Wrong Answer (from Judge0 POV, but TestForge grades it), 5 = Time Limit Exceeded, 6 = Compilation Error, 7-12 = Runtime Error
-      let status = 'success';
-      let error = null;
-
-      const desc = (data.status?.description || '').toLowerCase();
-      const msg = (data.message || '').toLowerCase();
-      const stderr = data.stderr || '';
-
-      // Evaluate Judge0 metadata and status:
-      // 1. Explicit status description or message reported by isolate/Judge0:
-      const hasMemoryStatusOrMessage =
-        desc.includes('memory') ||
-        msg.includes('memory') ||
-        msg.includes('exceeded memory');
-
-      // 2. Numerical memory consumption vs memory limit in Judge0 metadata:
-      const hasMemoryExhaustionMetadata =
-        data.memory !== undefined &&
-        data.memory !== null &&
-        data.memory_limit !== undefined &&
-        data.memory_limit !== null &&
-        Number(data.memory) >= Number(data.memory_limit);
-
-      // 3. Corroborating runtime stderr exception patterns:
-      const hasMemoryException =
-        stderr.includes('OutOfMemoryError') ||
-        stderr.includes('std::bad_alloc') ||
-        stderr.includes('MemoryError');
-
-      const isMemoryError = hasMemoryStatusOrMessage || hasMemoryExhaustionMetadata || hasMemoryException;
-
-      if (statusId === 5) {
-        status = 'timeout';
-        error = `Time limit exceeded (${timeoutMs}ms)`;
-      } else if (statusId === 6) {
-        status = 'compilation_error';
-        error = data.compile_output || 'Compilation failed';
-      } else if (isMemoryError) {
-        status = 'memory_limit_exceeded';
-        error = stderr || data.message || 'Memory limit exceeded';
-      } else if (statusId >= 7 && statusId <= 12) {
-        status = 'runtime_error';
-        error = stderr || data.message || `Runtime error (${data.status?.description || 'Error'})`;
-      } else if (statusId === 13) {
-        status = 'internal_error';
-        error = `Judge0 internal error: ${data.message || 'Unknown error'}`;
-      }
-
-      let parsedOutput = data.stdout?.trim() || null;
-      try {
-        if (parsedOutput !== null && parsedOutput !== undefined) {
-          parsedOutput = JSON.parse(parsedOutput);
+      if (data.token && typeof onTokenCreated === 'function') {
+        try {
+          await onTokenCreated(data.token);
+        } catch (tokenErr) {
+          console.warn(`[RenderSandboxProvider] onTokenCreated callback warning: ${tokenErr.message}`);
         }
-      } catch {
-        // Keep as string
       }
 
-      return {
-        status,
-        output: parsedOutput,
-        error,
-        runtimeMs: data.time ? Math.round(Number(data.time) * 1000) : (Date.now() - startTime),
-        memoryKb: data.memory || 0
-      };
+      return this._parseJudge0Response(data, startTime, timeoutMs);
     } catch (err) {
       const runtimeMs = Date.now() - startTime;
+      const isAborted = signal?.aborted || err.name === 'AbortError';
+      if (isAborted) {
+        return {
+          status: 'cancelled',
+          output: null,
+          error: 'Judge0 execution cancelled by caller or lease preemption.',
+          runtimeMs
+        };
+      }
       const isTimeout = err.name === 'TimeoutError' || runtimeMs >= timeoutMs;
 
       return {

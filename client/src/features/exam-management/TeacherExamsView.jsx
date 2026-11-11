@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../lib/api';
 import {
   Sparkles,
@@ -21,6 +21,7 @@ import {
   Share2,
   Eye,
   ShieldAlert,
+  ShieldCheck,
   BarChart3,
   ArrowRight,
   Brain,
@@ -30,8 +31,35 @@ import {
   Database,
   RefreshCw,
   FileText,
-  CheckCircle
+  CheckCircle,
+  Radio,
+  SlidersHorizontal,
+  Compass
 } from 'lucide-react';
+
+// Smooth number counter transition
+const AnimatedCount = ({ value, duration = 900 }) => {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    let frame;
+    const start = performance.now();
+    const numVal = Number(value) || 0;
+    const step = (now) => {
+      const elapsed = now - start;
+      const k = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - k, 3);
+      setDisplay(Math.round(numVal * eased));
+      if (k < 1) {
+        frame = requestAnimationFrame(step);
+      }
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+
+  return <>{display}</>;
+};
 
 export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperDesigner, questions = [] }) => {
   const [exams, setExams] = useState([]);
@@ -59,6 +87,9 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
   const [selectedExamForAnalytics, setSelectedExamForAnalytics] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+
+  const heroRef = useRef(null);
+  const tiltRef = useRef(null);
 
   const fetchExams = async () => {
     setIsLoading(true);
@@ -282,228 +313,553 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
     return exam.sections.reduce((acc, s) => acc + (s.questions?.length || 0), 0);
   };
 
+  // Cursor Gyro Tilt Handlers
+  const handleHeroMouseMove = (e) => {
+    if (!heroRef.current || !tiltRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    tiltRef.current.style.transform = `rotateX(${-y * 18}deg) rotateY(${x * 24}deg)`;
+  };
+
+  const handleHeroMouseLeave = () => {
+    if (!tiltRef.current) return;
+    tiltRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  };
+
   return (
-    <div className="w-full space-y-6 pb-16 font-sans">
-      {/* ── TOP HERO BANNER (Inspired by Reference Challenges Header) ── */}
-      <div className="bg-[#191A1D] text-white rounded-3xl p-6 sm:p-7 border border-[#2D2A24] shadow-md flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 relative overflow-hidden">
-        {/* Soft Ambient Glow */}
-        <div className="absolute top-0 right-1/4 w-80 h-80 bg-[#EDFF72]/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="tf-exams-root select-none font-sans text-[#171819] pb-16">
+      {/* ────────────────────────────────────────────────────────────────────────────
+          SCOPED STYLES: 100% LIGHT THEME, 3D CHRONOMETER SHIELD, QUESTION BANK MOTIONS
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <style>{`
+        .tf-exams-root {
+          --canvas: #F2F3F0;
+          --card: #FFFFFF;
+          --line: #DDE1DA;
+          --ink: #171819;
+          --mute: #777D78;
+          --acc: #EDFF72;
+          --dark: #101112;
+        }
 
-        <div className="space-y-1.5 z-10">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Challenges
+        /* Top 2-Column Banner Grid */
+        .tf-exams-root .tf-top {
+          display: grid;
+          grid-template-columns: 1.55fr 1fr;
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        @media (max-width: 1024px) {
+          .tf-exams-root .tf-top {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* Bento Cards */
+        .tf-exams-root .tf-card {
+          background: #ffffff;
+          border: 1px solid var(--line);
+          border-radius: 28px;
+          position: relative;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        /* Hero Bento Card */
+        .tf-exams-root .tf-hero {
+          background: #101112;
+          color: #ffffff;
+          padding: 32px 36px;
+          border-radius: 32px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 290px;
+          position: relative;
+          overflow: hidden;
+          border: 1px solid #232528;
+        }
+
+        /* Staggered Title Animations */
+        .tf-exams-root .hero-title {
+          font-size: clamp(32px, 3.4vw, 46px);
+          font-weight: 900;
+          letter-spacing: -0.035em;
+          line-height: 1.05;
+          margin: 6px 0 10px;
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .tf-exams-root .tfTitleChar {
+          display: inline-block;
+          animation: tfCharIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+          animation-delay: calc(var(--ci) * 0.025s);
+        }
+        @keyframes tfCharIn {
+          from {
+            opacity: 0;
+            transform: translateY(14px) rotate(4deg);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) rotate(0deg);
+          }
+        }
+
+        /* 3D Chronometer Shield Stage - Aligned like Create Question */
+        .tf-exams-root .stage {
+          position: absolute;
+          right: 12px;
+          top: 0;
+          bottom: 0;
+          width: 46%;
+          perspective: 850px;
+          display: grid;
+          place-items: center;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .tf-exams-root .stage .float {
+          animation: tfChronFloat 3.2s ease-in-out infinite;
+          transform-style: preserve-3d;
+        }
+        @keyframes tfChronFloat {
+          0%, 100% {
+            transform: translateY(0px) rotateZ(0deg);
+          }
+          50% {
+            transform: translateY(-16px) rotateZ(2deg);
+          }
+        }
+        .tf-exams-root .tilt {
+          width: 100%;
+          height: 100%;
+          transform-style: preserve-3d;
+          transition: transform .12s ease-out;
+          display: grid;
+          place-items: center;
+        }
+        .tf-exams-root .chron-shield {
+          width: 155px;
+          height: 155px;
+          position: relative;
+          transform-style: preserve-3d;
+          transform: rotateX(20deg) rotateY(-18deg);
+        }
+        .tf-exams-root .ring-outer {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          border: 2px dashed rgba(237, 255, 114, 0.6);
+          animation: tfSpinClock 14s linear infinite;
+        }
+        .tf-exams-root .ring-inner {
+          position: absolute;
+          inset: 20px;
+          border-radius: 50%;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: #EDFF72;
+          animation: tfSpinCounter 7s linear infinite;
+        }
+        .tf-exams-root .core-badge {
+          position: absolute;
+          inset: 38px;
+          background: #17181c;
+          border: 2px solid #32353f;
+          border-radius: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 28px rgba(237, 255, 114, 0.35);
+          transform: translateZ(22px);
+        }
+        .tf-exams-root .stage .shadow {
+          position: absolute;
+          bottom: 24px;
+          width: 140px;
+          height: 22px;
+          border-radius: 50%;
+          background: rgba(0,0,0,.55);
+          filter: blur(10px);
+          animation: tfShadow 3.2s ease-in-out infinite;
+        }
+        @keyframes tfShadow {
+          0%, 100% { transform: scale(1); opacity: 0.55; }
+          50% { transform: scale(0.72); opacity: 0.28; }
+        }
+        @keyframes tfSpinClock {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes tfSpinCounter {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+
+        /* 2x2 Telemetry Cards */
+        .tf-exams-root .tf-quad {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+        .tf-exams-root .tf-mini {
+          padding: 22px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 136px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .tf-exams-root .tf-mini:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        }
+        .tf-exams-root .tf-tile {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background: #F2F3F0;
+          border: 1px solid var(--line);
+          display: grid;
+          place-items: center;
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--ink);
+          margin-bottom: 8px;
+        }
+        .tf-exams-root .tf-cap {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          color: var(--mute);
+          text-transform: uppercase;
+        }
+        .tf-exams-root .tf-big {
+          font-size: 32px;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          color: var(--ink);
+          line-height: 1;
+        }
+        .tf-exams-root .tf-sub {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--mute);
+          margin-top: 4px;
+        }
+
+        /* Rise Entrance Animations */
+        .tf-exams-root .rise {
+          animation: tfRise 0.45s ease backwards;
+          animation-delay: calc(var(--k, 0) * 0.06s);
+        }
+        @keyframes tfRise {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          TOP 2-COLUMN BANNER GRID: HERO CARD + 4 STATS CARDS
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="tf-top">
+        {/* Left Hero Card with 3D Proctor Chronometer */}
+        <section
+          ref={heroRef}
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={handleHeroMouseLeave}
+          className="tf-hero rise"
+          style={{ '--k': 1 }}
+        >
+          <div className="max-w-[520px] relative z-10">
+            {/* Pill Eyebrow */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1c1d22] border border-[#2d3036] text-[11px] font-mono font-bold tracking-wider text-[#d5dbd2] uppercase mb-2">
+              <span className="w-2 h-2 rounded-full bg-[#EDFF72] shadow-[0_0_8px_#EDFF72]" />
+              LIVE EXAMINATION DISPATCHER
+            </div>
+
+            {/* Animated Staggered Character Title */}
+            <h1 className="hero-title" aria-label="Examinations">
+              {'Examinations'.split('').map((ch, i) => (
+                <span key={i} className="tfTitleChar" style={{ '--ci': i }}>
+                  {ch === ' ' ? '\u00A0' : ch}
+                </span>
+              ))}
             </h1>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EDFF72]/20 text-[#EDFF72] border border-[#EDFF72]/30">
-              Exam Dispatcher
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-stone-400 max-w-lg">
-            Monitor active candidate sessions, dispatch student access codes, inspect anti-cheat telemetry, and analyze cohort completion rates.
-          </p>
-        </div>
 
-        {/* Metric Badges (Mirroring Reference Design) */}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 z-10">
-          {/* Active Challenges */}
-          <div className="flex items-center gap-3 bg-[#24262B] border border-stone-800 rounded-2xl px-4 py-2.5">
-            <div className="w-9 h-9 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Active Challenges
-              </span>
-              <span className="text-base font-extrabold text-white leading-tight">
-                {activeExams.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Total Completed */}
-          <div className="flex items-center gap-3 bg-[#24262B] border border-stone-800 rounded-2xl px-4 py-2.5">
-            <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <CheckCircle className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Total Completed
-              </span>
-              <span className="text-base font-extrabold text-white leading-tight">
-                {completedExams.length || 75}
-              </span>
-            </div>
-          </div>
-
-          {/* Participation Rate */}
-          <div className="flex items-center gap-3 bg-[#24262B] border border-stone-800 rounded-2xl px-4 py-2.5">
-            <div className="w-9 h-9 rounded-full bg-[#EDFF72]/15 border border-[#EDFF72]/30 flex items-center justify-center text-[#EDFF72]">
-              <Users className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Participation Rate
-              </span>
-              <span className="text-base font-extrabold text-white leading-tight">
-                {participationRate}%
-              </span>
-            </div>
-          </div>
-
-          {/* Action Button: Create New Quiz */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onNavigateToPaperDesigner) {
-                onNavigateToPaperDesigner();
-              } else {
-                setIsCreateOpen(true);
-              }
-            }}
-            className="bg-[#EDFF72] hover:bg-[#e4f858] text-[#191A1D] font-extrabold px-5 py-3 rounded-2xl text-xs sm:text-sm transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer ml-auto xl:ml-2"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Create a New Quiz</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── ACTIVE QUIZZES SECTION ── */}
-      <div className="space-y-4">
-        {/* Section Header & Search/Filter Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-extrabold text-[#171819] tracking-tight">
-              Active Quizzes
-            </h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white border border-[#DDE1DA] text-[#777D78]">
-              {filteredActive.length}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input */}
-            <div className="relative min-w-[220px]">
-              <Search className="w-3.5 h-3.5 text-[#777D78] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search here"
-                className="w-full bg-white border border-[#DDE1DA] focus:border-[#171819] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#171819] placeholder:text-[#777D78] outline-none transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#777D78] hover:text-[#171819]"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
-            {/* Category Dropdown Filter */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-white border border-[#DDE1DA] text-[#171819] text-xs font-semibold rounded-xl px-3 py-1.5 outline-none cursor-pointer hover:border-[#171819] transition-colors"
-            >
-              <option value="ALL">All Categories</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Machine Learning">Machine Learning</option>
-              <option value="Formal Design">Formal Design</option>
-              <option value="JavaScript">JavaScript</option>
-              <option value="Database Systems">Database Systems</option>
-            </select>
-
-            {/* Sort Dropdown */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-white border border-[#DDE1DA] text-[#171819] text-xs font-semibold rounded-xl px-3 py-1.5 outline-none cursor-pointer hover:border-[#171819] transition-colors"
-            >
-              <option value="newest">Newest First</option>
-              <option value="candidates">Most Candidates</option>
-              <option value="duration">Longest Duration</option>
-            </select>
-
-            {/* Quick Refresh */}
-            <button
-              type="button"
-              onClick={fetchExams}
-              title="Refresh examinations"
-              className="p-2 rounded-xl bg-white border border-[#DDE1DA] text-[#777D78] hover:text-[#171819] hover:border-[#171819] transition-colors cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Active Cards Grid ── */}
-        {isLoading ? (
-          <div className="w-full py-16 bg-white border border-[#DDE1DA] rounded-3xl text-center space-y-3 shadow-sm">
-            <div className="w-8 h-8 border-2 border-[#191A1D] border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs font-semibold text-[#777D78]">Loading active assessment quizzes...</p>
-          </div>
-        ) : filteredActive.length === 0 ? (
-          <div className="w-full py-14 bg-white border border-[#DDE1DA] rounded-3xl text-center space-y-3 shadow-sm p-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#E9ECE7] text-[#171819] flex items-center justify-center mx-auto">
-              <BookOpen className="w-6 h-6 stroke-[1.8]" />
-            </div>
-            <h3 className="text-sm font-bold text-[#171819]">No Active Quizzes Match Your Search</h3>
-            <p className="text-xs text-[#777D78] max-w-md mx-auto">
-              Publish a new examination from your Question Bank or Paper Designer to dispatch access codes to candidates.
+            <p className="text-xs text-[#a0a59e] max-w-[440px] leading-relaxed mb-6">
+              Dispatch candidate test sessions, broadcast cryptographic access keys, audit real-time proctoring telemetry, and analyze cohort completion rates.
             </p>
-            <div className="pt-2 flex items-center justify-center gap-3">
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5 flex-wrap">
               <button
                 type="button"
                 onClick={() => {
                   if (onNavigateToPaperDesigner) onNavigateToPaperDesigner();
                   else setIsCreateOpen(true);
                 }}
-                className="px-4 py-2 bg-[#191A1D] hover:bg-[#282a2f] text-[#EDFF72] font-bold text-xs rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5"
+                className="px-5 py-2.5 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-xs font-black text-[#101112] shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center gap-2"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create New Quiz</span>
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Launch New Exam</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="px-4 py-2.5 rounded-full bg-[#1c1d22] hover:bg-[#252830] text-xs font-bold text-white border border-[#30333d] transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#a0a59e]" />
+                <span>Quick Quiz</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchExams}
+                className="px-4 py-2.5 rounded-full bg-[#1c1d22] hover:bg-[#252830] text-xs font-bold text-white border border-[#30333d] transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#a0a59e] ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Sync Live</span>
               </button>
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {visibleActive.map((exam) => {
-              const meta = getExamMeta(exam);
-              const TopicIcon = meta.icon;
-              const qCount = getQuestionCount(exam);
 
-              return (
-                <div
-                  key={exam._id}
-                  className="bg-white border border-[#DDE1DA] hover:border-[#171819]/40 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
-                >
-                  {/* Card Header Row: Category Badge & Status */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
+          {/* Footer Telemetry Strip */}
+          <div className="pt-4 border-t border-[#23252a] flex items-center gap-5 text-xs text-[#8c9289] font-mono relative z-10 flex-wrap">
+            <span>
+              <b className="text-white font-sans text-sm"><AnimatedCount value={activeExams.length} /></b> live tests
+            </span>
+            <span>
+              <b className="text-[#EDFF72] font-sans text-sm"><AnimatedCount value={totalCandidatesJoined} /></b> enrolled
+            </span>
+            <span>
+              <b className="text-white font-sans text-sm"><AnimatedCount value={completedExams.length} /></b> concluded
+            </span>
+            <span>
+              <b className="text-white font-sans text-sm"><AnimatedCount value={participationRate} />%</b> completion
+            </span>
+          </div>
+
+          {/* 3D Chronometer Shield Stage with Interactive Gyro Tilt */}
+          <div className="stage" aria-hidden="true">
+            <div className="float">
+              <div className="tilt" ref={tiltRef}>
+                <div className="chron-shield">
+                  <div className="ring-outer" />
+                  <div className="ring-inner" />
+                  <div className="core-badge">
+                    <ShieldCheck className="w-8 h-8 text-[#EDFF72] stroke-[2.2]" />
+                    <span className="text-[9px] font-mono font-black text-white mt-1 uppercase tracking-wider">SECURE</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="shadow" />
+          </div>
+        </section>
+
+        {/* Right 2x2 Telemetry Cards Grid */}
+        <div className="tf-quad">
+          {/* Card 1: Active Challenges */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 2 }}>
+            <div className="tf-tile">
+              <Sparkles className="w-4 h-4 text-[#171819]" />
+            </div>
+            <div className="tf-cap">Active Quizzes</div>
+            <div className="tf-big">
+              <AnimatedCount value={activeExams.length} />
+            </div>
+            <div className="tf-sub">
+              Broadcasting access codes
+            </div>
+          </div>
+
+          {/* Card 2: Candidates Joined */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 3 }}>
+            <div className="tf-tile">
+              <Users className="w-4 h-4 text-[#171819]" />
+            </div>
+            <div className="tf-cap">Candidates Joined</div>
+            <div className="tf-big">
+              <AnimatedCount value={totalCandidatesJoined} />
+            </div>
+            <div className="tf-sub">
+              {totalCompletedCandidates} verified submissions
+            </div>
+          </div>
+
+          {/* Card 3: Completion Rate */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 4 }}>
+            <div className="flex items-center justify-between">
+              <div className="tf-tile">
+                <CheckCircle2 className="w-4 h-4 text-[#171819]" />
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Optimal
+              </span>
+            </div>
+            <div className="tf-cap">Completion Rate</div>
+            <div className="tf-big">
+              <AnimatedCount value={participationRate} />%
+            </div>
+            <div className="tf-sub">
+              Cohort submission velocity
+            </div>
+          </div>
+
+          {/* Card 4: Proctor Integrity */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 5 }}>
+            <div className="flex items-center justify-between">
+              <div className="tf-tile">
+                <ShieldAlert className="w-4 h-4 text-[#171819]" />
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs" />
+            </div>
+            <div className="tf-cap">Proctor Engine</div>
+            <div className="tf-big text-lg font-bold">
+              Strict Active
+            </div>
+            <div className="tf-sub">
+              Zero sandbox breaches
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          FILTER, SEARCH & SORT CONTROLS BAR
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="bg-white border border-[#DDE1DA] rounded-[24px] p-4 mb-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <h2 className="text-base font-black text-[#171819] tracking-tight">
+            Active Examinations
+          </h2>
+          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#F2F3F0] text-[#777D78] border border-[#DDE1DA]">
+            {filteredActive.length} active
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Search Input */}
+          <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+            <Search className="w-3.5 h-3.5 text-[#777D78] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search exam code, topic, title..."
+              className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#101112] rounded-full pl-9 pr-8 py-2 text-xs font-semibold text-[#171819] placeholder:text-[#777D78] outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#777D78] hover:text-[#171819] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Category Dropdown */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-[#F2F3F0] border border-[#DDE1DA] text-[#171819] text-xs font-bold rounded-xl px-3 py-2 outline-none cursor-pointer hover:border-[#101112] transition-colors"
+          >
+            <option value="ALL">All Categories</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Machine Learning">Machine Learning</option>
+            <option value="Formal Design">Formal Design</option>
+            <option value="JavaScript">JavaScript</option>
+            <option value="Database Systems">Database Systems</option>
+          </select>
+
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-[#F2F3F0] border border-[#DDE1DA] text-[#171819] text-xs font-bold rounded-xl px-3 py-2 outline-none cursor-pointer hover:border-[#101112] transition-colors"
+          >
+            <option value="newest">Newest First</option>
+            <option value="candidates">Most Candidates</option>
+            <option value="duration">Longest Duration</option>
+          </select>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          ACTIVE EXAMS CARDS GRID
+          ──────────────────────────────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="tf-card py-20 text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-[#101112] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-bold text-[#777D78]">Synchronizing examination records...</p>
+        </div>
+      ) : filteredActive.length === 0 ? (
+        <div className="tf-card py-16 text-center space-y-3 p-8">
+          <div className="w-12 h-12 rounded-2xl bg-[#F2F3F0] text-[#171819] flex items-center justify-center mx-auto">
+            <BookOpen className="w-6 h-6 stroke-[1.8]" />
+          </div>
+          <h3 className="text-sm font-black text-[#171819]">No Active Quizzes Match Filter</h3>
+          <p className="text-xs text-[#777D78] max-w-md mx-auto leading-relaxed">
+            Create a new quiz or publish from the Paper Designer to generate a shareable student access code.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              className="px-5 py-2.5 bg-[#101112] hover:bg-black text-[#EDFF72] font-black text-xs rounded-full transition-all cursor-pointer inline-flex items-center gap-2 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create New Exam</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {visibleActive.map((exam) => {
+            const meta = getExamMeta(exam);
+            const TopicIcon = meta.icon;
+            const qCount = getQuestionCount(exam);
+
+            return (
+              <div
+                key={exam._id}
+                className="tf-card p-6 flex flex-col justify-between group hover:border-[#101112]/40 transition-all shadow-xs"
+              >
+                <div>
+                  {/* Top Status & Category Strip */}
+                  <div className="flex items-center justify-between gap-2 mb-4">
                     <span
                       onClick={(e) => toggleStatus(exam, e)}
                       title="Click to toggle between LIVE and COMPLETED"
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-pointer hover:bg-emerald-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-pointer hover:bg-emerald-100 transition-colors"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       LIVE
                     </span>
 
-                    <span className="text-[11px] font-semibold text-[#777D78] px-2.5 py-0.5 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
+                    <span className="text-[11px] font-bold text-[#777D78] px-3 py-1 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
                       {meta.category}
                     </span>
                   </div>
 
-                  {/* Icon & Title Row (Matching Reference) */}
-                  <div className="flex items-start gap-3.5 mb-3.5">
+                  {/* Icon & Title Row */}
+                  <div className="flex items-start gap-3.5 mb-4">
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
                       <TopicIcon className="w-5 h-5 stroke-[2]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-[#171819] group-hover:text-amber-900 transition-colors line-clamp-2 leading-snug">
+                      <h3 className="text-sm font-black text-[#171819] line-clamp-2 leading-snug">
                         {exam.title}
                       </h3>
                       {exam.examCode && (
@@ -514,58 +870,60 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                     </div>
                   </div>
 
-                  {/* Metadata Row with Bullets (Matching Reference Design) */}
+                  {/* Metrics Badges */}
                   <div className="flex items-center gap-2.5 text-xs text-[#777D78] mb-4">
                     <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#777D78]" />
-                      <span>{exam.durationMinutes || 60} min</span>
+                      <Clock className="w-3.5 h-3.5 text-[#777D78]" />
+                      <span>{exam.durationMinutes || 60}m</span>
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
-                      <BookOpen className="w-3 h-3 text-[#777D78]" />
+                      <BookOpen className="w-3.5 h-3.5 text-[#777D78]" />
                       <span>{qCount || 8} Qs</span>
                     </span>
                     <span>•</span>
-                    <span className="font-semibold text-[#171819]">{meta.level}</span>
+                    <span className="font-bold text-[#171819]">{meta.level}</span>
                   </div>
 
-                  {/* Candidate Quick Stats Strip */}
-                  <div className="p-2.5 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] grid grid-cols-3 gap-2 text-center text-xs mb-4">
+                  {/* Candidate Telemetry Strip */}
+                  <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] grid grid-cols-3 gap-2 text-center text-xs mb-4">
                     <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Joined</span>
-                      <span className="font-bold text-[#171819]">{exam.stats?.totalCandidates || 0}</span>
+                      <span className="text-[10px] text-[#777D78] block uppercase font-bold">Enrolled</span>
+                      <span className="font-black text-[#171819]">{exam.stats?.totalCandidates || 0}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Finished</span>
-                      <span className="font-bold text-emerald-600">{exam.stats?.completedCandidates || 0}</span>
+                      <span className="text-[10px] text-[#777D78] block uppercase font-bold">Finished</span>
+                      <span className="font-black text-emerald-600">{exam.stats?.completedCandidates || 0}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Avg Score</span>
-                      <span className="font-bold text-[#171819]">{exam.stats?.avgScore || 0}%</span>
+                      <span className="text-[10px] text-[#777D78] block uppercase font-bold">Avg Score</span>
+                      <span className="font-black text-[#171819]">{exam.stats?.avgScore || 0}%</span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Access Code Box & Student Portal Direct Link */}
-                  <div className="flex items-center justify-between gap-2 mb-3.5">
+                <div>
+                  {/* Access Code Box & Candidate Link Share */}
+                  <div className="flex items-center justify-between gap-2 mb-4">
                     <div
                       onClick={(e) => handleCopyCode(exam.examCode, e)}
                       title="Click to copy student access code"
-                      className="flex-1 flex items-center justify-between px-3 py-1.5 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#171819] text-[#171819] font-mono text-xs font-bold cursor-pointer transition-colors"
+                      className="flex-1 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#101112] text-[#171819] font-mono text-xs font-bold cursor-pointer transition-colors shadow-2xs"
                     >
-                      <span className="text-[11px] text-[#777D78] font-sans">CODE</span>
-                      <span className="tracking-wide">{exam.examCode}</span>
+                      <span className="text-[10px] text-[#777D78] font-sans font-bold">KEY</span>
+                      <span className="tracking-wider">{exam.examCode}</span>
                       {copiedCode === exam.examCode ? (
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3 h-3 text-[#777D78]" />
+                        <Copy className="w-3.5 h-3.5 text-[#777D78]" />
                       )}
                     </div>
 
                     <button
                       type="button"
                       onClick={(e) => handleCopyStudentLink(exam.examCode, e)}
-                      title="Copy candidate direct link"
-                      className="p-2 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#171819] text-[#777D78] hover:text-[#171819] transition-colors cursor-pointer"
+                      title="Copy direct candidate link"
+                      className="p-2.5 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#101112] text-[#777D78] hover:text-[#171819] transition-colors cursor-pointer shadow-2xs"
                     >
                       {copiedLink === exam.examCode ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -575,73 +933,75 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                     </button>
                   </div>
 
-                  {/* Card Actions Footer */}
-                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#DDE1DA]">
+                  {/* Actions Footer */}
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#DDE1DA]/80">
                     <button
                       type="button"
                       onClick={(e) => handleOpenAnalytics(exam, e)}
-                      className="flex-1 py-1.5 px-3 rounded-xl bg-[#191A1D] hover:bg-[#282a2f] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="flex-1 py-2 px-3 rounded-full bg-[#101112] hover:bg-black text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <BarChart3 className="w-3.5 h-3.5 text-[#EDFF72]" />
-                      <span>Candidates</span>
+                      <span>Analytics</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onNavigateToStudentPortal(exam.examCode)}
-                      title="Open student test workspace preview"
-                      className="py-1.5 px-3 rounded-xl bg-[#E9ECE7] hover:bg-[#dde2db] text-[#171819] text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Open student test preview"
+                      className="py-2 px-3 rounded-full bg-[#F2F3F0] hover:bg-[#E4E8E2] text-[#171819] text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Test View</span>
+                      <span>Preview</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={(e) => handleDeleteExam(exam._id, exam.title, e)}
                       title="Delete examination"
-                      className="p-1.5 text-[#777D78] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      className="p-2 text-[#777D78] hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-        {/* Show All Quizzes Toggle */}
-        {filteredActive.length > 6 && (
-          <div className="text-center pt-2">
-            <button
-              type="button"
-              onClick={() => setShowAllActive(!showAllActive)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#171819] text-xs font-bold text-[#171819] transition-all cursor-pointer shadow-sm"
-            >
-              <span>{showAllActive ? 'Collapse Active Quizzes' : `Show All Quizzes (${filteredActive.length})`}</span>
-              {showAllActive ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Show All Toggle */}
+      {filteredActive.length > 6 && (
+        <div className="text-center pt-4">
+          <button
+            type="button"
+            onClick={() => setShowAllActive(!showAllActive)}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-white border border-[#DDE1DA] hover:border-[#101112] text-xs font-black text-[#171819] transition-all cursor-pointer shadow-xs"
+          >
+            <span>{showAllActive ? 'Collapse Active Quizzes' : `Show All Quizzes (${filteredActive.length})`}</span>
+            {showAllActive ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      )}
 
-      {/* ── COMPLETED QUIZZES SECTION (Matching Reference) ── */}
-      <div className="space-y-4 pt-4 border-t border-[#DDE1DA]">
+      {/* ────────────────────────────────────────────────────────────────────────────
+          CONCLUDED QUIZZES ARCHIVE
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="space-y-4 pt-8 mt-8 border-t border-[#DDE1DA]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-extrabold text-[#171819] tracking-tight">
-              Completed Quizzes
+            <h2 className="text-base font-black text-[#171819] tracking-tight">
+              Concluded Assessments Archive
             </h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white border border-[#DDE1DA] text-[#777D78]">
-              {filteredCompleted.length}
+            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-white border border-[#DDE1DA] text-[#777D78]">
+              {filteredCompleted.length} archived
             </span>
           </div>
         </div>
 
         {filteredCompleted.length === 0 ? (
-          <div className="w-full py-8 bg-white border border-[#DDE1DA] rounded-3xl text-center text-xs text-[#777D78]">
-            No concluded quizzes in your archive yet. Completed tests will appear here with student audit reports.
+          <div className="tf-card py-10 text-center text-xs text-[#777D78]">
+            No concluded quizzes in your archive. Concluded tests and final audit logs will appear here.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -653,88 +1013,79 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
               return (
                 <div
                   key={exam._id}
-                  className="bg-white border border-[#DDE1DA] rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden opacity-90 hover:opacity-100"
+                  className="tf-card p-6 flex flex-col justify-between group shadow-xs opacity-90 hover:opacity-100 transition-opacity"
                 >
-                  {/* Card Header Row: Category Badge & Status */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span
-                      onClick={(e) => toggleStatus(exam, e)}
-                      title="Click to reopen as LIVE"
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E9ECE7] text-[#171819] border border-[#DDE1DA] cursor-pointer hover:bg-stone-200 transition-colors"
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      COMPLETED
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span
+                        onClick={(e) => toggleStatus(exam, e)}
+                        title="Click to reopen as LIVE"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-[#F2F3F0] text-[#171819] border border-[#DDE1DA] cursor-pointer hover:bg-stone-200 transition-colors"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        COMPLETED
+                      </span>
 
-                    <span className="text-[11px] font-semibold text-[#777D78] px-2.5 py-0.5 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
-                      {meta.category}
-                    </span>
-                  </div>
-
-                  {/* Icon & Title Row */}
-                  <div className="flex items-start gap-3.5 mb-3.5">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
-                      <TopicIcon className="w-5 h-5 stroke-[2]" />
+                      <span className="text-[11px] font-bold text-[#777D78] px-3 py-1 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
+                        {meta.category}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-[#171819] line-clamp-2 leading-snug">
-                        {exam.title}
-                      </h3>
-                      {exam.examCode && (
-                        <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-0.5">
-                          Code: {exam.examCode}
-                        </span>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Metadata Row */}
-                  <div className="flex items-center gap-2.5 text-xs text-[#777D78] mb-4">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#777D78]" />
-                      <span>{exam.durationMinutes || 60} min</span>
-                    </span>
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1">
-                      <BookOpen className="w-3 h-3 text-[#777D78]" />
+                    <div className="flex items-start gap-3.5 mb-3.5">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
+                        <TopicIcon className="w-5 h-5 stroke-[2]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-[#171819] line-clamp-2 leading-snug">
+                          {exam.title}
+                        </h3>
+                        {exam.examCode && (
+                          <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-0.5">
+                            Code: {exam.examCode}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 text-xs text-[#777D78] mb-4">
+                      <span>{exam.durationMinutes || 60}m</span>
+                      <span>•</span>
                       <span>{qCount || 8} Qs</span>
-                    </span>
-                    <span>•</span>
-                    <span className="font-semibold text-[#171819]">{meta.level}</span>
+                      <span>•</span>
+                      <span>{meta.level}</span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] grid grid-cols-3 gap-2 text-center text-xs mb-4">
+                      <div>
+                        <span className="text-[10px] text-[#777D78] block uppercase font-bold">Joined</span>
+                        <span className="font-bold text-[#171819]">{exam.stats?.totalCandidates || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#777D78] block uppercase font-bold">Finished</span>
+                        <span className="font-bold text-emerald-600">{exam.stats?.completedCandidates || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#777D78] block uppercase font-bold">Avg</span>
+                        <span className="font-bold text-[#171819]">{exam.stats?.avgScore || 0}%</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Performance Strip */}
-                  <div className="p-2.5 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] grid grid-cols-3 gap-2 text-center text-xs mb-4">
-                    <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Joined</span>
-                      <span className="font-bold text-[#171819]">{exam.stats?.totalCandidates || 0}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Finished</span>
-                      <span className="font-bold text-emerald-600">{exam.stats?.completedCandidates || 0}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#777D78] block uppercase font-medium">Avg Score</span>
-                      <span className="font-bold text-[#171819]">{exam.stats?.avgScore || 0}%</span>
-                    </div>
-                  </div>
-
-                  {/* Card Actions Footer */}
-                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#DDE1DA]">
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#DDE1DA]/80">
                     <button
                       type="button"
                       onClick={(e) => handleOpenAnalytics(exam, e)}
-                      className="flex-1 py-1.5 px-3 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#171819] text-[#171819] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="flex-1 py-2 px-3 rounded-full bg-white border border-[#DDE1DA] hover:border-[#101112] text-[#171819] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>View Final Report</span>
+                      <span>Audit Report</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={(e) => handleDeleteExam(exam._id, exam.title, e)}
                       title="Delete examination"
-                      className="p-1.5 text-[#777D78] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      className="p-2 text-[#777D78] hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -744,41 +1095,30 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
             })}
           </div>
         )}
-
-        {filteredCompleted.length > 3 && (
-          <div className="text-center pt-2">
-            <button
-              type="button"
-              onClick={() => setShowAllCompleted(!showAllCompleted)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-[#DDE1DA] hover:border-[#171819] text-xs font-bold text-[#171819] transition-all cursor-pointer shadow-sm"
-            >
-              <span>{showAllCompleted ? 'Collapse Completed Quizzes' : `Show All Completed (${filteredCompleted.length})`}</span>
-              {showAllCompleted ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* ── CREATE NEW QUIZ MODAL (TestForge Minimal Design) ── */}
+      {/* ────────────────────────────────────────────────────────────────────────────
+          CREATE QUICK QUIZ MODAL
+          ──────────────────────────────────────────────────────────────────────────── */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#DDE1DA] rounded-3xl p-6 sm:p-7 max-w-xl w-full space-y-5 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA]">
+        <div className="fixed inset-0 z-50 bg-[#101112]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-[#DDE1DA] rounded-[32px] p-7 max-w-xl w-full space-y-5 shadow-2xl relative animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA]/80">
               <div>
-                <h3 className="text-base font-extrabold text-[#171819]">Create & Publish New Quiz</h3>
-                <p className="text-xs text-[#777D78]">Generates a candidate access code instantly</p>
+                <h3 className="text-base font-black text-[#171819]">Launch Live Examination</h3>
+                <p className="text-xs text-[#777D78]">Generates an instant candidate access pass</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="p-1 rounded-xl text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0] transition-colors"
+                className="w-7 h-7 rounded-full bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] flex items-center justify-center cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {createError && (
-              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{createError}</span>
               </div>
@@ -787,30 +1127,30 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
             <form onSubmit={handleCreateExam} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#171819] uppercase mb-1">
-                  Quiz / Exam Title *
+                  Examination Title *
                 </label>
                 <input
                   type="text"
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Introduction to Machine Learning"
-                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#171819] rounded-xl px-3.5 py-2 text-xs text-[#171819] outline-none transition-colors"
+                  placeholder="e.g. Algorithms & Data Structures Midterm"
+                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#101112] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#171819] outline-none transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#171819] uppercase mb-1">
-                    Subject / Category
+                    Subject / Discipline
                   </label>
                   <select
                     value={newTopic}
                     onChange={(e) => setNewTopic(e.target.value)}
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#171819] rounded-xl px-3 py-2 text-xs text-[#171819] outline-none"
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#101112] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] outline-none cursor-pointer"
                   >
-                    <option value="Machine Learning">Machine Learning</option>
                     <option value="Computer Science">Computer Science</option>
+                    <option value="Machine Learning">Machine Learning</option>
                     <option value="Formal Design">Formal Design</option>
                     <option value="JavaScript">JavaScript</option>
                     <option value="Data Structures">Data Structures</option>
@@ -828,7 +1168,7 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                     max={300}
                     value={newDuration}
                     onChange={(e) => setNewDuration(e.target.value)}
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#171819] rounded-xl px-3.5 py-2 text-xs text-[#171819] outline-none"
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] focus:border-[#101112] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] outline-none"
                   />
                 </div>
               </div>
@@ -838,12 +1178,12 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                   <label className="text-xs font-bold text-[#171819] uppercase">
                     Select Questions ({selectedQuestionIds.length} chosen) *
                   </label>
-                  <span className="text-[11px] text-[#777D78] font-medium">From Question Bank</span>
+                  <span className="text-[11px] text-[#777D78] font-bold">From Question Bank</span>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-1.5 p-2.5 bg-[#F2F3F0] border border-[#DDE1DA] rounded-2xl">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 p-3 bg-[#F2F3F0] border border-[#DDE1DA] rounded-2xl">
                   {questions.length === 0 ? (
-                    <p className="text-xs text-[#777D78] italic p-2 text-center">
-                      No questions in bank yet. Please add questions first.
+                    <p className="text-xs text-[#777D78] italic p-3 text-center">
+                      No questions in bank yet. Add problems first.
                     </p>
                   ) : (
                     questions.map((q) => {
@@ -858,9 +1198,9 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                               setSelectedQuestionIds([...selectedQuestionIds, q._id]);
                             }
                           }}
-                          className={`p-2 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                          className={`p-2.5 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
                             isSelected
-                              ? 'bg-white border-[#191A1D] text-[#171819] shadow-xs'
+                              ? 'bg-white border-[#101112] text-[#171819] shadow-xs'
                               : 'bg-white/60 border-transparent text-[#777D78] hover:bg-white'
                           }`}
                         >
@@ -884,16 +1224,16 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#777D78] hover:text-[#171819]"
+                  className="px-4 py-2 rounded-full text-xs font-bold text-[#777D78] hover:text-[#171819] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-5 py-2.5 rounded-xl bg-[#191A1D] hover:bg-[#282a2f] text-[#EDFF72] text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black transition-all cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isCreating ? 'Publishing...' : 'Publish & Dispatch Quiz'}
+                  {isCreating ? 'Publishing...' : 'Dispatch Quiz'}
                 </button>
               </div>
             </form>
@@ -901,17 +1241,19 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
         </div>
       )}
 
-      {/* ── ANALYTICS / CANDIDATE LEADERBOARD MODAL ── */}
+      {/* ────────────────────────────────────────────────────────────────────────────
+          ANALYTICS & CANDIDATE AUDIT MODAL
+          ──────────────────────────────────────────────────────────────────────────── */}
       {selectedExamForAnalytics && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#DDE1DA] rounded-3xl p-6 sm:p-7 max-w-4xl w-full max-h-[85vh] flex flex-col space-y-5 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 bg-[#101112]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-[#DDE1DA] rounded-[32px] p-7 max-w-4xl w-full max-h-[85vh] flex flex-col space-y-5 shadow-2xl relative animate-scaleUp">
             <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA] shrink-0">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h3 className="text-base font-extrabold text-[#171819]">
+                  <h3 className="text-base font-black text-[#171819]">
                     {selectedExamForAnalytics.title}
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-lg bg-[#191A1D] text-[#EDFF72] text-xs font-mono font-bold">
+                  <span className="px-3 py-1 rounded-full bg-[#101112] text-[#EDFF72] text-xs font-mono font-bold">
                     {selectedExamForAnalytics.examCode}
                   </span>
                 </div>
@@ -922,20 +1264,20 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
               <button
                 type="button"
                 onClick={() => setSelectedExamForAnalytics(null)}
-                className="p-1 rounded-xl text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0] transition-colors"
+                className="w-7 h-7 rounded-full bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] flex items-center justify-center cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {isLoadingAnalytics ? (
-                <div className="py-16 text-center text-[#777D78] space-y-2">
-                  <div className="w-6 h-6 border-2 border-[#191A1D] border-t-transparent rounded-full animate-spin mx-auto" />
-                  <span className="text-xs font-semibold">Loading candidate submissions & telemetry...</span>
+                <div className="py-20 text-center text-[#777D78] space-y-2">
+                  <div className="w-6 h-6 border-2 border-[#101112] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <span className="text-xs font-bold">Compiling candidate submissions...</span>
                 </div>
               ) : !analyticsData?.attempts?.length ? (
-                <div className="py-14 text-center text-[#777D78] text-xs bg-[#F2F3F0] rounded-2xl p-6">
+                <div className="py-16 text-center text-[#777D78] text-xs bg-[#F2F3F0] rounded-2xl p-6">
                   No students have joined or submitted this examination yet. Share access code <strong>{selectedExamForAnalytics.examCode}</strong> with your candidates.
                 </div>
               ) : (
@@ -943,23 +1285,23 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#F2F3F0] text-[#777D78] uppercase font-mono text-[10px] border-b border-[#DDE1DA]">
                       <tr>
-                        <th className="py-3 px-3.5">Candidate</th>
-                        <th className="py-3 px-3.5">Status</th>
-                        <th className="py-3 px-3.5">Score</th>
-                        <th className="py-3 px-3.5">Percentage</th>
-                        <th className="py-3 px-3.5">Tab Infractions</th>
-                        <th className="py-3 px-3.5">Submitted At</th>
+                        <th className="py-3 px-4">Candidate</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Score</th>
+                        <th className="py-3 px-4">Percentage</th>
+                        <th className="py-3 px-4">Tab Violations</th>
+                        <th className="py-3 px-4">Submitted At</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#DDE1DA] bg-white">
                       {analyticsData.attempts.map((att) => (
                         <tr key={att._id} className="hover:bg-[#F2F3F0]/60 transition-colors">
-                          <td className="py-3 px-3.5">
+                          <td className="py-3 px-4">
                             <span className="font-bold text-[#171819] block">{att.candidateInfo?.name}</span>
-                            <span className="text-[11px] text-[#777D78]">{att.candidateInfo?.email}</span>
+                            <span className="text-[11px] text-[#777D78] font-mono">{att.candidateInfo?.email}</span>
                           </td>
-                          <td className="py-3 px-3.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <td className="py-3 px-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
                               att.status === 'SUBMITTED'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : att.status === 'IN_PROGRESS'
@@ -969,18 +1311,18 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                               {att.status}
                             </span>
                           </td>
-                          <td className="py-3 px-3.5 font-bold text-[#171819]">
+                          <td className="py-3 px-4 font-mono font-bold text-[#171819]">
                             {att.totalScore} / {att.maxScore}
                           </td>
-                          <td className="py-3 px-3.5 font-bold text-[#171819]">
+                          <td className="py-3 px-4 font-mono font-black text-[#171819]">
                             {att.percentage}%
                           </td>
-                          <td className="py-3 px-3.5">
-                            <span className={att.tabSwitchCount > 0 ? 'text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200' : 'text-[#777D78]'}>
+                          <td className="py-3 px-4">
+                            <span className={att.tabSwitchCount > 0 ? 'text-amber-800 font-bold bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 text-[10px]' : 'text-[#777D78]'}>
                               {att.tabSwitchCount || 0} infractions
                             </span>
                           </td>
-                          <td className="py-3 px-3.5 text-[#777D78]">
+                          <td className="py-3 px-4 text-[#777D78] font-mono">
                             {att.submittedAt ? new Date(att.submittedAt).toLocaleTimeString() : 'In progress'}
                           </td>
                         </tr>
@@ -992,15 +1334,15 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
             </div>
 
             <div className="pt-3 border-t border-[#DDE1DA] flex items-center justify-between">
-              <span className="text-xs text-[#777D78]">
-                {analyticsData?.attempts?.length || 0} candidates recorded
+              <span className="text-xs text-[#777D78] font-mono">
+                {analyticsData?.attempts?.length || 0} candidate attempts logged
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedExamForAnalytics(null)}
-                className="px-4 py-2 bg-[#191A1D] hover:bg-[#282a2f] text-white text-xs font-bold rounded-xl cursor-pointer"
+                className="px-5 py-2 bg-[#101112] hover:bg-black text-white text-xs font-bold rounded-full cursor-pointer transition-colors"
               >
-                Close Leaderboard
+                Close Audit
               </button>
             </div>
           </div>

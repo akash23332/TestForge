@@ -39,10 +39,36 @@ export class MockExecutionProvider extends ExecutionProvider {
       };
     }
 
-    const { language, code, inputArgs, timeoutMs = 3500 } = params;
+    const { language, code, inputArgs, timeoutMs = 3500, signal = null } = params;
+
+    if (signal?.aborted) {
+      return {
+        status: 'cancelled',
+        output: null,
+        error: 'Execution cancelled by signal.',
+        runtimeMs: 0
+      };
+    }
 
     if (this.simulatedLatencyMs > 0) {
-      await new Promise((r) => setTimeout(r, this.simulatedLatencyMs));
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, this.simulatedLatencyMs);
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            resolve();
+          }, { once: true });
+        }
+      });
+    }
+
+    if (signal?.aborted) {
+      return {
+        status: 'cancelled',
+        output: null,
+        error: 'Execution cancelled by signal.',
+        runtimeMs: 0
+      };
     }
 
     if (this.customHandler) {

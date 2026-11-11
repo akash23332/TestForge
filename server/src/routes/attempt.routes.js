@@ -1,5 +1,5 @@
 import express from 'express';
-import { requireAuth, optionalAuth, requireAttemptAccess } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, requireAttemptAccess, requireRole } from '../middleware/auth.js';
 import {
   executionRateLimiter,
   submissionRateLimiter,
@@ -15,7 +15,8 @@ import {
   finalizeExam,
   recordActivity,
   getMyExamAttempts,
-  getAvailableExamsForStudent
+  getAvailableExamsForStudent,
+  gradeStudentAnswer
 } from '../controllers/attempt.controller.js';
 
 const router = express.Router();
@@ -47,5 +48,8 @@ router.post('/:attemptId/finalize', requireAttemptAccess, finalizeExam);
 
 // Activity and anti-cheat heartbeat (Protected by Attempt Ownership Guard)
 router.post('/:attemptId/activity', requireAttemptAccess, recordActivity);
+
+// Teacher/Admin manual grading of subjective question
+router.post('/:attemptId/answers/:answerId/grade', requireAuth, requireRole('teacher', 'admin'), gradeStudentAnswer);
 
 export default router;

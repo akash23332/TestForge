@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { config } from '../config/env.js';
 import { Exam } from '../models/Exam.js';
 import { ExamAttempt } from '../models/ExamAttempt.js';
@@ -8,6 +9,7 @@ import { ActivityLog } from '../models/ActivityLog.js';
 import { Question } from '../models/Question.js';
 import { TestCase } from '../models/TestCase.js';
 import { McqQuestion } from '../models/McqQuestion.js';
+import { GradingAuditLog } from '../models/GradingAuditLog.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { validateSingleTestCase } from '../services/codeRunner.service.js';
@@ -867,6 +869,274 @@ export const getAvailableExamsForStudent = async (req, res, next) => {
       .lean();
 
     return ApiResponse.success(res, 200, exams, 'Available exams retrieved.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Teacher or Admin grades a manual/subjective question answer
+ */
+export const gradeStudentAnswer = async (req, res, next) => {
+  try {
+    const { attemptId, answerId } = req.params;
+    const { score, feedback } = req.body;
+
+    if (score === undefined || score === null || isNaN(Number(score))) {
+      throw ApiError.badRequest('A valid numeric score is required.');
+    }
+
+    const attempt = await ExamAttempt.findById(attemptId);
+    if (!attempt) {
+      throw ApiError.notFound('Exam attempt not found.');
+    }
+
+    // Verify ownership of the exam (teacher must be exam creator or admin)
+    const exam = await Exam.findById(attempt.examId);
+    if (!exam) {
+      throw ApiError.notFound('Referenced exam not found.');
+    }
+
+    if (req.user.role !== 'admin' && (!exam.createdBy || exam.createdBy.toString() !== req.user._id.toString())) {
+      throw ApiError.forbidden('Access denied. Only the exam author or admin may grade student answers.');
+    }
+
+    // Verify eligibility: In-progress attempts cannot be manually graded
+    if (attempt.status === 'IN_PROGRESS') {
+      throw ApiError.badRequest('Attempt session is still in progress. Candidate must submit the examination before grading.');
+    }
+
+    // Verify candidate identity associated with this attempt
+    if (!attempt.candidateInfo?.email && !attempt.studentId) {
+      throw ApiError.badRequest('Attempt session has no valid candidate identity attached.');
+    }
+
+    // Find target answer and ensure it belongs to this attempt
+    const answer = await StudentAnswer.findOne({
+      _id: answerId,
+      attemptId
+    });
+
+    if (!answer) {
+      throw ApiError.notFound('Student answer record not found for this attempt.');
+    }
+
+    // Authorization & Consistency Guard: Verify question belongs to the specified exam
+    let questionInExam = false;
+    let authoritativeMaxMarks = answer.maxMarks;
+    const ansQIdStr = answer.questionId?.toString();
+
+    if (exam.sections && exam.sections.length > 0) {
+      for (const sec of exam.sections) {
+        for (const q of sec.questions || []) {
+          const qId = q.type === 'mcq'
+            ? (q.mcqQuestionId?._id || q.mcqQuestionId || q._id)?.toString()
+            : (q.questionId?._id || q.questionId || q._id)?.toString();
+          if (qId === ansQIdStr) {
+            questionInExam = true;
+            if (q.marks) authoritativeMaxMarks = q.marks;
+            break;
+          }
+        }
+        if (questionInExam) break;
+      }
+
+      if (!questionInExam) {
+        throw ApiError.badRequest('Security violation: Graded question does not belong to the referenced examination.');
+      }
+    }
+
+    const numericScore = Number(score);
+    if (numericScore < 0 || numericScore > authoritativeMaxMarks) {
+      throw ApiError.badRequest(`Score must be between 0 and authoritative maximum marks (${authoritativeMaxMarks}).`);
+    }
+
+    const roundedScore = Math.round(numericScore * 10) / 10;
+    const sanitizedFeedback = feedback ? String(feedback).trim() : '';
+    const isRegrade = answer.manualGradingStatus === 'GRADED';
+    const regradeReason = req.body.regradeReason ? String(req.body.regradeReason).trim() : '';
+
+    // Regrading requirement: Modifying an already graded answer requires explicit reason
+    if (isRegrade && !regradeReason) {
+      throw ApiError.badRequest('A regradeReason is required when modifying an already graded answer.');
+    }
+
+    // Idempotency: Duplicate request with exact same score and feedback returns existing state
+    if (isRegrade && answer.score === roundedScore && (answer.teacherFeedback || '') === sanitizedFeedback) {
+      const currentAttempt = await ExamAttempt.findById(attemptId);
+      return ApiResponse.success(
+        res,
+        200,
+        {
+          answer,
+          attempt: currentAttempt
+        },
+        'Duplicate grading request ignored: answer already graded with identical score and feedback.'
+      );
+    }
+
+    const previousScore = answer.score ?? null;
+    const currentVersion = answer.gradingVersion || 0;
+    const newVersion = currentVersion + 1;
+
+    const auditEntry = {
+      score: roundedScore,
+      gradedBy: req.user._id,
+      gradedAt: new Date(),
+      feedback: sanitizedFeedback,
+      regradeReason: isRegrade ? regradeReason : null,
+      previousScore,
+      gradingVersion: newVersion
+    };
+
+    const auditData = {
+      answerId: answer._id,
+      attemptId: attempt._id,
+      examId: exam._id,
+      questionId: answer.questionId || null,
+      graderId: req.user._id,
+      graderRole: req.user.role || 'teacher',
+      previousScore,
+      newScore: roundedScore,
+      scoreDelta: Math.round((roundedScore - (previousScore || 0)) * 10) / 10,
+      authoritativeMaxMarks,
+      feedback: sanitizedFeedback,
+      regradeReason: isRegrade ? regradeReason : null,
+      isRegrade,
+      gradingVersion: newVersion,
+      ipAddress: req.ip || req.connection?.remoteAddress || null,
+      userAgent: typeof req.get === 'function' ? req.get('user-agent') : null
+    };
+
+    let session = null;
+    let useTransaction = false;
+    let updatedAnswer = null;
+
+    if (mongoose.connection?.readyState === 1 && typeof mongoose.startSession === 'function') {
+      try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        useTransaction = true;
+      } catch (sessErr) {
+        // Standalone MongoDB instances do not support multi-document transactions
+        if (session) {
+          try { await session.endSession(); } catch (_) {}
+          session = null;
+        }
+        useTransaction = false;
+      }
+    }
+
+    try {
+      if (useTransaction) {
+        updatedAnswer = await StudentAnswer.findOneAndUpdate(
+          {
+            _id: answerId,
+            attemptId,
+            $or: [
+              { gradingVersion: currentVersion },
+              { gradingVersion: { $exists: false } }
+            ]
+          },
+          {
+            $set: {
+              score: roundedScore,
+              manualGradingStatus: 'GRADED',
+              status: 'SUBMITTED',
+              gradedBy: req.user._id,
+              gradedAt: new Date(),
+              teacherFeedback: sanitizedFeedback
+            },
+            $inc: { gradingVersion: 1 },
+            $push: { gradingHistory: auditEntry }
+          },
+          { new: true, session }
+        );
+
+        if (!updatedAnswer) {
+          throw ApiError.conflict('Grading conflict: this answer was modified concurrently by another instructor. Please refresh and review latest marks.');
+        }
+
+        await GradingAuditLog.create([auditData], { session });
+        await session.commitTransaction();
+      } else {
+        // 2-Phase Compensating Rollback for Standalone MongoDB / Test Environments
+        updatedAnswer = await StudentAnswer.findOneAndUpdate(
+          {
+            _id: answerId,
+            attemptId,
+            $or: [
+              { gradingVersion: currentVersion },
+              { gradingVersion: { $exists: false } }
+            ]
+          },
+          {
+            $set: {
+              score: roundedScore,
+              manualGradingStatus: 'GRADED',
+              status: 'SUBMITTED',
+              gradedBy: req.user._id,
+              gradedAt: new Date(),
+              teacherFeedback: sanitizedFeedback
+            },
+            $inc: { gradingVersion: 1 },
+            $push: { gradingHistory: auditEntry }
+          },
+          { new: true }
+        );
+
+        if (!updatedAnswer) {
+          throw ApiError.conflict('Grading conflict: this answer was modified concurrently by another instructor. Please refresh and review latest marks.');
+        }
+
+        if (mongoose.connection?.readyState === 1 || (GradingAuditLog.create && GradingAuditLog.create._isMockFunction)) {
+          try {
+            await GradingAuditLog.create(auditData);
+          } catch (auditErr) {
+            console.error(`[AttemptController] GradingAuditLog creation failed: ${auditErr.message}. Executing 2-phase compensating rollback.`);
+            // Roll back the StudentAnswer update
+            await StudentAnswer.findOneAndUpdate(
+              { _id: answerId, attemptId, gradingVersion: newVersion },
+              {
+                $set: {
+                  score: previousScore,
+                  manualGradingStatus: answer.manualGradingStatus || null,
+                  status: answer.status,
+                  gradedBy: answer.gradedBy || null,
+                  gradedAt: answer.gradedAt || null,
+                  teacherFeedback: answer.teacherFeedback || ''
+                },
+                $inc: { gradingVersion: -1 },
+                $pull: { gradingHistory: { gradingVersion: newVersion } }
+              }
+            );
+            throw ApiError.internal(`Audit logging failed: score modification was rolled back to maintain audit trail integrity. (${auditErr.message})`);
+          }
+        }
+      }
+    } catch (txnError) {
+      if (useTransaction && session) {
+        try { await session.abortTransaction(); } catch (_) {}
+      }
+      throw txnError;
+    } finally {
+      if (session) {
+        try { await session.endSession(); } catch (_) {}
+      }
+    }
+
+    // Trigger authoritative grading recalculation for the entire exam attempt
+    const updatedAttempt = await recalculateAttemptGrading(attemptId);
+
+    return ApiResponse.success(
+      res,
+      200,
+      {
+        answer: updatedAnswer,
+        attempt: updatedAttempt
+      },
+      'Student answer graded and attempt totals recalculation complete.'
+    );
   } catch (error) {
     next(error);
   }

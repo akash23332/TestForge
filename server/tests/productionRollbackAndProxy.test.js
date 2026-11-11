@@ -165,7 +165,7 @@ describe('Phase 4Q: Production Rollback, Outage Handling & Tailscale Proxy Tests
       }));
 
       const mockJob = {
-        id: 'job-outage-1',
+        id: `exec_${mockSubmissionId}`,
         data: {
           submissionId: mockSubmissionId,
           attemptId: mockAttemptId,
@@ -228,7 +228,7 @@ describe('Phase 4Q: Production Rollback, Outage Handling & Tailscale Proxy Tests
       const updateAnswerSpy = jest.spyOn(StudentAnswer, 'findOneAndUpdate').mockResolvedValue({});
 
       const mockJob = {
-        id: 'job-outage-2',
+        id: `exec_${mockSubmissionId}`,
         data: {
           submissionId: mockSubmissionId,
           attemptId: mockAttemptId,
@@ -260,7 +260,7 @@ describe('Phase 4Q: Production Rollback, Outage Handling & Tailscale Proxy Tests
       mockProvider.setHandler(execSpy);
 
       const mockJob = {
-        id: 'job-duplicate',
+        id: `exec_${mockSubmissionId}`,
         data: { submissionId: mockSubmissionId }
       };
 

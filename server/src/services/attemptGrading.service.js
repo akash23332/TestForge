@@ -15,8 +15,9 @@ import { Submission } from '../models/Submission.js';
  * @returns {Promise<import('../models/ExamAttempt.js').ExamAttempt|null>}
  */
 export const recalculateAttemptGrading = async (attemptId) => {
+  if (!attemptId) return null;
   const attempt = await ExamAttempt.findById(attemptId);
-  if (!attempt) return null;
+  if (!attempt || attempt.status !== 'SUBMITTED') return null;
 
   const answers = await StudentAnswer.find({ attemptId }).lean();
 
@@ -36,19 +37,41 @@ export const recalculateAttemptGrading = async (attemptId) => {
   let pendingMaxScore = 0;
 
   for (const ans of answers) {
+    // Exclude cancelled or exempt questions per exam policy
+    if (ans.isCancelled || ans.isExcluded) {
+      continue;
+    }
+
     const qIdStr = ans.questionId ? ans.questionId.toString() : '';
-    const isPending = pendingQIds.has(qIdStr);
+    const isPendingSubmission = pendingQIds.has(qIdStr);
     const qMaxMarks = ans.maxMarks || (ans.questionType === 'mcq' ? 2 : 10);
     maxScore += qMaxMarks;
 
-    // If an answer has pending/unavailable execution and has not been finalized with a completed score
-    if (isPending && (ans.score === null || ans.score === undefined || ans.status !== 'SUBMITTED')) {
+    let isPending = false;
+    if (ans.questionType === 'subjective') {
+      // Subjective question pending if manual grading status is PENDING or score is null
+      if (ans.manualGradingStatus === 'PENDING' || ans.score === null || ans.score === undefined) {
+        isPending = true;
+      }
+    } else if (ans.questionType === 'coding') {
+      // Coding question pending if runner execution is queued/recovering/unavailable
+      if (isPendingSubmission && (ans.score === null || ans.score === undefined || ans.status !== 'SUBMITTED')) {
+        isPending = true;
+      }
+    }
+
+    if (isPending) {
       pendingGradingQuestions++;
       pendingMaxScore += qMaxMarks;
     } else {
       totalScore += (ans.score || 0);
       gradedMaxScore += qMaxMarks;
     }
+  }
+
+  // Denominator Integrity: Exam denominator can NEVER be artificially reduced below configured attempt maxScore
+  if (attempt.maxScore && attempt.maxScore > maxScore) {
+    maxScore = attempt.maxScore;
   }
 
   const isProvisional = pendingGradingQuestions > 0;
