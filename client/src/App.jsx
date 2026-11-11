@@ -12,6 +12,7 @@ import { PaperDesignerView } from './features/exam-paper/PaperDesignerView';
 import { ProfileSettingsModal } from './features/profile/ProfileSettingsModal';
 import { StudentPortalContainer } from './features/student-portal/StudentPortalContainer';
 import { StudentDashboardView } from './features/student-portal/StudentDashboardView';
+import { StudentLandingView } from './features/student-portal/StudentLandingView';
 import { TeacherExamsView } from './features/exam-management/TeacherExamsView';
 import { StudentsView } from './features/students/StudentsView';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
@@ -42,6 +43,7 @@ export const App = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [candidateExamCode, setCandidateExamCode] = useState('');
+  const [guestExamCode, setGuestExamCode] = useState(null);
   const [health, setHealth] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -146,44 +148,45 @@ export const App = () => {
     { id: 'analytics', label: 'Analytics' }
   ];
 
-  // 1. If activeTab is 'login' or no user logged in, render dedicated AuthPage
-  if (!currentUser || activeTab === 'login') {
-    if (currentUser) {
-      if (currentUser.role === 'student' || currentUser.role === 'Student') {
-        setActiveTab('student-dashboard');
-      } else {
-        setActiveTab('dashboard');
-      }
-    } else {
-      return (
-        <div className="min-h-screen bg-[#F2F3F0]">
-          <AuthPage
-            onSuccess={(user) => {
-              setCurrentUser(user);
-              setSelectedQuestion(null);
-              setEditingQuestion(null);
-              if (user?.role === 'student' || user?.role === 'Student') {
-                setActiveTab('student-dashboard');
-              } else {
-                setActiveTab('dashboard');
-                fetchQuestions();
-              }
-            }}
-            onNavigateHome={() => {
-              if (!currentUser) {
-                setActiveTab('login');
-              } else {
-                setActiveTab('dashboard');
-              }
-            }}
-          />
-        </div>
-      );
-    }
+  // 0. Direct guest candidate exam execution
+  if (guestExamCode) {
+    return (
+      <StudentPortalContainer
+        initialExamCode={guestExamCode}
+        currentUser={currentUser}
+        onExit={() => setGuestExamCode(null)}
+      />
+    );
+  }
+
+  // 1. Public Student Landing Page
+  if (activeTab === 'student-landing') {
+    return (
+      <StudentLandingView
+        onEnterPortal={() => {
+          if (currentUser) {
+            if (currentUser.role === 'student' || currentUser.role === 'Student') {
+              setActiveTab('student-dashboard');
+            } else {
+              setActiveTab('dashboard');
+            }
+          } else {
+            setActiveTab('login');
+          }
+        }}
+        onJoinWithCode={() => {
+          const code = window.prompt('Enter your assessment access code (e.g. TF-DSA01):');
+          if (code && code.trim()) {
+            setGuestExamCode(code.trim().toUpperCase());
+          }
+        }}
+        onSignIn={() => setActiveTab('login')}
+      />
+    );
   }
 
   // 2. If authenticated as a Student, render dedicated Student Examination Portal
-  if (currentUser && (currentUser.role === 'student' || currentUser.role === 'Student')) {
+  if (currentUser && (currentUser.role?.toLowerCase() === 'student')) {
     return (
       <StudentDashboardView
         currentUser={currentUser}
@@ -192,7 +195,37 @@ export const App = () => {
     );
   }
 
-  // 3. When activeTab is 'dashboard', render the full-screen edge-to-edge Landing Hero experience
+  // 3. If no user is logged in or user explicitly on login screen, render dedicated AuthPage
+  if (!currentUser || activeTab === 'login') {
+    return (
+      <div className="min-h-screen bg-[#F2F3F0]">
+        <AuthPage
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setSelectedQuestion(null);
+            setEditingQuestion(null);
+            const r = (user?.role || '').toLowerCase();
+            if (r === 'student') {
+              setActiveTab('student-dashboard');
+            } else {
+              setActiveTab('dashboard');
+              fetchQuestions();
+            }
+          }}
+          onNavigateLanding={() => setActiveTab('student-landing')}
+          onNavigateHome={() => {
+            if (!currentUser) {
+              setActiveTab('login');
+            } else {
+              setActiveTab('dashboard');
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 4. When activeTab is 'dashboard', render the full-screen edge-to-edge Landing Hero experience
   // (NO outer sidebar, NO top header, NO pills - completely full-screen hero on load,
   // sliding up the side panel and dashboard content as the user scrolls down)
   if (activeTab === 'dashboard') {

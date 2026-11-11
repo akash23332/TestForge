@@ -106,8 +106,11 @@ else
       fi
 
       # Cleanup box
-      docker compose exec -T judge0-workers isolate --cleanup --box-id=$BOX_ID &>/dev/null || true
-      pass "isolate --cleanup succeeded"
+      if docker compose exec -T judge0-workers isolate --cleanup --box-id=$BOX_ID &>/dev/null; then
+        pass "isolate --cleanup succeeded"
+      else
+        fail "isolate --cleanup failed to clean box $BOX_ID"
+      fi
     else
       fail "isolate --init --cg failed: $INIT_OUT"
     fi

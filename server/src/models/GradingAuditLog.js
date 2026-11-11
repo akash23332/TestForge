@@ -98,6 +98,33 @@ const preventAuditMutation = function (next) {
   throw err;
 };
 
+// Document-level protection: Block modifying an already-existing audit record
+gradingAuditLogSchema.pre('save', function (next) {
+  if (!this.isNew) {
+    const err = new Error('[GradingAuditLog] Mutating existing audit records via save() is strictly forbidden.');
+    err.name = 'SecurityError';
+    if (typeof next === 'function') return next(err);
+    throw err;
+  }
+  if (typeof next === 'function') next();
+});
+
+// Bulk operation protection: Block update and delete actions inside bulkWrite
+gradingAuditLogSchema.pre('bulkWrite', function (next) {
+  const ops = this.operations || (arguments[0] && Array.isArray(arguments[0]) ? arguments[0] : null);
+  if (ops) {
+    for (const op of ops) {
+      if (op.updateOne || op.updateMany || op.replaceOne || op.deleteOne || op.deleteMany) {
+        const err = new Error('[GradingAuditLog] Mutating or deleting audit records via bulkWrite is strictly forbidden.');
+        err.name = 'SecurityError';
+        if (typeof next === 'function') return next(err);
+        throw err;
+      }
+    }
+  }
+  if (typeof next === 'function') return next();
+});
+
 gradingAuditLogSchema.pre('updateOne', preventAuditMutation);
 gradingAuditLogSchema.pre('updateMany', preventAuditMutation);
 gradingAuditLogSchema.pre('findOneAndUpdate', preventAuditMutation);

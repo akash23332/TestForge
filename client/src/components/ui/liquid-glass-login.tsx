@@ -395,7 +395,7 @@ export function GlassLogin({
           {/* Mode Switch Toggle: Sign In vs Sign Up */}
           <div className="mt-4 text-center">
             {role === "teacher" && authMode === "login" ? (
-              <span className="text-[12px] text-white/50">
+              <span className="text-[13px] font-medium text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
                 Need an account? Contact your institution administrator.
               </span>
             ) : (
@@ -404,7 +404,7 @@ export function GlassLogin({
                 onClick={() => {
                   setAuthMode((prev) => (prev === "login" ? "register" : "login"));
                 }}
-                className="text-[13px] font-medium text-white/75 transition-colors hover:text-[#EDFF72] underline-offset-4 hover:underline"
+                className="text-[13px] font-medium text-white transition-colors hover:text-[#EDFF72] underline-offset-4 hover:underline [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]"
               >
                 {authMode === "login"
                   ? "Don't have an account? Sign up as Student"
@@ -413,10 +413,10 @@ export function GlassLogin({
             )}
           </div>
 
-          <div className="my-5 flex items-center gap-3 text-[13px] text-white/45">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
+          <div className="my-5 flex items-center gap-3 text-[13px] font-medium text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
+            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/40" />
             or
-            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/20" />
+            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/40" />
           </div>
 
           {/* Google Sign-in Only (GitHub and Apple removed) */}
@@ -619,8 +619,9 @@ void main(){
   vec2 w = vec2(fbm(p * 1.7 + vec2(0., -t * .26)), fbm(p * 1.7 + vec2(4.1, -t * .22)));
   float n = fbm(vec2(p.x * 2.4, p.y * 1.5) + w * 2. + vec2(0., -t * .82));
 
-  float height = uv.y * 1.5 + abs(uv.x - .5) * .5;
-  float flame = clamp(n * 1.5 - height + .1, 0., 1.);
+  // Flames balanced reach — slightly increased to gracefully meet the lower rim of the glass card
+  float height = uv.y * 2.05 + abs(uv.x - .5) * .55;
+  float flame = clamp(n * 1.35 - height + .08, 0., 1.);
 
   // Background: Deep charcoal / Obsidian (warm graphite tone, ZERO blue)
   vec3 col = mix(vec3(.042, .050, .040), vec3(.016, .019, .016), uv.y);
@@ -633,19 +634,19 @@ void main(){
   fire = mix(fire, vec3(.98, 1.0, .86), smoothstep(.62, .85, flame)); // warm white-gold core
 
   // Base inner glow: warm golden chartreuse (warm golden core, NO cyan/blue)
-  float baseGlow = smoothstep(.0, .14, flame - .26 - uv.y * 2.2);
-  vec3 warmCore = mix(vec3(.72, .92, .22), vec3(.96, 1.0, .58), smoothstep(.2, .7, flame - uv.y * 2.2));
+  float baseGlow = smoothstep(.0, .14, flame - .26 - uv.y * 2.6);
+  vec3 warmCore = mix(vec3(.72, .92, .22), vec3(.96, 1.0, .58), smoothstep(.2, .7, flame - uv.y * 2.6));
   fire = mix(fire, warmCore, baseGlow);
 
-  col += fire * (.48 + .52 * smoothstep(.0, .5, flame));
+  col += fire * (.46 + .50 * smoothstep(.0, .5, flame));
 
-  // Ambient bloom: soft warm lime-sage glow
+  // Ambient bloom: soft subtle glow
   float bloom = fbm(p * .7 + vec2(t * .03, -t * .05));
-  col += vec3(.22, .38, .12) * bloom * bloom * smoothstep(1.1, .2, uv.y) * .65;
+  col += vec3(.21, .36, .11) * bloom * bloom * smoothstep(0.95, .15, uv.y) * .52;
 
-  // Embers: sparkling warm lime & gold particles (NO blue motes)
-  float e = embers(p, t) * smoothstep(1.05, .1, uv.y);
-  vec3 sparkColor = mix(vec3(.93, 1.0, .44), vec3(1.0, .94, .52), step(.50, fbm(p * 3. + 11.))) * 1.35;
+  // Embers: sparkling warm lime & gold particles
+  float e = embers(p, t) * smoothstep(1.0, .1, uv.y);
+  vec3 sparkColor = mix(vec3(.93, 1.0, .44), vec3(1.0, .94, .52), step(.50, fbm(p * 3. + 11.))) * 1.25;
   col += sparkColor * e;
 
   // Dither against banding

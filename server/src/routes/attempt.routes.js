@@ -16,7 +16,11 @@ import {
   recordActivity,
   getMyExamAttempts,
   getAvailableExamsForStudent,
-  gradeStudentAnswer
+  getStudentAnalytics,
+  getStudentNotifications,
+  markNotificationRead,
+  gradeStudentAnswer,
+  clearOrphanSubmission
 } from '../controllers/attempt.controller.js';
 
 const router = express.Router();
@@ -27,6 +31,12 @@ router.post('/join', optionalAuth, authRateLimiter, joinExamByCode);
 // Student authenticated personal history and active tests
 router.get('/my/history', requireAuth, getMyExamAttempts);
 router.get('/my/available-exams', requireAuth, getAvailableExamsForStudent);
+router.get('/my/analytics', requireAuth, getStudentAnalytics);
+router.get('/my/notifications', requireAuth, getStudentNotifications);
+router.post('/my/notifications/:id/read', requireAuth, markNotificationRead);
+
+// Administrative clearance for orphaned unconfirmed submissions (Admin only)
+router.post('/admin/submissions/:submissionId/clear-orphan', requireAuth, requireRole('admin'), clearOrphanSubmission);
 
 // Attempt session state (Protected by Attempt Ownership Guard)
 router.get('/:attemptId', requireAttemptAccess, getAttemptState);

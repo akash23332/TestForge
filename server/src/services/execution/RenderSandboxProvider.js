@@ -1,6 +1,6 @@
 import { ExecutionProvider } from './ExecutionProvider.interface.js';
 import { config } from '../../config/env.js';
-import { ProxyAgent } from 'undici';
+import { ProxyAgent, Agent } from 'undici';
 
 // Standard Judge0 language IDs for reference
 const JUDGE0_LANGUAGE_IDS = {
@@ -25,13 +25,44 @@ export class RenderSandboxProvider extends ExecutionProvider {
     this.endpoint = (
       options.endpoint ||
       config.execution?.sandboxEndpoint ||
+      process.env.JUDGE0_URL ||
+      process.env.JUDGE0_API_URL ||
       process.env.RENDER_SANDBOX_ENDPOINT ||
       process.env.RENDER_SANDBOX_URL ||
       ''
     ).trim();
+
+    if (this.endpoint) {
+      let parsed;
+      try {
+        parsed = new URL(this.endpoint);
+      } catch (err) {
+        throw new Error(`[RenderSandboxProvider] Invalid runner endpoint URL: '${this.endpoint}'`);
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error(`[RenderSandboxProvider] Unsupported endpoint protocol '${parsed.protocol}'. Must be http: or https:.`);
+      }
+      if (
+        (config.env === 'production' || process.env.NODE_ENV === 'production') &&
+        parsed.protocol === 'http:' &&
+        !options.proxyUrl &&
+        !process.env.TAILSCALE_PROXY &&
+        !process.env.HTTP_PROXY &&
+        !options.requireProxy &&
+        process.env.REQUIRE_PROXY !== 'true' &&
+        parsed.hostname !== 'localhost' &&
+        parsed.hostname !== '127.0.0.1'
+      ) {
+        throw new Error(
+          `[RenderSandboxProvider FAIL-CLOSED] Insecure plaintext HTTP endpoint '${this.endpoint}' is strictly prohibited in production without a secure proxy (TAILSCALE_PROXY).`
+        );
+      }
+    }
+
     this.apiKey = (
       options.apiKey ||
       config.execution?.sandboxApiKey ||
+      process.env.JUDGE0_API_KEY ||
       process.env.RENDER_SANDBOX_API_KEY ||
       process.env.RENDER_SANDBOX_TOKEN ||
       ''
@@ -63,6 +94,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
     this.authzToken = (
       options.authzToken ||
       config.execution?.sandboxAuthzToken ||
+      process.env.JUDGE0_AUTHZ_TOKEN ||
       process.env.RENDER_SANDBOX_AUTHZ_TOKEN ||
       ''
     ).trim();
@@ -71,10 +103,56 @@ export class RenderSandboxProvider extends ExecutionProvider {
       process.env.REQUIRE_PROXY === 'true' ||
       this.endpoint.includes('.ts.net')
     );
-    this.dispatcher = this.proxyUrl ? new ProxyAgent(this.proxyUrl) : null;
+
+    // Configurable separate timeouts
+    this.connectionTimeoutMs = options.connectionTimeoutMs ||
+      parseInt(process.env.RUNNER_CONNECTION_TIMEOUT_MS, 10) || 5000;
+    this.responseTimeoutMs = options.responseTimeoutMs ||
+      parseInt(process.env.RUNNER_RESPONSE_TIMEOUT_MS, 10) || 10000;
+
+    // Dispatcher initialization with strict TLS verification
+    if (options.dispatcher) {
+      this.dispatcher = options.dispatcher;
+    } else if (this.proxyUrl) {
+      this.dispatcher = new ProxyAgent({
+        uri: this.proxyUrl,
+        connect: { timeout: this.connectionTimeoutMs }
+      });
+    } else if (this.endpoint.startsWith('https://')) {
+      this.dispatcher = new Agent({
+        connect: {
+          timeout: this.connectionTimeoutMs,
+          rejectUnauthorized: true // CRITICAL: TLS certificate validation is strictly enforced.
+        },
+        headersTimeout: this.responseTimeoutMs,
+        bodyTimeout: this.responseTimeoutMs
+      });
+    } else {
+      this.dispatcher = null;
+    }
+
     this.defaultMemoryLimitMb = options.memoryLimitMb || 256;
     this.defaultCpuLimit = options.cpuLimit || 1.0;
-    this.providerType = options.providerType || (this.endpoint.includes('judge0') ? 'judge0' : 'testforge_sandbox');
+    this.providerType = options.providerType || (
+      (this.endpoint.includes('judge0') || !this.endpoint.includes('testforge_sandbox')) ? 'judge0' : 'testforge_sandbox'
+    );
+  }
+
+  /**
+   * Sanitizes log and error messages to guarantee no authentication secrets leak.
+   * @param {string} msg
+   * @returns {string}
+   */
+  _sanitize(msg) {
+    if (!msg || typeof msg !== 'string') return msg;
+    let sanitized = msg;
+    if (this.apiKey && this.apiKey.length >= 4) {
+      sanitized = sanitized.replaceAll(this.apiKey, '[REDACTED_API_KEY]');
+    }
+    if (this.authzToken && this.authzToken.length >= 4) {
+      sanitized = sanitized.replaceAll(this.authzToken, '[REDACTED_AUTH_TOKEN]');
+    }
+    return sanitized;
   }
 
   /**
@@ -123,15 +201,43 @@ export class RenderSandboxProvider extends ExecutionProvider {
 
   /**
    * Helper to parse and standardize Judge0 CE submission response payload.
+   * Strictly validates payload schema and types to fail-closed on malformed responses.
    */
   _parseJudge0Response(data, startTime = 0, timeoutMs = 3500) {
+    // 1. Validate payload structure
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return {
+        token: null,
+        status: 'internal_error',
+        output: null,
+        error: 'Malformed Judge0 runner response: expected JSON object payload',
+        runtimeMs: startTime ? Date.now() - startTime : 0,
+        memoryKb: 0,
+        statusId: null
+      };
+    }
+
+    // 2. Validate status object and numeric ID
     const statusId = data.status?.id;
+    if (typeof statusId !== 'number' || statusId < 1 || statusId > 14) {
+      return {
+        token: data.token || null,
+        status: 'internal_error',
+        output: null,
+        error: `Malformed Judge0 runner response: invalid or missing status ID (${JSON.stringify(data.status || null)})`,
+        runtimeMs: startTime ? Date.now() - startTime : 0,
+        memoryKb: 0,
+        statusId: null
+      };
+    }
+
     let status = 'success';
     let error = null;
 
     const desc = (data.status?.description || '').toLowerCase();
     const msg = (data.message || '').toLowerCase();
-    const stderr = data.stderr || '';
+    const rawStderr = data.stderr || '';
+    const stderr = typeof rawStderr === 'string' ? rawStderr.slice(0, 16384) : '';
 
     // Status 1 = In Queue, 2 = Processing
     if (statusId === 1) {
@@ -146,13 +252,17 @@ export class RenderSandboxProvider extends ExecutionProvider {
       };
     }
     if (statusId === 2) {
+      const rawTime = Number(data.time);
+      const validRuntime = !isNaN(rawTime) && rawTime >= 0 ? Math.round(rawTime * 1000) : (startTime ? Date.now() - startTime : 0);
+      const rawMem = Number(data.memory);
+      const validMem = !isNaN(rawMem) && rawMem >= 0 ? rawMem : 0;
       return {
         token: data.token || null,
         status: 'processing',
         output: null,
         error: null,
-        runtimeMs: data.time ? Math.round(Number(data.time) * 1000) : (startTime ? Date.now() - startTime : 0),
-        memoryKb: data.memory || 0,
+        runtimeMs: validRuntime,
+        memoryKb: validMem,
         statusId: 2
       };
     }
@@ -185,7 +295,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       error = `Time limit exceeded (${timeoutMs}ms)`;
     } else if (statusId === 6) {
       status = 'compilation_error';
-      error = data.compile_output || 'Compilation failed';
+      error = data.compile_output ? String(data.compile_output).slice(0, 16384) : 'Compilation failed';
     } else if (isMemoryError) {
       status = 'memory_limit_exceeded';
       error = stderr || data.message || 'Memory limit exceeded';
@@ -195,25 +305,36 @@ export class RenderSandboxProvider extends ExecutionProvider {
     } else if (statusId === 13) {
       status = 'internal_error';
       error = `Judge0 internal error: ${data.message || 'Unknown error'}`;
+    } else if (statusId === 14) {
+      status = 'internal_error';
+      error = `Judge0 exec format error: ${data.message || 'Exec format error'}`;
     }
 
-    let parsedOutput = data.stdout?.trim() || null;
-    try {
-      if (parsedOutput !== null && parsedOutput !== undefined) {
-        parsedOutput = JSON.parse(parsedOutput);
+    let parsedOutput = null;
+    if (data.stdout !== null && data.stdout !== undefined) {
+      const rawStdout = typeof data.stdout === 'string' ? data.stdout.trim() : String(data.stdout).trim();
+      try {
+        parsedOutput = JSON.parse(rawStdout);
+      } catch {
+        parsedOutput = rawStdout;
       }
-    } catch {
-      // Keep as string
     }
+
+    const rawTime = Number(data.time);
+    const runtimeMs = (!isNaN(rawTime) && rawTime >= 0)
+      ? Math.round(rawTime * 1000)
+      : (startTime ? Date.now() - startTime : 0);
+    const rawMem = Number(data.memory);
+    const memoryKb = (!isNaN(rawMem) && rawMem >= 0) ? rawMem : 0;
 
     return {
       token: data.token || null,
       status,
       statusId,
       output: parsedOutput,
-      error,
-      runtimeMs: data.time ? Math.round(Number(data.time) * 1000) : (startTime ? Date.now() - startTime : 0),
-      memoryKb: data.memory || 0
+      error: this._sanitize(error),
+      runtimeMs,
+      memoryKb
     };
   }
 
@@ -240,6 +361,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       const fetchOpts = {
         method: 'GET',
         headers,
+        redirect: 'error',
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000)
       };
       if (this.dispatcher) {
@@ -250,16 +372,22 @@ export class RenderSandboxProvider extends ExecutionProvider {
       if (response.status === 404) {
         return { token, status: 'not_found', exists: false };
       }
+      if (response.status === 401 || response.status === 403) {
+        return { token, status: 'internal_error', error: `Authentication failed (HTTP ${response.status})`, exists: true };
+      }
       if (!response.ok) {
         return { token, status: 'internal_error', error: `HTTP ${response.status}`, exists: true };
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (!data) {
+        return { token, status: 'internal_error', error: 'Malformed response payload from runner', exists: true };
+      }
       const parsed = this._parseJudge0Response(data, 0, timeoutMs);
       parsed.exists = true;
       return parsed;
     } catch (err) {
-      return { token, status: 'internal_error', error: err.message, exists: null };
+      return { token, status: 'internal_error', error: this._sanitize(err.message), exists: null };
     }
   }
 
@@ -292,6 +420,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       const fetchOpts = {
         method: 'DELETE',
         headers,
+        redirect: 'error',
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000)
       };
       if (this.dispatcher) {
@@ -325,9 +454,120 @@ export class RenderSandboxProvider extends ExecutionProvider {
       return {
         success: false,
         cancellationStatus: 'NETWORK_ERROR',
-        error: err.message,
+        error: this._sanitize(err.message),
         isolateProcessKilled: false
       };
+    }
+  }
+
+  /**
+   * Performs a health check against the runner endpoint.
+   * Distinguishes runner availability from application health.
+   *
+   * @param {Object} [options]
+   * @param {number} [options.timeoutMs=3000]
+   * @returns {Promise<{
+   *   healthy: boolean,
+   *   status: 'healthy' | 'unreachable' | 'unauthorized' | 'unconfigured' | 'error',
+   *   endpointConfigured: boolean,
+   *   providerType: string,
+   *   latencyMs: number | null,
+   *   details?: any,
+   *   error?: string | null
+   * }>}
+   */
+  async checkHealth({ timeoutMs = 3000, forceRefresh = false } = {}) {
+    if (!this.isConfigured()) {
+      return {
+        healthy: false,
+        status: 'unconfigured',
+        endpointConfigured: false,
+        providerType: this.providerType,
+        latencyMs: null,
+        error: 'Runner endpoint is not configured (RENDER_SANDBOX_ENDPOINT or JUDGE0_URL)'
+      };
+    }
+
+    const now = Date.now();
+    // Cache health check results for 5 seconds to prevent health check storms/DoS on runner
+    if (!forceRefresh && this._lastHealthCheck && (now - this._lastHealthCheck.timestamp < 5000)) {
+      return this._lastHealthCheck.result;
+    }
+
+    const startTime = Date.now();
+    const cleanUrl = this.endpoint.endsWith('/')
+      ? `${this.endpoint}about`
+      : `${this.endpoint}/about`;
+
+    try {
+      const headers = {};
+      if (this.apiKey) headers['X-Auth-Token'] = this.apiKey;
+      if (this.authzToken) headers['X-Auth-User'] = this.authzToken;
+
+      const fetchOpts = {
+        method: 'GET',
+        headers,
+        redirect: 'error',
+        signal: AbortSignal.timeout(timeoutMs)
+      };
+      if (this.dispatcher) {
+        fetchOpts.dispatcher = this.dispatcher;
+      }
+
+      const response = await fetch(cleanUrl, fetchOpts);
+      const latencyMs = Date.now() - startTime;
+
+      if (response.status === 401 || response.status === 403) {
+        const result = {
+          healthy: false,
+          status: 'unauthorized',
+          endpointConfigured: true,
+          providerType: this.providerType,
+          latencyMs,
+          error: `Runner rejected authentication credentials (HTTP ${response.status})`
+        };
+        this._lastHealthCheck = { timestamp: now, result };
+        return result;
+      }
+
+      if (!response.ok) {
+        const result = {
+          healthy: false,
+          status: 'unreachable',
+          endpointConfigured: true,
+          providerType: this.providerType,
+          latencyMs,
+          error: `Runner returned non-OK status (HTTP ${response.status})`
+        };
+        this._lastHealthCheck = { timestamp: now, result };
+        return result;
+      }
+
+      const data = await response.json().catch(() => null);
+
+      const result = {
+        healthy: true,
+        status: 'healthy',
+        endpointConfigured: true,
+        providerType: this.providerType,
+        latencyMs,
+        details: data ? { version: data.version || '1.13.1' } : null,
+        error: null
+      };
+      this._lastHealthCheck = { timestamp: now, result };
+      return result;
+    } catch (err) {
+      const latencyMs = Date.now() - startTime;
+      const result = {
+        healthy: false,
+        status: 'unreachable',
+        endpointConfigured: true,
+        providerType: this.providerType,
+        latencyMs,
+        error: this._sanitize(err.message)
+      };
+      this._lastHealthCheck = { timestamp: now, result };
+      return result;
     }
   }
 
@@ -369,6 +609,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       const fetchOpts = {
         method: 'POST',
         headers,
+        redirect: 'error',
         body: JSON.stringify(payload),
         signal: combinedSignal
       };
@@ -383,7 +624,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
         return {
           status: 'internal_error',
           output: null,
-          error: `Sandbox execution service error (HTTP ${response.status}): ${errorText}`,
+          error: `Sandbox execution service error (HTTP ${response.status}): ${this._sanitize(errorText)}`,
           runtimeMs: Date.now() - startTime
         };
       }
@@ -393,7 +634,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       return {
         status: data.status || 'success',
         output: data.output,
-        error: data.error || null,
+        error: this._sanitize(data.error) || null,
         runtimeMs: data.runtimeMs || (Date.now() - startTime),
         compileMs: data.compileMs,
         memoryKb: data.memoryKb
@@ -416,7 +657,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
         output: null,
         error: isTimeout
           ? `Sandbox execution timed out after ${timeoutMs}ms.`
-          : `Sandbox connection failure: ${err.message}`,
+          : `Sandbox connection failure: ${this._sanitize(err.message)}`,
         runtimeMs
       };
     }
@@ -424,6 +665,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
 
   /**
    * Execution via Judge0 CE API (/submissions?wait=true).
+   * Enforces separate connection, response, and execution timeouts.
    */
   async _executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, signal = null, onTokenCreated = null }) {
     const startTime = Date.now();
@@ -435,16 +677,23 @@ export class RenderSandboxProvider extends ExecutionProvider {
     const languageId = JUDGE0_LANGUAGE_IDS[langKey] || 63;
     const serializedStdin = typeof inputArgs === 'string' ? inputArgs : JSON.stringify(inputArgs);
 
+    // Execution limits passed into Judge0 / Isolate
+    const cpuTimeLimitSec = Math.max(1, Math.ceil(timeoutMs / 1000));
+    const wallTimeLimitSec = Math.max(2, Math.ceil((timeoutMs + 2000) / 1000));
+
     const payload = {
       source_code: code,
       language_id: languageId,
       stdin: serializedStdin,
-      cpu_time_limit: Math.max(1, timeoutMs / 1000),
-      wall_time_limit: Math.max(2, (timeoutMs + 1500) / 1000),
+      cpu_time_limit: cpuTimeLimitSec,
+      wall_time_limit: wallTimeLimitSec,
       memory_limit: memoryLimitMb * 1024,
       max_file_size: 1024,
       enable_network: false // CRITICAL: Outbound networking disabled in isolate
     };
+
+    // Effective response timeout must account for runner wall-time + network margins
+    const effectiveResponseTimeout = Math.max(this.responseTimeoutMs, (wallTimeLimitSec * 1000) + 3000);
 
     try {
       const headers = {
@@ -458,12 +707,13 @@ export class RenderSandboxProvider extends ExecutionProvider {
       }
 
       const combinedSignal = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs + 3500)])
-        : AbortSignal.timeout(timeoutMs + 3500);
+        ? AbortSignal.any([signal, AbortSignal.timeout(effectiveResponseTimeout)])
+        : AbortSignal.timeout(effectiveResponseTimeout);
 
       const fetchOpts = {
         method: 'POST',
         headers,
+        redirect: 'error',
         body: JSON.stringify(payload),
         signal: combinedSignal
       };
@@ -473,17 +723,48 @@ export class RenderSandboxProvider extends ExecutionProvider {
 
       const response = await fetch(cleanUrl, fetchOpts);
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
         return {
           status: 'internal_error',
           output: null,
-          error: `Judge0 runner error (HTTP ${response.status}): ${errorText}`,
+          error: `Judge0 runner authentication failure: Invalid or missing credentials (HTTP ${response.status})`,
           runtimeMs: Date.now() - startTime
         };
       }
 
-      const data = await response.json();
+      if (response.status === 429) {
+        return {
+          status: 'internal_error',
+          output: null,
+          error: 'Judge0 runner rate limit exceeded (HTTP 429)',
+          runtimeMs: Date.now() - startTime
+        };
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        const errorPrefix = response.status >= 500
+          ? `Judge0 runner unavailable (HTTP ${response.status})`
+          : `Judge0 runner error (HTTP ${response.status})`;
+        return {
+          status: 'internal_error',
+          output: null,
+          error: errorText ? `${errorPrefix}: ${this._sanitize(errorText)}` : errorPrefix,
+          runtimeMs: Date.now() - startTime
+        };
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        return {
+          status: 'internal_error',
+          output: null,
+          error: `Malformed Judge0 runner response: Invalid JSON payload (${jsonErr.message})`,
+          runtimeMs: Date.now() - startTime
+        };
+      }
 
       if (data.token && typeof onTokenCreated === 'function') {
         try {
@@ -496,7 +777,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
       return this._parseJudge0Response(data, startTime, timeoutMs);
     } catch (err) {
       const runtimeMs = Date.now() - startTime;
-      const isAborted = signal?.aborted || err.name === 'AbortError';
+      const isAborted = signal?.aborted || (err.name === 'AbortError' && signal?.aborted);
       if (isAborted) {
         return {
           status: 'cancelled',
@@ -505,14 +786,18 @@ export class RenderSandboxProvider extends ExecutionProvider {
           runtimeMs
         };
       }
-      const isTimeout = err.name === 'TimeoutError' || runtimeMs >= timeoutMs;
+
+      const isTimeout = err.name === 'TimeoutError' || runtimeMs >= effectiveResponseTimeout;
+      const isCertError = err.code?.includes('CERT') || err.message?.includes('certificate') || err.message?.includes('SELF_SIGNED');
 
       return {
         status: isTimeout ? 'timeout' : 'internal_error',
         output: null,
-        error: isTimeout
-          ? `Judge0 execution timed out after ${timeoutMs}ms.`
-          : `Judge0 connection failure: ${err.message}`,
+        error: isCertError
+          ? `TLS certificate validation failed: ${this._sanitize(err.message)}`
+          : isTimeout
+            ? `Judge0 execution timed out after ${effectiveResponseTimeout}ms.`
+            : `Judge0 connection failure: ${this._sanitize(err.message)}`,
         runtimeMs
       };
     }
@@ -530,6 +815,8 @@ export class RenderSandboxProvider extends ExecutionProvider {
       proxyUrl: this.proxyUrl || null,
       requireProxy: this.requireProxy,
       hasAuthzToken: Boolean(this.authzToken),
+      connectionTimeoutMs: this.connectionTimeoutMs,
+      responseTimeoutMs: this.responseTimeoutMs,
       providerType: this.providerType,
       languages: ['javascript', 'python', 'java', 'cpp']
     };

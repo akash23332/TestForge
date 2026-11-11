@@ -1,0 +1,65 @@
+# ==============================================================================
+# TestForge Dedicated Execution Runner - Custom Native ARM64 Judge0 v1.13.1 Image
+# Target Platform: linux/arm64 (OCI Ampere A1, AWS Graviton, Apple Silicon)
+# Base Image: testforge/compilers:v1.4.0-arm64
+# Preserves: Judge0 CE v1.13.1 behavior, Rails 6 API, ActiveJob worker, and Isolate
+# ==============================================================================
+
+FROM testforge/compilers:v1.4.0-arm64 AS production
+
+ENV JUDGE0_HOMEPAGE="https://judge0.com"
+LABEL homepage=$JUDGE0_HOMEPAGE
+
+ENV JUDGE0_SOURCE_CODE="https://github.com/judge0/judge0"
+LABEL source_code=$JUDGE0_SOURCE_CODE
+
+ENV JUDGE0_MAINTAINER="TestForge DevSecOps Team <security@testforge.internal>"
+LABEL maintainer=$JUDGE0_MAINTAINER
+
+ENV PATH="/usr/local/ruby-2.7.0/bin:/opt/.gem/bin:$PATH"
+ENV GEM_HOME="/opt/.gem/"
+ENV RAILS_ENV=production
+
+# 1. Environment & Directories
+# Note: Aglio documentation generator is omitted to prevent build failures on Node 20 / ARM64 (B-07).
+EXPOSE 2358
+WORKDIR /api
+
+# 2. Acquire Judge0 CE v1.13.1 Source Code at Verified Release Tag
+# Copy complete source tree including dotfiles cleanly without error suppression (B-07)
+RUN git clone --depth 1 --branch v1.13.1 https://github.com/judge0/judge0.git /tmp/judge0-src && \
+    cp -a /tmp/judge0-src/. /api/ && \
+    rm -rf /tmp/judge0-src
+
+# 3. Install Ruby Gems for Rails 6.0 in Production
+RUN bundle config set --local deployment 'true' && \
+    bundle config set --local without 'development test' && \
+    bundle install --jobs=$(nproc)
+
+# 4. Configure Cron Jobs for System Maintenance
+RUN if [ -d "/api/cron" ]; then \
+      cp -r /api/cron /etc/cron.d && \
+      cat /etc/cron.d/* | crontab - ; \
+    fi
+
+# 5. Create Dedicated Non-Root judge0 User with Least-Privilege Sudoers Configuration
+# Unrestricted 'ALL=(ALL) NOPASSWD: ALL' is replaced with explicit binary allowances (B-06)
+RUN if ! id -u judge0 >/dev/null 2>&1; then \
+      useradd -u 1000 -m -r judge0; \
+    fi && \
+    echo "judge0 ALL=(ALL) NOPASSWD: /usr/sbin/service, /etc/init.d/cron, /usr/sbin/cron, /usr/local/bin/isolate" > /etc/sudoers.d/judge0 && \
+    chmod 0440 /etc/sudoers.d/judge0 && \
+    mkdir -p /api/tmp/pids /api/tmp/sockets /api/log && \
+    chown -R judge0:judge0 /api/tmp/ /api/log/
+
+USER judge0
+
+ENV JUDGE0_VERSION="1.13.1-arm64"
+LABEL version=$JUDGE0_VERSION
+
+ENTRYPOINT ["/api/docker-entrypoint.sh"]
+CMD ["/api/scripts/server"]
+
+# Development stage for interactive debugging
+FROM production AS development
+CMD ["sleep", "infinity"]

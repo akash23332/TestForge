@@ -54,8 +54,9 @@ export const recalculateAttemptGrading = async (attemptId) => {
         isPending = true;
       }
     } else if (ans.questionType === 'coding') {
-      // Coding question pending if runner execution is queued/recovering/unavailable
-      if (isPendingSubmission && (ans.score === null || ans.score === undefined || ans.status !== 'SUBMITTED')) {
+      // Coding question is pending if runner execution is active/queued/recovering/unavailable,
+      // or if score has not yet been awarded
+      if (isPendingSubmission || ans.score === null || ans.score === undefined) {
         isPending = true;
       }
     }

@@ -18,9 +18,31 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 ARCH=$(uname -m)
-if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "aarch64" ]; then
+if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "aarch64" ] && [ "$ARCH" != "arm64" ]; then
   echo "[FATAL] Unsupported architecture: $ARCH"
   exit 1
+fi
+
+DEFAULT_ARM64_IMAGE="testforge/judge0:v1.13.1-arm64"
+DEFAULT_AMD64_IMAGE="judge0/judge0:v1.13.1"
+
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  echo "--------------------------------------------------------"
+  echo "[NOTICE] Target Host Architecture: ARM64 ($ARCH)"
+  echo "Official upstream 'judge0/judge0:v1.13.1' is strictly linux/amd64."
+  if [ -n "${JUDGE0_IMAGE:-}" ]; then
+    TARGET_JUDGE0_IMAGE="$JUDGE0_IMAGE"
+    echo "Using explicit JUDGE0_IMAGE override: '$TARGET_JUDGE0_IMAGE'."
+  else
+    TARGET_JUDGE0_IMAGE="$DEFAULT_ARM64_IMAGE"
+    echo "Defaulting to native ARM64 image: '$TARGET_JUDGE0_IMAGE'."
+  fi
+  echo "Running amd64 via QEMU emulation is strictly prohibited."
+  echo "--------------------------------------------------------"
+else
+  TARGET_JUDGE0_IMAGE="${JUDGE0_IMAGE:-$DEFAULT_AMD64_IMAGE}"
+  echo "[NOTICE] Target Host Architecture: x86_64 ($ARCH)"
+  echo "Using Judge0 image: '$TARGET_JUDGE0_IMAGE'."
 fi
 
 # 2. Verify cgroups v1 Legacy Hierarchy (MANDATORY for Judge0 v1.13.1 isolate)
@@ -82,7 +104,7 @@ ufw allow 443/tcp comment 'HTTPS API endpoint for TestForge Background Worker'
 ufw allow 80/tcp comment 'HTTP ACME challenge'
 ufw --force enable
 
-# 6. Generate Strong Random Cryptographic Secrets
+# 6. Generate Strong Random Cryptographic Secrets (Owner-Only Access)
 echo "[Step 5/6] Generating cryptographic tokens..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="/opt/testforge-judge0"
@@ -99,6 +121,14 @@ REDIS_PASS=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 24)
 AUTHN_TOKEN=$(head -c 48 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 36)
 AUTHZ_TOKEN=$(head -c 48 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 36)
 
+# Set restrictive umask before creating secret-bearing files
+OLD_UMASK=$(umask)
+umask 077
+
+# Pre-create files with strict owner-only permissions (0600)
+touch "$INSTALL_DIR/.env"
+chmod 600 "$INSTALL_DIR/.env"
+
 # Write .env for docker compose
 cat <<EOF > "$INSTALL_DIR/.env"
 POSTGRES_USER=judge0
@@ -109,17 +139,74 @@ AUTHN_TOKEN=$AUTHN_TOKEN
 AUTHZ_TOKEN=$AUTHZ_TOKEN
 EOF
 
-# Update judge0.conf with actual values
+# Persist resolved Judge0 image to .env so docker compose adheres to target architecture
+echo "JUDGE0_IMAGE=$TARGET_JUDGE0_IMAGE" >> "$INSTALL_DIR/.env"
+
+# Update judge0.conf with actual values and harden permissions
 if [ -f "judge0.conf" ]; then
+  chmod 600 judge0.conf
   sed -i "s/^AUTHN_TOKEN=.*/AUTHN_TOKEN=$AUTHN_TOKEN/" judge0.conf
   sed -i "s/^AUTHZ_TOKEN=.*/AUTHZ_TOKEN=$AUTHZ_TOKEN/" judge0.conf
   sed -i "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$REDIS_PASS/" judge0.conf
   sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$POSTGRES_PASS/" judge0.conf
+  chmod 600 judge0.conf
 fi
 
+# Restore umask
+umask "$OLD_UMASK"
+
+# Explicit post-creation permission & ownership verification
+ENV_PERMS=$(stat -c "%a" "$INSTALL_DIR/.env" 2>/dev/null || stat -f "%Lp" "$INSTALL_DIR/.env" 2>/dev/null || echo "unknown")
+if [ "$ENV_PERMS" != "600" ]; then
+  echo "[FATAL] Insecure file permissions on $INSTALL_DIR/.env: $ENV_PERMS (expected 600)."
+  exit 1
+fi
+if [ -f "$INSTALL_DIR/judge0.conf" ]; then
+  CONF_PERMS=$(stat -c "%a" "$INSTALL_DIR/judge0.conf" 2>/dev/null || stat -f "%Lp" "$INSTALL_DIR/judge0.conf" 2>/dev/null || echo "unknown")
+  if [ "$CONF_PERMS" != "600" ]; then
+    echo "[FATAL] Insecure file permissions on $INSTALL_DIR/judge0.conf: $CONF_PERMS (expected 600)."
+    exit 1
+  fi
+fi
+echo "Secret files verified with strict owner-only permissions (mode 0600)."
+
 # 7. Start Services
-echo "[Step 6/6] Launching Judge0 CE services..."
-docker compose pull
+echo "[Step 6/6] Verifying and acquiring container images..."
+
+# Explicitly pull required external infrastructure dependencies (fail-fast if unreachable)
+echo "Pulling external database and cache images (postgres:16-alpine, redis:7-alpine)..."
+docker compose pull judge0-db judge0-redis
+
+# Verify Judge0 image availability strictly adhering to host architecture policy
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  if docker image inspect "$TARGET_JUDGE0_IMAGE" &>/dev/null; then
+    echo "Verified native ARM64 Judge0 image present in Docker cache: $TARGET_JUDGE0_IMAGE"
+  else
+    echo "----------------------------------------------------------------------"
+    echo "[FATAL] Required ARM64 Judge0 image '$TARGET_JUDGE0_IMAGE' not found in local Docker cache."
+    echo "Upstream 'judge0/judge0:v1.13.1' does not provide an official linux/arm64 image."
+    echo "You must build the native ARM64 image on this host before deploying:"
+    echo "  sudo bash ./build-arm64.sh"
+    echo "Refusing to pull upstream amd64 images on ARM64 architecture (emulation prohibited)."
+    echo "----------------------------------------------------------------------"
+    exit 1
+  fi
+else
+  if docker image inspect "$TARGET_JUDGE0_IMAGE" &>/dev/null; then
+    echo "Verified Judge0 image in local Docker cache: $TARGET_JUDGE0_IMAGE"
+  else
+    echo "Image '$TARGET_JUDGE0_IMAGE' not found locally. Pulling from registry..."
+    docker compose pull judge0-server judge0-workers
+  fi
+fi
+
+# Assert all required images exist before starting containers
+echo "Asserting image availability before launch..."
+docker image inspect "$TARGET_JUDGE0_IMAGE" > /dev/null
+docker image inspect postgres:16-alpine > /dev/null
+docker image inspect redis:7-alpine > /dev/null
+echo "All required container images verified present."
+
 docker compose up -d
 
 echo ""
@@ -133,8 +220,8 @@ echo "========================================================"
 echo " Runner Deployment Completed Successfully! "
 echo "========================================================"
 echo " Runner API:       http://127.0.0.1:2358"
-echo " Auth Token:       $AUTHN_TOKEN"
-echo " Admin Token:      $AUTHZ_TOKEN"
+echo " Secrets File:     $INSTALL_DIR/.env (mode 0600, owner-only)"
+echo " Tokens:           [REDACTED] View securely via: sudo cat $INSTALL_DIR/.env"
 echo ""
 echo " Next Steps:"
 echo " 1. Configure Caddy / Nginx reverse proxy for domain TLS on port 443."
@@ -142,5 +229,5 @@ echo " 2. Run ./verify-containment.sh to execute hostile-code attack suite."
 echo " 3. In TestForge Background Worker environment, configure:"
 echo "    EXECUTION_PROVIDER=render_sandbox"
 echo "    RENDER_SANDBOX_ENDPOINT=https://your-runner-domain.com"
-echo "    RENDER_SANDBOX_API_KEY=$AUTHN_TOKEN"
+echo "    RENDER_SANDBOX_API_KEY=\$(sudo grep '^AUTHN_TOKEN=' $INSTALL_DIR/.env | cut -d'=' -f2)"
 echo "========================================================"

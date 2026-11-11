@@ -173,7 +173,11 @@ export const updateQuestion = async (req, res, next) => {
       throw ApiError.notFound('Question not found');
     }
 
-    if (req.user && question.ownerId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const isOwnerOrAdmin =
+      req.user &&
+      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+
+    if (!isOwnerOrAdmin) {
       throw ApiError.forbidden('You do not have permission to update this question.');
     }
 
@@ -195,7 +199,11 @@ export const deleteQuestion = async (req, res, next) => {
       throw ApiError.notFound('Question not found');
     }
 
-    if (req.user && question.ownerId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const isOwnerOrAdmin =
+      req.user &&
+      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+
+    if (!isOwnerOrAdmin) {
       throw ApiError.forbidden('You do not have permission to delete this question.');
     }
 

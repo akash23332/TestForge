@@ -1,0 +1,123 @@
+# ==============================================================================
+# TestForge Dedicated Execution Runner - Custom Native ARM64 Compilers Base Image
+# Target Platform: linux/arm64 (OCI Ampere A1, AWS Graviton, Apple Silicon)
+# Base Image: Ubuntu 22.04 LTS (Jammy Jellyfish)
+# Replaces: judge0/compilers:1.4.0 (which is strictly linux/amd64)
+# ==============================================================================
+
+FROM ubuntu:22.04 AS compilers-arm64
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# 1. Install Base Build Utilities & Libraries
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    wget \
+    git \
+    sudo \
+    cron \
+    ca-certificates \
+    gnupg \
+    pkg-config \
+    libcap-dev \
+    libpq-dev \
+    libssl-dev \
+    libreadline-dev \
+    zlib1g-dev \
+    libyaml-dev \
+    libffi-dev \
+    libncurses5-dev \
+    libgdbm-dev \
+    locales \
+    file && \
+    rm -rf /var/lib/apt/lists/*
+
+# 2. Install Native ARM64 Compilers & Runtimes Required by TestForge
+# TestForge strictly supports: C++ (54), Java (62), JavaScript (63), Python (71)
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    openjdk-17-jdk-headless \
+    python3 \
+    python3-pip \
+    python3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 3. Install Node.js 20 LTS (Native aarch64)
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update -qq && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# 4. Compile and Install IOI Isolate Sandbox (Pinned to v1.10.1 for cgroups v1 stability)
+WORKDIR /tmp/isolate-build
+RUN git clone --depth 1 --branch v1.10.1 https://github.com/ioi/isolate.git . && \
+    make -j$(nproc) && \
+    make install && \
+    chmod 4755 /usr/local/bin/isolate && \
+    echo "dir /usr/local" >> /usr/local/etc/isolate && \
+    cd / && rm -rf /tmp/isolate-build
+
+# 5. Compile OpenSSL 1.1.1 and Ruby 2.7.8 (Native ARM64 for Judge0 Rails Backend)
+# Ubuntu 22.04 LTS defaults to OpenSSL 3.0, which causes fatal compilation errors for Ruby <= 3.0.
+# We build OpenSSL 1.1.1w into /opt/openssl-1.1.1 and link Ruby specifically against it.
+# Pinned artifacts verified via SHA-256 to ensure supply chain integrity (B-07).
+WORKDIR /tmp/openssl-build
+RUN curl -fsSL https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl.tar.gz && \
+    echo "cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8  openssl.tar.gz" | sha256sum -c - && \
+    tar -xzf openssl.tar.gz && \
+    cd openssl-1.1.1w && \
+    ./config --prefix=/opt/openssl-1.1.1 --openssldir=/opt/openssl-1.1.1 no-shared && \
+    make -j$(nproc) && \
+    make install_sw && \
+    rm -rf /opt/openssl-1.1.1/certs && \
+    ln -s /etc/ssl/certs /opt/openssl-1.1.1/certs && \
+    cd / && rm -rf /tmp/openssl-build
+
+WORKDIR /tmp/ruby-build
+RUN curl -fsSL https://cache.ruby-lang.org/pub/ruby/2.7/ruby-2.7.8.tar.gz -o ruby.tar.gz && \
+    echo "c2dab63cbc8f2a05526108ad419efa63a67ed4074dbbcf9fc2b1ca664cb45ba0  ruby.tar.gz" | sha256sum -c - && \
+    tar -xzf ruby.tar.gz && \
+    cd ruby-2.7.8 && \
+    ./configure --prefix=/usr/local/ruby-2.7.0 --with-openssl-dir=/opt/openssl-1.1.1 --disable-install-doc && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && rm -rf /tmp/ruby-build
+
+# Configure Ruby and Gem environment paths expected by Judge0
+ENV PATH="/usr/local/ruby-2.7.0/bin:/opt/.gem/bin:$PATH"
+ENV GEM_HOME="/opt/.gem/"
+
+RUN echo "gem: --no-document" > /root/.gemrc && \
+    gem install bundler:2.1.4
+
+# 6. Setup Backward Compatibility Symlinks for Judge0 Language IDs
+# Upstream Judge0 v1.13.1 active.rb specifies hardcoded paths for specific language versions.
+# We symlink these paths to the native ARM64 runtimes:
+# - Language ID 54 (C++ GCC 9.2.0) -> Native GCC/G++
+# - Language ID 62 (Java OpenJDK 13.0.1) -> Native OpenJDK 17
+# - Language ID 63 (JavaScript Node.js 12.14.0) -> Native Node.js 20 LTS
+# - Language ID 71 (Python 3.8.1) -> Native Python 3.10+
+RUN mkdir -p /usr/local/gcc-9.2.0/bin && \
+    ln -sf /usr/bin/gcc /usr/local/gcc-9.2.0/bin/gcc && \
+    ln -sf /usr/bin/g++ /usr/local/gcc-9.2.0/bin/g++ && \
+    mkdir -p /usr/local/openjdk-13/bin && \
+    ln -sf /usr/bin/javac /usr/local/openjdk-13/bin/javac && \
+    ln -sf /usr/bin/java /usr/local/openjdk-13/bin/java && \
+    mkdir -p /usr/local/node-12.14.0/bin && \
+    ln -sf /usr/bin/node /usr/local/node-12.14.0/bin/node && \
+    mkdir -p /usr/local/python-3.8.1/bin && \
+    ln -sf /usr/bin/python3 /usr/local/python-3.8.1/bin/python3 && \
+    ln -sf /usr/bin/python3 /usr/local/python-3.8.1/bin/python && \
+    ln -sf /usr/bin/python3 /usr/bin/python
+
+WORKDIR /api
+
+CMD ["/bin/bash"]

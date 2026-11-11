@@ -1,0 +1,103 @@
+# ==============================================================================
+# TestForge Dedicated Execution Runner - Caddy Reverse Proxy Configuration
+# Target: Ubuntu 22.04 LTS (ARM64 / x86_64) on OCI Always Free
+# Role: Secure TLS Termination, Token Authentication, and Path/Method Whitelisting
+# ==============================================================================
+
+{
+    # Global options
+    admin off
+    auto_https disable_redirects
+
+    # Global connection & header size bounds
+    servers {
+        max_header_size 16KB
+    }
+}
+
+# ------------------------------------------------------------------------------
+# Inbound Runner Gateway
+# Replace {$RUNNER_DOMAIN} with runner hostname (e.g. runner-staging.yourdomain.com
+# or your Tailscale MagicDNS name: testforge-judge0-runner.your-tailnet.ts.net)
+# ------------------------------------------------------------------------------
+{$RUNNER_DOMAIN:localhost} {
+    # TLS Configuration
+    # Uses automated TLS via Let's Encrypt / ZeroSSL (or internal Tailscale certs)
+    # Never disables certificate verification
+    tls {$ACME_EMAIL:admin@example.com}
+
+    # Request body size limit (512KB is plenty for source code + test input; prevents memory exhaustion)
+    request_body {
+        max_size 512KB
+    }
+
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    # 1. Block public access to Judge0 administrative and configuration endpoints
+    # Explicitly matches exact root and wildcard subpaths
+    @blocked_admin {
+        path /config /config/* /admin /admin/* /workers /workers/* /sidekiq /sidekiq/* /system /system/*
+    }
+    respond @blocked_admin "Forbidden: Administrative access is strictly prohibited" 403
+
+    # 2. Public Health Check (Readiness / Liveness verification)
+    @health_check {
+        method GET
+        path /about /health
+    }
+    handle @health_check {
+        reverse_proxy 127.0.0.1:2358 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # 3. Allowlisted execution routes (STRICTLY REQUIRE AUTHENTICATION)
+    # Uses discrete exact and subpath matchers to prevent prefix pollution (e.g. /submissions_evil)
+    # Requires JUDGE0_AUTH_TOKEN environment variable (fails closed if unset)
+    @allowed_execution {
+        header X-Auth-Token {$JUDGE0_AUTH_TOKEN}
+        path /submissions /submissions/* /languages /languages/* /statuses /statuses/*
+        method POST GET DELETE
+    }
+    handle @allowed_execution {
+        reverse_proxy 127.0.0.1:2358 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                response_header_timeout 30s
+                dial_timeout 5s
+            }
+        }
+    }
+
+    # 4. Reject unauthenticated requests to protected endpoints
+    @unauthenticated {
+        not header X-Auth-Token {$JUDGE0_AUTH_TOKEN}
+    }
+    handle @unauthenticated {
+        respond "Unauthorized: Missing or invalid X-Auth-Token" 401
+    }
+
+    # 5. Reject any other path / method (Default Deny)
+    handle {
+        respond "Forbidden: Endpoint or method not allowlisted" 403
+    }
+}
+
+# ------------------------------------------------------------------------------
+# Rate Limiting & Abuse Defense Architecture Note:
+# Vanilla upstream Caddy releases do not bundle dynamic rate-limiting modules.
+# Rate-limiting defense-in-depth is enforced via:
+# 1. Upstream BullMQ worker rate limiting (limiter: max 50 jobs / sec).
+# 2. Worker execution concurrency clamped to WORKER_CONCURRENCY=2.
+# 3. Dedicated Judge0 worker pinned to COUNT=1 (1 isolate box concurrency).
+# 4. If edge rate limiting is desired at the reverse proxy layer, compile Caddy
+#    with xcaddy: xcaddy build --with github.com/mholt/caddy-ratelimit
+# ------------------------------------------------------------------------------

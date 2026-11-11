@@ -29,6 +29,20 @@ const startWorker = async () => {
     process.exit(1);
   }
 
+  // Probe runner availability without falsely reporting healthy if unreachable
+  if (typeof activeProvider.checkHealth === 'function') {
+    try {
+      const probe = await activeProvider.checkHealth({ timeoutMs: 3000 });
+      if (probe.healthy) {
+        console.log(`[Worker] Remote Execution Runner is ONLINE and healthy (Latency: ${probe.latencyMs}ms, Version: ${probe.details?.version || 'N/A'})`);
+      } else {
+        console.warn(`[Worker WARN] Remote Execution Runner is OFFLINE or UNREACHABLE (${probe.status}: ${probe.error}). Worker starting in fail-closed state: submissions will transition to EXECUTION_UNAVAILABLE until runner is restored.`);
+      }
+    } catch (probeErr) {
+      console.warn(`[Worker WARN] Remote Execution Runner probe exception: ${probeErr.message}`);
+    }
+  }
+
   // 3. Create Redis Connection for Worker
   const redisConnection = createRedisConnection({
     maxRetriesPerRequest: null

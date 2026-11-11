@@ -22,7 +22,7 @@ echo " Endpoint: $ENDPOINT"
 echo " Date:     $(date -u)"
 echo "========================================================"
 
-TOTAL_TESTS=16
+TOTAL_TESTS=25
 PASSED_TESTS=0
 
 pass_test() {
@@ -282,6 +282,141 @@ except Exception as e:
     print("RAW_SOCKET_BLOCKED:", type(e).__name__)
 '
 run_code_test 16 "Raw Socket Packet Sniffing (CAP_NET_RAW)" 71 "$CODE_RAW_SOCK" "3|11" "RAW_SOCKET_BLOCKED|PermissionError"
+
+# ------------------------------------------------------------------------------
+# SECTION 5: MULTI-LANGUAGE SANDBOX CONTAINMENT (C++, Java, JavaScript)
+# ------------------------------------------------------------------------------
+
+# C++ (Language ID 54)
+CODE_CPP_CPU='
+#include <iostream>
+int main() {
+    while (true) {}
+    return 0;
+}
+'
+run_code_test 17 "C++ Infinite CPU Loop (Timeout Enforcement)" 54 "$CODE_CPP_CPU" "5" "Time Limit Exceeded"
+
+CODE_CPP_MEM='
+#include <iostream>
+#include <vector>
+int main() {
+    try {
+        std::vector<char*> chunks;
+        for (int i = 0; i < 50; ++i) {
+            chunks.push_back(new char[20 * 1024 * 1024]);
+        }
+        std::cout << "VULNERABLE_CPP_MEMORY_LEAK" << std::endl;
+    } catch (...) {
+        std::cout << "CPP_MEMORY_CONTAINED" << std::endl;
+    }
+    return 0;
+}
+'
+run_code_test 18 "C++ Heap Memory Exhaustion" 54 "$CODE_CPP_MEM" "3|11|12|13" "CPP_MEMORY_CONTAINED|Memory limit exceeded|bad_alloc|Killed"
+
+CODE_CPP_FORK='
+#include <unistd.h>
+#include <iostream>
+int main() {
+    int count = 0;
+    while (true) {
+        pid_t p = fork();
+        if (p < 0) {
+            std::cout << "CPP_FORK_BOMB_CONTAINED" << std::endl;
+            break;
+        }
+        if (p == 0) {
+            pause();
+            return 0;
+        }
+        count++;
+    }
+    return 0;
+}
+'
+run_code_test 19 "C++ Excessive Process Spawning (Fork Bomb)" 54 "$CODE_CPP_FORK" "3|11|12|13" "CPP_FORK_BOMB_CONTAINED|Resource temporarily unavailable|error"
+
+CODE_CPP_NET='
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <iostream>
+int main() {
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in serv;
+    serv.sin_family = AF_INET;
+    serv.sin_port = htons(53);
+    inet_pton(AF_INET, "8.8.8.8", &serv.sin_addr);
+    if (connect(s, (struct sockaddr*)&serv, sizeof(serv)) < 0) {
+        std::cout << "CPP_NETWORK_BLOCKED" << std::endl;
+    } else {
+        std::cout << "VULNERABLE_CPP_NETWORK_OPEN" << std::endl;
+    }
+    close(s);
+    return 0;
+}
+'
+run_code_test 20 "C++ Outbound Socket Connection" 54 "$CODE_CPP_NET" "3" "CPP_NETWORK_BLOCKED"
+
+# Java (Language ID 62)
+CODE_JAVA_CPU='
+public class Main {
+    public static void main(String[] args) {
+        while (true) {}
+    }
+}
+'
+run_code_test 21 "Java Infinite CPU Loop (Timeout Enforcement)" 62 "$CODE_JAVA_CPU" "5" "Time Limit Exceeded"
+
+CODE_JAVA_MEM='
+import java.util.ArrayList;
+public class Main {
+    public static void main(String[] args) {
+        try {
+            ArrayList<byte[]> list = new ArrayList<>();
+            while (true) {
+                list.add(new byte[10 * 1024 * 1024]);
+            }
+        } catch (OutOfMemoryError e) {
+            System.out.println("JAVA_MEMORY_CONTAINED");
+        }
+    }
+}
+'
+run_code_test 22 "Java Heap Memory Exhaustion" 62 "$CODE_JAVA_MEM" "3|11|12|13" "JAVA_MEMORY_CONTAINED|OutOfMemoryError|Memory limit exceeded|Killed"
+
+# JavaScript (Language ID 63)
+CODE_JS_CPU='
+while (true) {}
+'
+run_code_test 23 "JavaScript Infinite CPU Loop (Timeout Enforcement)" 63 "$CODE_JS_CPU" "5" "Time Limit Exceeded"
+
+CODE_JS_MEM='
+const chunks = [];
+try {
+    while (true) {
+        chunks.push(Buffer.alloc(10 * 1024 * 1024));
+    }
+} catch (e) {
+    console.log("JS_MEMORY_CONTAINED");
+}
+'
+run_code_test 24 "JavaScript Heap Memory Exhaustion" 63 "$CODE_JS_MEM" "3|11|12|13" "JS_MEMORY_CONTAINED|allocation failure|out of memory|Memory limit exceeded"
+
+CODE_JS_NET='
+const net = require("net");
+const client = net.createConnection({ port: 80, host: "1.1.1.1" }, () => {
+    console.log("VULNERABLE_JS_NETWORK_OPEN");
+    client.end();
+});
+client.on("error", (err) => {
+    console.log("JS_NETWORK_BLOCKED: " + err.code);
+});
+setTimeout(() => {}, 500);
+'
+run_code_test 25 "JavaScript Outbound Network Connection" 63 "$CODE_JS_NET" "3" "JS_NETWORK_BLOCKED"
 
 echo ""
 echo "========================================================"
