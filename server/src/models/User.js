@@ -5,13 +5,13 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Teacher name is required'],
+      required: [true, 'User name is required'],
       trim: true,
       maxlength: 100
     },
     email: {
       type: String,
-      required: [true, 'Teacher email is required'],
+      required: [true, 'User email is required'],
       unique: true,
       lowercase: true,
       trim: true,
@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['teacher', 'admin'],
+      enum: ['teacher', 'admin', 'student'],
       default: 'teacher'
     }
   },

@@ -9,6 +9,8 @@ import healthRouter from './routes/health.routes.js';
 import authRouter from './routes/auth.routes.js';
 import questionRouter from './routes/question.routes.js';
 import mcqRouter from './routes/mcq.routes.js';
+import examRouter from './routes/exam.routes.js';
+import attemptRouter from './routes/attempt.routes.js';
 
 const app = express();
 
@@ -59,6 +61,8 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/questions', questionRouter);
 app.use('/api/v1/mcq', mcqRouter);
 app.use('/api/v1/mcq-imports', mcqRouter);
+app.use('/api/v1/exams', examRouter);
+app.use('/api/v1/attempts', attemptRouter);
 
 // Catch 404 and route to error handler
 app.use(notFoundHandler);

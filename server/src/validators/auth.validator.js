@@ -15,7 +15,7 @@ export const validateRegister = (req, res, next) => {
       'any.required': 'Password is required.',
       'string.min': 'Password must be at least 6 characters.'
     }),
-    role: Joi.string().valid('teacher', 'admin').default('teacher')
+    role: Joi.string().valid('teacher', 'student', 'admin').default('teacher')
   });
 
   const { error } = schema.validate(req.body, { abortEarly: false });

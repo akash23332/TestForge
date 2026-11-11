@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from './lib/api';
 import { AuthModal } from './features/auth/AuthModal';
 import { AuthPage } from './features/auth/AuthPage';
@@ -8,19 +8,29 @@ import { QuestionCreatorView } from './features/questions/QuestionCreatorView';
 import { TestCaseStudioView } from './features/test-cases/TestCaseStudioView';
 import { MutationLabView } from './features/mutation-lab/MutationLabView';
 import { McqImportView } from './features/mcq-import/McqImportView';
-import { VisibilityPreviewView } from './features/visibility-preview/VisibilityPreviewView';
 import { PaperDesignerView } from './features/exam-paper/PaperDesignerView';
 import { ProfileSettingsModal } from './features/profile/ProfileSettingsModal';
+import { StudentPortalContainer } from './features/student-portal/StudentPortalContainer';
+import { StudentDashboardView } from './features/student-portal/StudentDashboardView';
+import { TeacherExamsView } from './features/exam-management/TeacherExamsView';
+import { BentoSidebar } from './features/dashboard/BentoSidebar';
+import { BentoTopHeader } from './features/dashboard/BentoTopHeader';
+import './features/dashboard/bento-theme.css';
 import {
-  Search,
-  Moon,
   Menu,
   X,
+  Sparkles,
+  LayoutDashboard,
+  BookOpen,
+  FilePlus,
+  FlaskConical,
+  TestTube,
+  Files,
+  FileText,
+  ClipboardList,
+  ChartNoAxesCombined,
   Settings,
-  LogOut,
-  Layers,
-  Zap,
-  ChevronDown
+  LogOut
 } from 'lucide-react';
 
 export const App = () => {
@@ -28,43 +38,38 @@ export const App = () => {
   const [questions, setQuestions] = useState([]);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [editingQuestion, setEditingQuestion] = useState(null);
+  const [candidateExamCode, setCandidateExamCode] = useState('');
   const [health, setHealth] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('testforge_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [headerSearch, setHeaderSearch] = useState('');
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    const saved = localStorage.getItem('testforge_theme');
-    return saved ? saved === 'dark' : true; // Default dark theme active
-  });
 
-  // Sync dark mode class on root HTML element
+  // Strict Light Mode enforcement: remove dark class and legacy theme keys
   useEffect(() => {
-    localStorage.setItem('testforge_theme', isDarkTheme ? 'dark' : 'light');
-    if (isDarkTheme) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkTheme]);
+    localStorage.removeItem('testforge_theme');
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   // Load user session from localStorage
   useEffect(() => {
     const savedUser = localStorage.getItem('testforge_user');
     if (savedUser) {
       try {
-        setCurrentUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setCurrentUser(parsed);
       } catch {
-        // Ignore
+        setCurrentUser(null);
       }
     } else {
-      // Default demo teacher
-      setCurrentUser({
-        name: 'Dr. Sarah Mitchell',
-        email: 'teacher@testforge.edu',
-        role: 'Faculty'
-      });
+      setCurrentUser(null);
     }
   }, []);
 
@@ -85,7 +90,6 @@ export const App = () => {
       const items = res.data.data || [];
       setQuestions(items);
 
-      // Validate selectedQuestion: clear if deleted or not in list
       setSelectedQuestion((prev) => {
         if (!prev) return items.length > 0 ? items[0] : null;
         const exists = items.find((q) => q._id === prev._id);
@@ -111,578 +115,308 @@ export const App = () => {
     fetchHealth();
   }, []);
 
-  const navLinks = [
-    { id: 'dashboard', label: 'Dashboard' },
+  // 8 Core Modules for mobile drawer
+  const mobileNavLinks = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'bank', label: 'Question Bank', icon: BookOpen },
+    { id: 'create', label: 'Create Question', icon: FilePlus },
+    { id: 'tests', label: 'Test Studio', icon: FlaskConical },
+    { id: 'mutation', label: 'Mutation Lab', icon: TestTube },
+    { id: 'mcq', label: 'Bulk MCQ', icon: Files },
+    { id: 'paper', label: 'Paper Designer', icon: FileText },
+    { id: 'exams', label: 'Examinations', icon: ClipboardList }
+  ];
+
+  // Top horizontal module navigation pills matching the sidebar order
+  const navigationPills = [
+    { id: 'dashboard', label: 'Overview' },
     { id: 'bank', label: 'Question Bank' },
     { id: 'create', label: 'Create Question' },
     { id: 'tests', label: 'Test Studio' },
     { id: 'mutation', label: 'Mutation Lab' },
     { id: 'mcq', label: 'Bulk MCQ' },
-    { id: 'preview', label: 'Visibility' },
-    { id: 'paper', label: 'Paper Designer' }
+    { id: 'paper', label: 'Paper Designer' },
+    { id: 'exams', label: 'Examinations' },
   ];
 
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const searchRef = useRef(null);
-  const [dropdownStyle, setDropdownStyle] = useState({});
-  const [isMoreNavOpen, setIsMoreNavOpen] = useState(false);
-  const moreNavRef = useRef(null);
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setIsSearchOpen(false);
-      }
-      if (moreNavRef.current && !moreNavRef.current.contains(e.target)) {
-        setIsMoreNavOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Dynamically compute optimal spacious width and alignment for search dropdown
-  useEffect(() => {
-    const updateDropdownPos = () => {
-      if (searchRef.current) {
-        const rect = searchRef.current.getBoundingClientRect();
-        const margin = 16;
-        // Roomy target width for full visibility of tags, title, statement, and action buttons
-        const targetWidth = 620;
-        const screenWidth = window.innerWidth;
-        const availableWidth = screenWidth - margin * 2;
-        const actualWidth = Math.min(targetWidth, availableWidth);
-
-        // Check if expanding to the right from rect.left fits on screen
-        if (rect.left + actualWidth <= screenWidth - margin) {
-          setDropdownStyle({
-            left: 0,
-            width: `${actualWidth}px`,
-          });
-        } else {
-          // Shift left to prevent overflowing the right edge
-          const overflow = (rect.left + actualWidth) - (screenWidth - margin);
-          setDropdownStyle({
-            left: `${-overflow}px`,
-            width: `${actualWidth}px`,
-          });
-        }
-      }
-    };
-
-    if (isSearchOpen) {
-      updateDropdownPos();
-      window.addEventListener('resize', updateDropdownPos);
-      window.addEventListener('scroll', updateDropdownPos, true);
-      return () => {
-        window.removeEventListener('resize', updateDropdownPos);
-        window.removeEventListener('scroll', updateDropdownPos, true);
-      };
-    }
-  }, [isSearchOpen, headerSearch]);
-
-  const searchResults = headerSearch.trim()
-    ? questions.filter((q) => {
-        const query = headerSearch.toLowerCase();
-        const title = (q.title || '').toLowerCase();
-        const statement = (q.statement || '').toLowerCase();
-        const lang = (q.language || '').toLowerCase();
-        const tags = Array.isArray(q.tags) ? q.tags.join(' ').toLowerCase() : '';
-        return (
-          title.includes(query) ||
-          statement.includes(query) ||
-          lang.includes(query) ||
-          tags.includes(query)
-        );
-      }).slice(0, 5)
-    : [];
-
-  const handleHeaderSearch = (e) => {
-    if (e) e.preventDefault();
-    setIsSearchOpen(false);
-    setActiveTab('bank');
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* Top Header Navigation - Wide screen style */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-[1780px] w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20 gap-4">
-            {/* Logo */}
-            <div
-              className="flex items-center gap-2.5 cursor-pointer shrink-0"
-              onClick={() => setActiveTab('dashboard')}
-            >
-              <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/20 font-bold text-lg">
-                TF
-              </div>
-              <div>
-                <span className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-1">
-                  Test<span className="text-orange-600">Forge</span>
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block -mt-1">
-                  Assessment Platform
-                </span>
-              </div>
-            </div>
-
-            {/* Prominent Search Bar with Live Suggestions Dropdown */}
-            <div
-              ref={searchRef}
-              className="flex items-center relative min-w-[280px] sm:min-w-[340px] md:min-w-[380px] lg:min-w-[440px] max-w-xl flex-1 mx-2 sm:mx-4 shrink-0 sm:shrink"
-            >
-              <form onSubmit={handleHeaderSearch} className="relative w-full flex items-center">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search questions by title, tags, or language..."
-                  value={headerSearch}
-                  onFocus={() => {
-                    if (headerSearch.trim()) setIsSearchOpen(true);
-                  }}
-                  onChange={(e) => {
-                    setHeaderSearch(e.target.value);
-                    setIsSearchOpen(true);
-                  }}
-                  className="w-full bg-slate-100 hover:bg-slate-100/90 focus:bg-white text-slate-800 placeholder-slate-400 text-sm rounded-2xl pl-12 pr-20 py-3 border border-slate-200/80 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none transition-all shadow-xs"
-                />
-
-                {headerSearch && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHeaderSearch('');
-                      setIsSearchOpen(false);
-                    }}
-                    title="Clear search"
-                    className="absolute right-12 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-
-                <button
-                  type="submit"
-                  aria-label="Submit Search"
-                  title="Search in Question Bank"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-orange-600 hover:bg-orange-500 text-white p-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
-              </form>
-
-              {/* Live Search Results Dropdown - Full-sized and roomy */}
-              {isSearchOpen && headerSearch.trim().length > 0 && (
-                <div
-                  style={dropdownStyle}
-                  className="absolute top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50 animate-fadeIn"
-                >
-                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-slate-600 uppercase tracking-wider text-[11px]">
-                        Search Results
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold text-[11px]">
-                        {searchResults.length}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSearch()}
-                      className="font-bold text-orange-600 hover:text-orange-700 cursor-pointer text-xs flex items-center gap-1 group"
-                    >
-                      <span>View All in Bank</span>
-                      <span className="group-hover:translate-x-0.5 transition-transform">→</span>
-                    </button>
-                  </div>
-
-                  {searchResults.length > 0 ? (
-                    <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-                      {searchResults.map((q) => (
-                        <div
-                          key={q._id}
-                          onClick={() => {
-                            setSelectedQuestion(q);
-                            setIsSearchOpen(false);
-                            setActiveTab('bank');
-                          }}
-                          className="p-3.5 sm:p-4 hover:bg-orange-50/50 transition-colors cursor-pointer flex items-center justify-between gap-3 sm:gap-4 group"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  q.difficulty === 'Easy'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : q.difficulty === 'Medium'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-rose-100 text-rose-800'
-                                }`}
-                              >
-                                {q.difficulty}
-                              </span>
-                              <span className="text-[10px] font-mono uppercase bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-semibold border border-slate-200/60">
-                                {q.language}
-                              </span>
-                              {q.tags && (
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                  {Array.isArray(q.tags)
-                                    ? q.tags.slice(0, 3).map((t) => `#${t}`).join(' ')
-                                    : `#${q.tags}`}
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1">
-                              {q.title}
-                            </h4>
-                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
-                              {q.statement}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 self-center">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedQuestion(q);
-                                setIsSearchOpen(false);
-                                setActiveTab('tests');
-                              }}
-                              className="text-xs font-semibold px-2.5 sm:px-3 py-1.5 bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 rounded-xl transition-all cursor-pointer border border-slate-200/80 active:scale-95 flex items-center gap-1"
-                              title="Open in Test Studio"
-                            >
-                              <Layers className="h-3.5 w-3.5 text-slate-500" />
-                              <span>Tests</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedQuestion(q);
-                                setIsSearchOpen(false);
-                                setActiveTab('mutation');
-                              }}
-                              className="text-xs font-semibold px-2.5 sm:px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all cursor-pointer shadow-xs shadow-orange-500/20 active:scale-95 flex items-center gap-1"
-                              title="Open in Mutation Lab"
-                            >
-                              <Zap className="h-3.5 w-3.5 text-white" />
-                              <span>Mutate</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center text-slate-400">
-                      <Search className="h-8 w-8 mx-auto mb-2 text-slate-300 stroke-[1.5]" />
-                      <p className="text-sm font-semibold text-slate-700">No matching questions found</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Try searching by keywords, tags, or programming language
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="p-3 bg-slate-50 border-t border-slate-100 text-center flex items-center justify-between px-4">
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">
-                      Tip: Press <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-xs">Enter</kbd> to view all
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSearch()}
-                      className="text-xs font-bold text-orange-600 hover:text-orange-700 cursor-pointer flex items-center gap-1 group py-1 mx-auto sm:mx-0"
-                    >
-                      <span>Press Enter or Click to View All in Question Bank</span>
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Navigation Pills */}
-            {/* 2XL Screens (>= 1536px): Full pills */}
-            <nav className="hidden 2xl:flex items-center gap-1">
-              {navLinks.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    activeTab === item.id
-                      ? 'bg-orange-600 text-white shadow-xs shadow-orange-600/30'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-
-            {/* XL Screens (1280px - 1535px): 4 core pills + More dropdown */}
-            <nav className="hidden xl:flex 2xl:hidden items-center gap-1">
-              {navLinks.slice(0, 4).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`px-2.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    activeTab === item.id
-                      ? 'bg-orange-600 text-white shadow-xs shadow-orange-600/30'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-
-              <div className="relative" ref={moreNavRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsMoreNavOpen(!isMoreNavOpen)}
-                  className={`px-2.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                    navLinks.slice(4).some((l) => l.id === activeTab)
-                      ? 'bg-orange-600 text-white shadow-xs shadow-orange-600/30'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  <span>
-                    {navLinks.slice(4).find((l) => l.id === activeTab)?.label || 'More'}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
-                {isMoreNavOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-fadeIn">
-                    {navLinks.slice(4).map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setActiveTab(item.id);
-                          setIsMoreNavOpen(false);
-                        }}
-                        className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                          activeTab === item.id
-                            ? 'bg-orange-50 text-orange-600 font-bold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </nav>
-
-            {/* Right Tools & User Info */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {/* Dark mode button */}
-              <button
-                onClick={() => setIsDarkTheme(!isDarkTheme)}
-                title={isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <Moon className="h-4 w-4" />
-              </button>
-
-              {/* Settings direct icon button */}
-              <button
-                onClick={() => setIsProfileOpen(true)}
-                title="Workspace Settings"
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-
-              {/* User Avatar Button - Opens Profile & Settings Modal */}
-              {currentUser ? (
-                <button
-                  onClick={() => setIsProfileOpen(true)}
-                  title={`Profile & Settings (${currentUser?.name || 'Faculty'})`}
-                  className="w-9 h-9 rounded-full bg-orange-100 hover:bg-orange-600 text-orange-600 hover:text-white border border-orange-300 shadow-xs transition-all flex items-center justify-center font-bold text-sm cursor-pointer active:scale-95 shrink-0"
-                >
-                  {currentUser?.name ? currentUser.name[0].toUpperCase() : 'A'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => setActiveTab('login')}
-                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs shadow-sm shadow-orange-500/20 cursor-pointer shrink-0"
-                >
-                  Faculty Sign In
-                </button>
-              )}
-
-              {/* Mobile hamburger */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="xl:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Dropdown */}
-        {mobileMenuOpen && (
-          <div className="xl:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-1 shadow-lg">
-            {navLinks.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg flex items-center justify-between ${
-                  activeTab === item.id
-                    ? 'bg-orange-50 text-orange-600 font-bold'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </header>
-
-      {/* Main Container */}
-      <main className={`flex-1 w-full ${activeTab === 'dashboard' ? '' : 'max-w-[1780px] mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
-        {activeTab === 'dashboard' && (
-          <DashboardView
-            questions={questions}
-            onNavigate={(tab) => setActiveTab(tab)}
-            onSelectQuestion={(q) => setSelectedQuestion(q)}
-          />
-        )}
-
-        {activeTab === 'bank' && (
-          <QuestionBankView
-            questions={questions}
-            onRefresh={fetchQuestions}
-            onNavigate={(tab) => {
-              if (tab === 'create') setEditingQuestion(null);
-              setActiveTab(tab);
-            }}
-            onSelectQuestion={(q) => setSelectedQuestion(q)}
-            onEditQuestion={(q) => {
-              setEditingQuestion(q);
-              setSelectedQuestion(q);
-              setActiveTab('create');
-            }}
-            initialSearch={headerSearch}
-          />
-        )}
-
-        {activeTab === 'create' && (
-          <QuestionCreatorView
-            initialQuestion={editingQuestion}
-            onSuccess={() => {
-              setEditingQuestion(null);
-              fetchQuestions();
-              setActiveTab('bank');
-            }}
-            onCancel={() => {
-              setEditingQuestion(null);
-              setActiveTab('bank');
-            }}
-            currentUser={currentUser}
-          />
-        )}
-
-        {activeTab === 'tests' && (
-          <TestCaseStudioView
-            questions={questions}
-            selectedQuestion={selectedQuestion}
-            onSelectQuestion={(q) => setSelectedQuestion(q)}
-            onEditQuestion={(q) => {
-              setEditingQuestion(q);
-              setSelectedQuestion(q);
-              setActiveTab('create');
-            }}
-            onNavigate={(tab) => setActiveTab(tab)}
-          />
-        )}
-
-        {activeTab === 'mutation' && (
-          <MutationLabView
-            questions={questions}
-            selectedQuestion={selectedQuestion}
-            onSelectQuestion={(q) => setSelectedQuestion(q)}
-            onNavigate={(tab) => setActiveTab(tab)}
-          />
-        )}
-
-        {activeTab === 'mcq' && <McqImportView />}
-
-        {activeTab === 'preview' && (
-          <VisibilityPreviewView
-            questions={questions}
-            selectedQuestion={selectedQuestion}
-            onSelectQuestion={(q) => setSelectedQuestion(q)}
-          />
-        )}
-
-        {activeTab === 'paper' && <PaperDesignerView questions={questions} />}
-
-        {activeTab === 'login' && (
-          <AuthPage
-            onSuccess={(user) => {
-              setCurrentUser(user);
-              setSelectedQuestion(null);
-              setEditingQuestion(null);
+  // 1. If activeTab is 'login' or no user logged in, render dedicated AuthPage
+  if (activeTab === 'login' || !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#F2F3F0]">
+        <AuthPage
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setSelectedQuestion(null);
+            setEditingQuestion(null);
+            if (user?.role === 'student' || user?.role === 'Student') {
+              // Automatically renders StudentDashboardView
+            } else {
               setActiveTab('dashboard');
               fetchQuestions();
-            }}
-            onNavigateHome={() => setActiveTab('dashboard')}
-          />
-        )}
-      </main>
+            }
+          }}
+          onNavigateHome={() => {
+            if (!currentUser) {
+              setActiveTab('login');
+            } else {
+              setActiveTab('dashboard');
+            }
+          }}
+        />
+      </div>
+    );
+  }
 
-      {/* Professional Clean Footer */}
-      <footer className="bg-white border-t border-slate-200 mt-16 text-slate-600 text-xs">
-        <div className="max-w-[1780px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white font-bold text-sm">
-                  TF
-                </div>
-                <span className="text-lg font-bold text-slate-900">
-                  Test<span className="text-orange-600">Forge</span>
-                </span>
+  // 2. If authenticated as a Student, render dedicated Student Examination Portal
+  if (currentUser && (currentUser.role === 'student' || currentUser.role === 'Student')) {
+    return (
+      <StudentDashboardView
+        currentUser={currentUser}
+        onSignOut={handleLogout}
+      />
+    );
+  }
+
+  return (
+    <div className="tf-outer-frame selection:bg-[#EDFF72] selection:text-[#191A1D]">
+      <div className="tf-inner-canvas">
+        {/* Left Vertical Dark Charcoal Sidebar (Desktop / Tablet) */}
+        <BentoSidebar
+          activeTab={activeTab}
+          onNavigate={(tab) => setActiveTab(tab)}
+          currentUser={currentUser}
+          onOpenProfile={() => setIsProfileOpen(true)}
+          onLogout={handleLogout}
+        />
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto max-h-[calc(100vh-28px)] p-4 sm:p-6 lg:p-7">
+          {/* Mobile Top Header (Small Screens) */}
+          <div className="md:hidden flex items-center justify-between pb-3 border-b border-[#DDE1DA] mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#191A1D] flex items-center justify-center text-[#EDFF72]">
+                <Sparkles className="w-4 h-4 fill-current" />
               </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Empowering academic faculty with verified assessment authoring, deterministic mutation suites, and strict student visibility safeguards.
-              </p>
+              <span className="font-extrabold text-sm text-[#171819]">TestForge</span>
             </div>
-
-            <div>
-              <h4 className="font-bold text-slate-900 mb-3 text-xs uppercase tracking-wider">Features</h4>
-              <ul className="space-y-2 text-slate-500">
-                <li><button onClick={() => setActiveTab('bank')} className="hover:text-orange-600">Question Bank</button></li>
-                <li><button onClick={() => setActiveTab('tests')} className="hover:text-orange-600">Test Case Studio</button></li>
-                <li><button onClick={() => setActiveTab('mutation')} className="hover:text-orange-600">Mutation Testing Lab</button></li>
-                <li><button onClick={() => setActiveTab('preview')} className="hover:text-orange-600">Visibility Auditor</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-slate-900 mb-3 text-xs uppercase tracking-wider">Assessment Tools</h4>
-              <ul className="space-y-2 text-slate-500">
-                <li><button onClick={() => setActiveTab('mcq')} className="hover:text-orange-600">Bulk MCQ Import</button></li>
-                <li><button onClick={() => setActiveTab('paper')} className="hover:text-orange-600">Smart Paper Designer</button></li>
-                <li><a href="/api/v1/health" target="_blank" className="hover:text-orange-600">System Health API</a></li>
-              </ul>
-            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl bg-white border border-[#DDE1DA] text-[#171819]"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
           </div>
 
-          <div className="border-t border-slate-100 pt-6 flex flex-col sm:flex-row items-center justify-between text-slate-400 gap-2">
-            <span>© 2026 TestForge Inc. All rights reserved.</span>
+          {/* Mobile Navigation Drawer */}
+          {mobileMenuOpen && (
+            <div className="md:hidden bg-white border border-[#DDE1DA] rounded-2xl p-3 mb-4 shadow-lg space-y-1">
+              {mobileNavLinks.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (item.id === 'analytics') setActiveTab('dashboard');
+                      else setActiveTab(item.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                      isActive
+                        ? 'bg-[#191A1D] text-[#EDFF72]'
+                        : 'text-[#171819] hover:bg-[#F2F3F0]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+              <div className="pt-2 border-t border-[#DDE1DA] flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex-1 py-2 text-xs font-bold text-[#171819] bg-[#F2F3F0] rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex-1 py-2 text-xs font-bold text-rose-600 bg-rose-50 rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Top Header Bar */}
+          <BentoTopHeader
+            activeTab={activeTab}
+            onNavigate={(tab) => setActiveTab(tab)}
+            currentUser={currentUser}
+            questions={questions}
+            onSelectQuestion={(q) => setSelectedQuestion(q)}
+            onOpenProfile={() => setIsProfileOpen(true)}
+          />
+
+          {/* Global Module Navigation Pills (Visible on all pages) */}
+          <div className="flex items-center gap-2 overflow-x-auto pt-2 pb-1 scrollbar-none select-none shrink-0">
+            {navigationPills.map((pill) => {
+              const isActive = activeTab === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => {
+                    if (pill.id === 'create') setEditingQuestion(null);
+                    setActiveTab(pill.id);
+                  }}
+                  className={`tf-pill-button text-xs font-semibold px-4 py-2 transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#191A1D] text-white shadow-sm'
+                      : 'bg-white text-[#171819] border border-[#DDE1DA] hover:bg-[#F8F9F7]'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Main Workspace Body */}
+          <main className="flex-1 mt-3">
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                questions={questions}
+                onNavigate={(tab) => setActiveTab(tab)}
+                onSelectQuestion={(q) => setSelectedQuestion(q)}
+                currentUser={currentUser}
+                health={health}
+              />
+            )}
+
+            {activeTab === 'bank' && (
+              <QuestionBankView
+                questions={questions}
+                onRefresh={fetchQuestions}
+                onNavigate={(tab) => {
+                  if (tab === 'create') setEditingQuestion(null);
+                  setActiveTab(tab);
+                }}
+                onSelectQuestion={(q) => setSelectedQuestion(q)}
+                onEditQuestion={(q) => {
+                  setEditingQuestion(q);
+                  setSelectedQuestion(q);
+                  setActiveTab('create');
+                }}
+              />
+            )}
+
+            {activeTab === 'create' && (
+              <QuestionCreatorView
+                initialQuestion={editingQuestion}
+                onSuccess={() => {
+                  setEditingQuestion(null);
+                  fetchQuestions();
+                  setActiveTab('bank');
+                }}
+                onCancel={() => {
+                  setEditingQuestion(null);
+                  setActiveTab('bank');
+                }}
+                currentUser={currentUser}
+              />
+            )}
+
+            {activeTab === 'tests' && (
+              <TestCaseStudioView
+                questions={questions}
+                selectedQuestion={selectedQuestion}
+                onSelectQuestion={(q) => setSelectedQuestion(q)}
+                onEditQuestion={(q) => {
+                  setEditingQuestion(q);
+                  setSelectedQuestion(q);
+                  setActiveTab('create');
+                }}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
+            )}
+
+            {activeTab === 'mutation' && (
+              <MutationLabView
+                questions={questions}
+                selectedQuestion={selectedQuestion}
+                onSelectQuestion={(q) => setSelectedQuestion(q)}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
+            )}
+
+            {activeTab === 'mcq' && <McqImportView />}
+
+            {activeTab === 'paper' && (
+              <PaperDesignerView
+                questions={questions}
+                onNavigateToExams={() => setActiveTab('exams')}
+              />
+            )}
+
+            {activeTab === 'exams' && (
+              <TeacherExamsView
+                questions={questions}
+                onNavigateToPaperDesigner={() => setActiveTab('paper')}
+                onNavigateToStudentPortal={(code) => {
+                  setCandidateExamCode(code);
+                  setActiveTab('student-portal');
+                }}
+              />
+            )}
+
+            {activeTab === 'student-portal' && (
+              <StudentPortalContainer
+                initialExamCode={candidateExamCode}
+                onExitToTeacherPortal={() => setActiveTab('exams')}
+              />
+            )}
+
+            {/* Custom 404 Fallback View */}
+            {!['dashboard', 'bank', 'create', 'tests', 'mutation', 'mcq', 'paper', 'exams', 'student-portal'].includes(activeTab) && (
+              <div className="flex-1 flex items-center justify-center p-8 animate-fadeIn">
+                <div className="bg-white border border-[#DDE1DA] rounded-[32px] p-10 max-w-lg w-full text-center space-y-4 shadow-bento">
+                  <div className="w-16 h-16 rounded-2xl bg-[#191A1D] text-[#EDFF72] flex items-center justify-center mx-auto text-2xl font-black">
+                    404
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-[#171819] tracking-tight">
+                      Workspace Module Not Found
+                    </h2>
+                    <p className="text-sm text-[#777D78] mt-1.5 leading-relaxed">
+                      The requested module, paper draft, or examination session could not be located in your active workspace ledger.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('dashboard')}
+                      className="tf-pill-button tf-pill-button-dark"
+                    >
+                      <span>Return to Dashboard</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
         </div>
-      </footer>
+      </div>
 
       {/* Auth Modal */}
       <AuthModal

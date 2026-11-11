@@ -1,0 +1,322 @@
+/* Bento Design System & Micro-Interactions */
+
+:root {
+  --tf-canvas: #F2F3F0;
+  --tf-sidebar: #191A1D;
+  --tf-card: #E9ECE7;
+  --tf-card-secondary: #E4E8E2;
+  --tf-lime: #EDFF72;
+  --tf-lime-hover: #E2F560;
+  --tf-charcoal: #171819;
+  --tf-muted: #777D78;
+  --tf-border: #DDE1DA;
+  --tf-frame: #9BA497;
+}
+
+/* Card 3D tilt */
+.tf-bento-tilt {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+.tf-bento-tilt:hover {
+  transform: translateY(-3px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+
+/* Capsule Progress Row Indicator */
+.tf-capsule-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tf-capsule-bar {
+  width: 14px;
+  height: 38px;
+  border-radius: 9999px;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+}
+
+.tf-capsule-bar:hover {
+  transform: translateY(-3px) scale(1.12);
+}
+
+.tf-capsule-bar.filled-charcoal {
+  background-color: #191A1D;
+  box-shadow: 0 2px 6px rgba(25, 26, 29, 0.2);
+}
+
+.tf-capsule-bar.filled-charcoal:hover {
+  background-color: #000000;
+  box-shadow: 0 4px 10px rgba(25, 26, 29, 0.35);
+}
+
+.tf-capsule-bar.unfilled-charcoal {
+  background-color: transparent;
+  border: 1.5px dashed #C9CEC7;
+}
+
+.tf-capsule-bar.unfilled-charcoal:hover {
+  border-color: #191A1D;
+  background-color: rgba(25, 26, 29, 0.08);
+}
+
+.tf-capsule-bar.filled-lime-dark {
+  background-color: #191A1D;
+  box-shadow: 0 2px 6px rgba(25, 26, 29, 0.2);
+}
+
+.tf-capsule-bar.filled-lime-dark:hover {
+  background-color: #000000;
+  box-shadow: 0 4px 10px rgba(25, 26, 29, 0.35);
+}
+
+.tf-capsule-bar.unfilled-lime {
+  background-color: transparent;
+  border: 1.5px dashed rgba(25, 26, 29, 0.35);
+}
+
+.tf-capsule-bar.unfilled-lime:hover {
+  border-color: #191A1D;
+  background-color: rgba(25, 26, 29, 0.15);
+}
+
+/* Dual Capsule Bar in Statistics Chart */
+.tf-dual-bar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 230px;
+  position: relative;
+  justify-content: flex-end;
+}
+
+.tf-guideline {
+  position: absolute;
+  top: 0;
+  bottom: 24px;
+  width: 1px;
+  border-left: 1px dashed rgba(201, 206, 199, 0.7);
+  pointer-events: none;
+}
+
+.tf-dual-pill {
+  width: 32px;
+  border-radius: 9999px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  box-shadow: 0 4px 14px rgba(25, 26, 29, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+
+.tf-dual-pill:hover {
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(25, 26, 29, 0.15);
+}
+
+.tf-dual-pill-top {
+  background-color: #191A1D;
+  border-top-left-radius: 9999px;
+  border-top-right-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.tf-dual-pill-bottom {
+  background-color: #EDFF72;
+  border-bottom-left-radius: 9999px;
+  border-bottom-right-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.tf-dot-badge {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.tf-percent-callout {
+  position: absolute;
+  top: 50%;
+  right: -52px;
+  transform: translateY(-50%);
+  background-color: #191A1D;
+  color: #FFFFFF;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  z-index: 10;
+}
+
+.tf-percent-callout.lime-badge {
+  background-color: #EDFF72;
+  color: #191A1D;
+  right: auto;
+  left: -52px;
+}
+
+/* Outer Frame Wrapper matching screenshot */
+.tf-outer-frame {
+  background-color: #9BA497;
+  padding: 14px 16px;
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .tf-outer-frame {
+    padding: 6px;
+  }
+}
+
+.tf-inner-canvas {
+  background-color: #F2F3F0;
+  border-radius: 36px;
+  width: 100%;
+  max-width: 2200px;
+  margin: 0 auto;
+  min-height: calc(100vh - 28px);
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 20px 48px -12px rgba(25, 26, 29, 0.15);
+  position: relative;
+}
+
+/* Sidebar styling */
+.tf-sidebar-container {
+  background-color: #191A1D;
+  border-radius: 32px;
+  margin: 12px;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 76px;
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.tf-nav-item {
+  width: 48px;
+  height: 48px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8C9188;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  cursor: pointer;
+}
+
+.tf-nav-item:hover {
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.tf-nav-item.active {
+  background-color: #2D2F34;
+  color: #EDFF72;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.tf-nav-item.active::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 9999px;
+  background-color: #EDFF72;
+}
+
+/* Pill buttons matching reference */
+.tf-pill-button {
+  border-radius: 9999px;
+  padding: 10px 22px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tf-pill-button-dark {
+  background-color: #191A1D;
+  color: #FFFFFF;
+}
+
+.tf-pill-button-dark:hover {
+  background-color: #26282D;
+  transform: translateY(-1px);
+}
+
+.tf-pill-button-white {
+  background-color: #FFFFFF;
+  color: #171819;
+  border: 1px solid #DDE1DA;
+  box-shadow: 0 1px 4px rgba(25, 26, 29, 0.04);
+}
+
+.tf-pill-button-white:hover {
+  background-color: #F8F9F7;
+  border-color: #CBD0C8;
+  transform: translateY(-1px);
+}
+
+.tf-pill-button-lime {
+  background-color: #EDFF72;
+  color: #191A1D;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(237, 255, 114, 0.4);
+}
+
+.tf-pill-button-lime:hover {
+  background-color: #E2F560;
+  transform: translateY(-1px);
+}
+
+/* Header badge inside heading */
+.tf-heading-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  margin: 0 6px;
+  vertical-align: middle;
+  border: 1.5px solid #DDE1DA;
+  background: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.tf-heading-badge.lime {
+  background: #EDFF72;
+  border-color: #DEEF65;
+}

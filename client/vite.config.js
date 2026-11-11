@@ -16,5 +16,16 @@ export default defineConfig({
         secure: false
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+          reactVendor: ['react', 'react-dom']
+        }
+      }
+    }
   }
 });
