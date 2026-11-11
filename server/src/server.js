@@ -1,6 +1,37 @@
 import app from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { User } from './models/User.js';
+
+const ensureDemoAccounts = async () => {
+  try {
+    const teacher = await User.findOne({ email: 'teacher@testforge.edu' });
+    if (!teacher) {
+      const passwordHash = await User.hashPassword('Teacher@123');
+      await User.create({
+        name: 'Dr. Sarah Mitchell',
+        email: 'teacher@testforge.edu',
+        passwordHash,
+        role: 'teacher'
+      });
+      console.log('✔ [TestForge] Demo faculty account auto-seeded: teacher@testforge.edu');
+    }
+
+    const student = await User.findOne({ email: 'student@testforge.edu' });
+    if (!student) {
+      const passwordHash = await User.hashPassword('Student@123');
+      await User.create({
+        name: 'Alex Rivera',
+        email: 'student@testforge.edu',
+        passwordHash,
+        role: 'student'
+      });
+      console.log('✔ [TestForge] Demo student account auto-seeded: student@testforge.edu');
+    }
+  } catch (err) {
+    console.warn('[TestForge] Notice: Demo account check skipped:', err.message);
+  }
+};
 
 const startServer = async () => {
   try {
@@ -8,6 +39,9 @@ const startServer = async () => {
 
     // Connect to MongoDB
     await connectDatabase();
+
+    // Auto-ensure demo accounts exist for both Teacher and Student
+    await ensureDemoAccounts();
 
     // Start HTTP listener
     const server = app.listen(config.port, () => {

@@ -8,9 +8,9 @@ export const api = axios.create({
   timeout: 30000
 });
 
-// Interceptor to attach JWT token if present in localStorage
+// Interceptor to attach JWT token or scoped Attempt Session token if present in localStorage
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('testforge_token');
+  const token = localStorage.getItem('testforge_token') || localStorage.getItem('testforge_attempt_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

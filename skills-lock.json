@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "backend-architect": {
+      "source": "rmyndharis/antigravity-skills",
+      "sourceType": "github",
+      "skillPath": "skills/backend-architect/SKILL.md",
+      "computedHash": "a16b4cbb2b85b3613494adb582e9fec6db25516f7e323fc2cd7eb351d979661a"
+    },
+    "docker-containerization": {
+      "source": "omer-metin/skills-for-antigravity",
+      "sourceType": "github",
+      "skillPath": "skills/docker-containerization/SKILL.md",
+      "computedHash": "09871f48d24687258b55928486bece926da3750c9f3ba3e32d3121d7e8952313"
+    },
+    "security-audit": {
+      "source": "DavisChang/antigravity-skills",
+      "sourceType": "github",
+      "skillPath": ".agent/skills/security-audit/SKILL.md",
+      "computedHash": "d3c3d9d8f1e58081cef8be1c3c1b43a40813f15ddb3de4b286071c882b864afd"
+    },
+    "security-scanning-security-sast": {
+      "source": "rmyndharis/antigravity-skills",
+      "sourceType": "github",
+      "skillPath": "skills/security-scanning-security-sast/SKILL.md",
+      "computedHash": "2ecc06f9fa869d30505ce31faab46c8af6adb4ed034136883594d39c325c73eb"
+    }
+  }
+}

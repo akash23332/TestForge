@@ -1,45 +1,56 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Sparkles,
-  Pencil,
-  FileText,
-  Code2,
-  BookOpen,
-  ArrowRight,
-  Plus,
-  Trash2,
-  Copy,
   Check,
+  CheckCircle2,
+  Circle,
+  AlertCircle,
+  Trash2,
+  Plus,
+  Copy,
   RotateCcw,
   Eye,
   Save,
   Send,
-  CheckCircle2,
-  Circle,
-  HelpCircle,
-  Maximize2,
-  Minimize2,
-  Undo,
-  Redo,
+  ArrowLeft,
+  Code2,
+  Layers,
+  Cpu,
+  Heading1,
+  Heading2,
   Bold,
   Italic,
   Code,
   List,
-  ListOrdered,
   Quote,
-  Link2,
-  Table as TableIcon,
-  Heading1,
-  Heading2,
-  Heading3,
-  AlertCircle,
-  ChevronDown,
-  X,
-  Layers,
-  Cpu,
-  ArrowLeft
+  X
 } from 'lucide-react';
 import { api } from '../../lib/api';
+
+// Helper to smoothly count up numbers like Question Bank
+const AnimatedCount = ({ value, duration = 900 }) => {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    let frame;
+    const start = performance.now();
+    const numVal = Number(value) || 0;
+    const step = (now) => {
+      const elapsed = now - start;
+      const k = Math.min(1, elapsed / duration);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - k, 3);
+      setDisplay(Math.round(numVal * eased));
+      if (k < 1) {
+        frame = requestAnimationFrame(step);
+      }
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+
+  return <>{display}</>;
+};
 
 // Default code templates per language
 export const LANGUAGE_TEMPLATES = {
@@ -67,20 +78,16 @@ export const LANGUAGE_TEMPLATES = {
   },
   javascript: {
     name: 'JavaScript',
-    starterCode: `function solution(nums, target) {
-  // Implement your solution here
-  return [];
+    starterCode: `function firstUnique(s) {
+  // your code here
 }`,
-    referenceSolution: `function solution(nums, target) {
-  const map = new Map();
-  for (let i = 0; i < nums.length; i++) {
-    const complement = target - nums[i];
-    if (map.has(complement)) {
-      return [map.get(complement), i];
-    }
-    map.set(nums[i], i);
+    referenceSolution: `function firstUnique(s) {
+  const freq = {};
+  for (const c of s) freq[c] = (freq[c] || 0) + 1;
+  for (const c of s) {
+    if (freq[c] === 1) return c;
   }
-  return [];
+  return "#";
 }`
   },
   python: {
@@ -123,109 +130,12 @@ public:
   }
 };
 
-// Algorithmic Knowledge Repository for Instant Smart AI Generation
-const AI_QUESTION_TEMPLATES = {
-  'Two Pointers': {
-    title: 'Container With Most Water',
-    statement: `You are given an integer array \`height\` of length \`n\`. There are \`n\` vertical lines drawn such that the two endpoints of the \`i-th\` line are \`(i, 0)\` and \`(i, height[i])\`.
-
-Find two lines that together with the x-axis form a container, such that the container contains the most water.
-
-Return *the maximum amount of water a container can store*.
-
-Notice that you may not slant the container.`,
-    inputFormat: 'An integer array `height` representing the line heights.',
-    outputFormat: 'An integer denoting the maximum area of water that can be trapped.',
-    constraints: '• 2 ≤ height.length ≤ 10⁵\n• 0 ≤ height[i] ≤ 10⁴\n• Time Complexity: O(n)\n• Space Complexity: O(1)',
-    examples: [
-      {
-        input: 'height = [1,8,6,2,5,4,8,3,7]',
-        output: '49',
-        explanation: 'The vertical lines are at indices 1 and 8 (1-based: heights 8 and 7). Distance is 7, height is min(8, 7) = 7. Max Area = 7 * 7 = 49.'
-      },
-      {
-        input: 'height = [1,1]',
-        output: '1',
-        explanation: 'Only two lines with height 1 and distance 1. Area = 1 * 1 = 1.'
-      }
-    ],
-    explanation: 'Using two pointers starting at both extremities, move the pointer pointing to the shorter vertical line inward at each step to seek a taller barrier.',
-    topics: ['Arrays', 'Two Pointers', 'Greedy']
-  },
-  'Sliding Window': {
-    title: 'Longest Substring Without Repeating Characters',
-    statement: `Given a string \`s\`, find the length of the **longest substring** without repeating characters.
-
-A **substring** is a contiguous non-empty sequence of characters within a string.`,
-    inputFormat: 'A single string `s` consisting of English letters, digits, symbols and spaces.',
-    outputFormat: 'An integer representing the length of the longest distinct character substring.',
-    constraints: '• 0 ≤ s.length ≤ 5 × 10⁴\n• `s` consists of standard ASCII characters.\n• Time Complexity: O(n)\n• Auxiliary Space: O(min(m, n))',
-    examples: [
-      {
-        input: 's = "abcabcbb"',
-        output: '3',
-        explanation: 'The answer is "abc", with the length of 3.'
-      },
-      {
-        input: 's = "bbbbb"',
-        output: '1',
-        explanation: 'The answer is "b", with the length of 1.'
-      }
-    ],
-    explanation: 'Maintain a dynamic sliding window `[left, right]` and a hash map of last seen indices. Slide the right pointer, and upon encountering a duplicate, advance the left pointer past its previous occurrence.',
-    topics: ['Strings', 'Sliding Window', 'Hash Table']
-  },
-  'Prefix Sums': {
-    title: 'Subarray Sum Equals K',
-    statement: `Given an array of integers \`nums\` and an integer \`k\`, return *the total number of subarrays whose sum equals to \`k\`*.
-
-A subarray is a contiguous non-empty sequence of elements within an array.`,
-    inputFormat: 'An integer array `nums` and an integer `k`.',
-    outputFormat: 'An integer denoting the count of subarrays with sum equal to `k`.',
-    constraints: '• 1 ≤ nums.length ≤ 2 × 10⁴\n• -1000 ≤ nums[i] ≤ 1000\n• -10⁷ ≤ k ≤ 10⁷\n• Optimal Time: O(n)',
-    examples: [
-      {
-        input: 'nums = [1,1,1], k = 2',
-        output: '2',
-        explanation: 'Subarrays [1, 1] at indices [0, 1] and [1, 2] both sum to 2.'
-      },
-      {
-        input: 'nums = [1,2,3], k = 3',
-        output: '2',
-        explanation: 'Subarrays [1, 2] and [3] sum to 3.'
-      }
-    ],
-    explanation: 'Use a prefix sum with a frequency hash table. If `current_prefix_sum - k` exists in the hash table, add its frequency to the answer.',
-    topics: ['Arrays', 'Hash Table', 'Prefix Sums']
-  },
-  'Binary Search': {
-    title: 'Search in Rotated Sorted Array',
-    statement: `There is an integer array \`nums\` sorted in ascending order (with distinct values).
-
-Prior to being passed to your function, \`nums\` is possibly rotated at an unknown pivot index \`k\` (1 ≤ k < nums.length).
-
-Given the array \`nums\` after the possible rotation and an integer \`target\`, return *the index of \`target\` if it is in \`nums\`, or \`-1\` if it is not in \`nums\`*.
-
-You must write an algorithm with **O(log n)** runtime complexity.`,
-    inputFormat: 'An integer array `nums` of distinct values and an integer `target`.',
-    outputFormat: 'The zero-based integer index of target, or -1 if not found.',
-    constraints: '• 1 ≤ nums.length ≤ 5000\n• -10⁴ ≤ nums[i], target ≤ 10⁴\n• All values of nums are unique.\n• Algorithm runtime must strictly be O(log n).',
-    examples: [
-      {
-        input: 'nums = [4,5,6,7,0,1,2], target = 0',
-        output: '4',
-        explanation: '0 is found at index 4.'
-      },
-      {
-        input: 'nums = [4,5,6,7,0,1,2], target = 3',
-        output: '-1',
-        explanation: '3 is not present in the array.'
-      }
-    ],
-    explanation: 'At any pivot point in a rotated sorted array, at least one half (left or right) is guaranteed to be strictly sorted. Test the sorted half to determine if target falls inside its range.',
-    topics: ['Arrays', 'Binary Search']
-  }
-};
+const SUPPORTED_LANGS = [
+  { id: 'java', label: 'Java' },
+  { id: 'javascript', label: 'JavaScript' },
+  { id: 'python', label: 'Python' },
+  { id: 'cpp', label: 'C++' }
+];
 
 export const QuestionCreatorView = ({
   initialQuestion,
@@ -235,23 +145,21 @@ export const QuestionCreatorView = ({
 }) => {
   const isEditing = Boolean(initialQuestion && initialQuestion._id);
 
-  // 1. Authoring Mode: 'manual' or 'ai'
-  const [creationMode, setCreationMode] = useState('manual'); // 'manual' | 'ai'
+  // 1. Tab states
+  const [activeTab, setActiveTab] = useState('details'); // 'details' | 'starter' | 'reference'
+  const [previewTab, setPreviewTab] = useState('problem'); // 'problem' | 'example' | 'starter'
 
-  // 2. Active Tab: 'details' | 'starter' | 'reference'
-  const [activeTab, setActiveTab] = useState('details');
-
-  // 3. Core Question Fields
+  // 2. Core Question Fields
   const [title, setTitle] = useState(initialQuestion?.title || '');
   const [statement, setStatement] = useState(initialQuestion?.statement || '');
   const [inputFormat, setInputFormat] = useState(initialQuestion?.inputFormat || '');
   const [outputFormat, setOutputFormat] = useState(initialQuestion?.outputFormat || '');
   const [constraints, setConstraints] = useState(
-    initialQuestion?.constraints || '• 1 ≤ n ≤ 10⁵\n• Time limit: 1.0s\n• Memory limit: 256MB'
+    initialQuestion?.constraints || '1 ≤ |s| ≤ 10^5\nTime limit: 1.0s\nMemory limit: 256MB'
   );
   const [explanation, setExplanation] = useState(initialQuestion?.explanation || '');
 
-  // 4. Multiple Examples Support
+  // 3. Examples List
   const [examples, setExamples] = useState(() => {
     if (initialQuestion?.examples && initialQuestion.examples.length > 0) {
       return initialQuestion.examples.map((ex) => ({
@@ -262,70 +170,57 @@ export const QuestionCreatorView = ({
     }
     return [
       {
-        input: '[1, 2, 3, 4], target = 5',
-        output: '[0, 3]',
-        explanation: 'Elements at index 0 and 3 sum up to 5.'
+        input: 'swiss',
+        output: 'w',
+        explanation: 'w is the first character that appears once.'
       }
     ];
   });
 
-  // 5. Configuration Fields
-  const getPreferredLang = () => {
-    const saved = localStorage.getItem('testforge_pref_lang');
-    if (saved) {
-      const lower = saved.toLowerCase();
-      if (lower === 'c++') return 'cpp';
-      return lower;
-    }
-    return 'java';
-  };
-
-  const [language, setLanguage] = useState(initialQuestion?.language || getPreferredLang());
+  // 4. Configuration Fields
+  const [language, setLanguage] = useState(initialQuestion?.language || 'javascript');
   const [difficulty, setDifficulty] = useState(initialQuestion?.difficulty || 'Medium');
   const [topics, setTopics] = useState(() => {
     if (Array.isArray(initialQuestion?.tags) && initialQuestion.tags.length > 0) {
       return initialQuestion.tags;
     }
-    return ['Arrays', 'Two Pointers'];
+    return ['Algorithms', 'Array'];
   });
   const [newTopicInput, setNewTopicInput] = useState('');
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
 
-  // 6. Code Editors
+  // 5. Code Editors
   const [starterCode, setStarterCode] = useState(
-    initialQuestion?.starterCode || LANGUAGE_TEMPLATES[initialQuestion?.language || getPreferredLang()]?.starterCode || ''
+    initialQuestion?.starterCode || LANGUAGE_TEMPLATES[initialQuestion?.language || 'javascript']?.starterCode || ''
   );
   const [referenceSolution, setReferenceSolution] = useState(
-    initialQuestion?.referenceSolution || LANGUAGE_TEMPLATES[initialQuestion?.language || getPreferredLang()]?.referenceSolution || ''
+    initialQuestion?.referenceSolution || LANGUAGE_TEMPLATES[initialQuestion?.language || 'javascript']?.referenceSolution || ''
   );
 
-  // 7. AI Assisted Generation State
-  const [aiTopic, setAiTopic] = useState('Arrays');
-  const [aiDifficulty, setAiDifficulty] = useState('Medium');
-  const [aiLanguage, setAiLanguage] = useState(getPreferredLang());
-  const [aiConcept, setAiConcept] = useState('Two Pointers');
-  const [aiPrompt, setAiPrompt] = useState(
-    'Generate a medium-level array question involving two pointers with clear examples and edge cases.'
-  );
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiSuccessBanner, setAiSuccessBanner] = useState(false);
-
-  // 8. General UI States
+  // 6. UI Status States
   const [loading, setLoading] = useState(false);
   const [saveDraftLoading, setSaveDraftLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [copiedStarter, setCopiedStarter] = useState(false);
-  const [copiedRef, setCopiedRef] = useState(false);
-  const [isFullscreenEditor, setIsFullscreenEditor] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('Draft, not saved yet');
+  const [isSavingLocal, setIsSavingLocal] = useState(false);
+  const [activeOutlineIndex, setActiveOutlineIndex] = useState(0);
 
-  // Rich Text Undo/Redo Stack
+  // Refs for 3D Interactive Tilt & Confetti
+  const heroRef = useRef(null);
+  const tiltRef = useRef(null);
+  const publishBtnRef = useRef(null);
   const statementRef = useRef(null);
-  const [history, setHistory] = useState([statement]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const autoSaveTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
 
-  // Set initial data if initialQuestion changes
+  // Show Toast
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), 2400);
+  };
+
+  // Sync initial question if editing
   useEffect(() => {
     if (initialQuestion) {
       setTitle(initialQuestion.title || '');
@@ -334,7 +229,7 @@ export const QuestionCreatorView = ({
       setOutputFormat(initialQuestion.outputFormat || '');
       setConstraints(initialQuestion.constraints || '');
       setExplanation(initialQuestion.explanation || '');
-      setLanguage(initialQuestion.language || 'java');
+      setLanguage(initialQuestion.language || 'javascript');
       setDifficulty(initialQuestion.difficulty || 'Medium');
       if (Array.isArray(initialQuestion.tags)) setTopics(initialQuestion.tags);
       if (initialQuestion.starterCode) setStarterCode(initialQuestion.starterCode);
@@ -345,268 +240,259 @@ export const QuestionCreatorView = ({
     }
   }, [initialQuestion?._id]);
 
-  // Handle statement changes with simple undo/redo
-  const handleStatementChange = (newVal) => {
-    setStatement(newVal);
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newVal);
-    if (newHistory.length > 30) newHistory.shift();
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  };
-
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const newIdx = historyIndex - 1;
-      setHistoryIndex(newIdx);
-      setStatement(history[newIdx]);
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      const newIdx = historyIndex + 1;
-      setHistoryIndex(newIdx);
-      setStatement(history[newIdx]);
-    }
-  };
-
   // Language Change Sync
-  const handleLanguageSelect = (newLang) => {
-    setLanguage(newLang);
-    // If starterCode or referenceSolution is default or empty, switch to new template
-    const tpl = LANGUAGE_TEMPLATES[newLang];
+  const handleLanguageChange = (newLangId) => {
+    setLanguage(newLangId);
+    const tpl = LANGUAGE_TEMPLATES[newLangId];
     if (tpl) {
-      if (!starterCode || Object.values(LANGUAGE_TEMPLATES).some((t) => t.starterCode.trim() === starterCode.trim())) {
+      if (
+        !starterCode.trim() ||
+        Object.values(LANGUAGE_TEMPLATES).some((t) => t.starterCode.trim() === starterCode.trim())
+      ) {
         setStarterCode(tpl.starterCode);
       }
-      if (!referenceSolution || Object.values(LANGUAGE_TEMPLATES).some((t) => t.referenceSolution.trim() === referenceSolution.trim())) {
+      if (
+        !referenceSolution.trim() ||
+        Object.values(LANGUAGE_TEMPLATES).some((t) => t.referenceSolution.trim() === referenceSolution.trim())
+      ) {
         setReferenceSolution(tpl.referenceSolution);
       }
     }
   };
 
-  // Reset Template
-  const handleResetStarter = () => {
-    const tpl = LANGUAGE_TEMPLATES[language];
-    if (tpl) setStarterCode(tpl.starterCode);
+  // 7 Checklist Items for Outline & Completeness
+  const outlineItems = useMemo(() => {
+    return [
+      {
+        id: 'f-title',
+        name: 'Title',
+        tab: 'details',
+        isComplete: title.trim().length > 3
+      },
+      {
+        id: 'f-stmt',
+        name: 'Problem statement',
+        tab: 'details',
+        isComplete: statement.trim().length > 15
+      },
+      {
+        id: 'f-io',
+        name: 'Input and output',
+        tab: 'details',
+        isComplete: inputFormat.trim().length > 0 && outputFormat.trim().length > 0
+      },
+      {
+        id: 'f-cons',
+        name: 'Constraints',
+        tab: 'details',
+        isComplete: constraints.trim().length > 0
+      },
+      {
+        id: 'f-ex',
+        name: 'Examples',
+        tab: 'details',
+        isComplete: examples.some((ex) => ex.input.trim().length > 0 && ex.output.trim().length > 0)
+      },
+      {
+        id: 'f-starter',
+        name: 'Starter code',
+        tab: 'starter',
+        isComplete: starterCode.trim().length > 10
+      },
+      {
+        id: 'f-ref',
+        name: 'Reference solution',
+        tab: 'reference',
+        isComplete: referenceSolution.trim().length > 10
+      }
+    ];
+  }, [title, statement, inputFormat, outputFormat, constraints, examples, starterCode, referenceSolution]);
+
+  // Derived Completeness
+  const completedCount = useMemo(() => outlineItems.filter((i) => i.isComplete).length, [outlineItems]);
+  const completenessPercent = Math.round((completedCount / outlineItems.length) * 100);
+  const isReadyToPublish = outlineItems.slice(0, 5).every((i) => i.isComplete);
+
+  // Auto-Save to LocalStorage
+  const triggerAutoSave = () => {
+    setIsSavingLocal(true);
+    setSaveStatus('Saving…');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          'tf-cq2-draft',
+          JSON.stringify({
+            title,
+            statement,
+            inputFormat,
+            outputFormat,
+            constraints,
+            examples,
+            language,
+            difficulty,
+            topics,
+            starterCode,
+            referenceSolution
+          })
+        );
+      } catch {}
+      setIsSavingLocal(false);
+      setSaveStatus('Saved just now');
+    }, 700);
   };
 
-  const handleResetReference = () => {
-    const tpl = LANGUAGE_TEMPLATES[language];
-    if (tpl) setReferenceSolution(tpl.referenceSolution);
-  };
+  // Particle Burst Confetti on 100% or Publish
+  const triggerConfettiBurst = () => {
+    const btn = publishBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const colors = ['#EDFF72', '#1f9d5a', '#191A1D', '#fff'];
 
-  // Rich-Text Toolbar helper
-  const applyToolbarAction = (type) => {
-    const textarea = statementRef.current;
-    if (!textarea) return;
+    for (let i = 0; i < 26; i++) {
+      const dot = document.createElement('i');
+      dot.className = 'tf-burst';
+      dot.style.position = 'fixed';
+      dot.style.left = `${rect.left + rect.width / 2}px`;
+      dot.style.top = `${rect.top + rect.height / 2}px`;
+      dot.style.width = '8px';
+      dot.style.height = '8px';
+      dot.style.borderRadius = '2px';
+      dot.style.zIndex = '9999';
+      dot.style.pointerEvents = 'none';
+      dot.style.background = colors[i % colors.length];
+      document.body.appendChild(dot);
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = statement.substring(start, end);
-    let replacement = '';
-    let cursorOffset = 0;
-
-    switch (type) {
-      case 'h1':
-        replacement = `\n# ${selected || 'Heading 1'}\n`;
-        break;
-      case 'h2':
-        replacement = `\n## ${selected || 'Heading 2'}\n`;
-        break;
-      case 'h3':
-        replacement = `\n### ${selected || 'Heading 3'}\n`;
-        break;
-      case 'bold':
-        replacement = `**${selected || 'bold text'}**`;
-        cursorOffset = selected ? replacement.length : 2;
-        break;
-      case 'italic':
-        replacement = `*${selected || 'italic text'}*`;
-        cursorOffset = selected ? replacement.length : 1;
-        break;
-      case 'code':
-        replacement = `\`${selected || 'code'}\``;
-        cursorOffset = selected ? replacement.length : 1;
-        break;
-      case 'bullet':
-        replacement = `\n- ${selected || 'List item'}\n`;
-        break;
-      case 'numbered':
-        replacement = `\n1. ${selected || 'First item'}\n`;
-        break;
-      case 'quote':
-        replacement = `\n> ${selected || 'Important note or quote'}\n`;
-        break;
-      case 'link':
-        replacement = `[${selected || 'Link Title'}](https://example.com)`;
-        break;
-      case 'table':
-        replacement = `\n| Column 1 | Column 2 |\n| -------- | -------- |\n| Data 1   | Data 2   |\n`;
-        break;
-      default:
-        return;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 120;
+      dot.animate(
+        [
+          { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+          {
+            transform: `translate(${Math.cos(angle) * speed}px, ${Math.sin(angle) * speed + 60}px) rotate(${Math.random() * 540}deg)`,
+            opacity: 0
+          }
+        ],
+        { duration: 900, easing: 'cubic-bezier(.2,.8,.3,1)' }
+      ).onfinish = () => dot.remove();
     }
+  };
 
-    const updated = statement.substring(0, start) + replacement + statement.substring(end);
-    handleStatementChange(updated);
+  // Keyboard shortcut Ctrl+S / Cmd+S
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        triggerAutoSave();
+        showToast('Draft saved to local workspace');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [title, statement, inputFormat, outputFormat, constraints, examples, language, difficulty, topics, starterCode, referenceSolution]);
 
+  // 3D Dice Gyro Tilt Handlers
+  const handleHeroMouseMove = (e) => {
+    if (!heroRef.current || !tiltRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left - rect.width / 2) / (rect.width / 2);
+    const y = (e.clientY - rect.top - rect.height / 2) / (rect.height / 2);
+    tiltRef.current.style.transform = `rotateY(${x * 35}deg) rotateX(${-y * 30}deg)`;
+    heroRef.current.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+    heroRef.current.style.setProperty('--my', `${e.clientY - rect.top}px`);
+  };
+
+  const handleHeroMouseLeave = () => {
+    if (tiltRef.current) {
+      tiltRef.current.style.transform = 'rotateY(0deg) rotateX(0deg)';
+    }
+  };
+
+  // Outline Item Click -> Navigate & Focus
+  const handleOutlineClick = (item, index) => {
+    setActiveOutlineIndex(index);
+    if (item.tab !== activeTab) {
+      setActiveTab(item.tab);
+    }
     setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + (cursorOffset || replacement.length), start + (cursorOffset || replacement.length));
-    }, 10);
+      const el = document.getElementById(item.id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const focusable = el.querySelector('input, textarea');
+        if (focusable) focusable.focus({ preventScroll: true });
+      }
+    }, 150);
+  };
+
+  // Add / Remove Topic Tags
+  const handleAddTopic = () => {
+    const trimmed = newTopicInput.trim();
+    if (trimmed && !topics.includes(trimmed)) {
+      setTopics([...topics, trimmed]);
+      triggerAutoSave();
+    }
+    setNewTopicInput('');
+  };
+
+  const handleRemoveTopic = (indexToRemove) => {
+    setTopics(topics.filter((_, idx) => idx !== indexToRemove));
+    triggerAutoSave();
   };
 
   // Examples Management
   const handleAddExample = () => {
-    setExamples([
-      ...examples,
-      {
-        input: '',
-        output: '',
-        explanation: ''
-      }
-    ]);
+    setExamples([...examples, { input: '', output: '', explanation: '' }]);
+    triggerAutoSave();
   };
 
-  const handleUpdateExample = (idx, field, value) => {
+  const handleUpdateExample = (idx, field, val) => {
     const updated = [...examples];
-    updated[idx][field] = value;
+    updated[idx][field] = val;
     setExamples(updated);
+    triggerAutoSave();
   };
 
   const handleRemoveExample = (idx) => {
     if (examples.length <= 1) return;
     setExamples(examples.filter((_, i) => i !== idx));
+    triggerAutoSave();
   };
 
-  // Topics Management
-  const handleAddTopic = () => {
-    const trimmed = newTopicInput.trim();
-    if (trimmed && !topics.includes(trimmed)) {
-      setTopics([...topics, trimmed]);
+  // Markdown Toolbar helper
+  const handleApplyMarkdown = (wrapper, isSurround = false) => {
+    const ta = statementRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const val = ta.value;
+
+    let nextVal = '';
+    if (isSurround) {
+      nextVal = val.slice(0, start) + wrapper + val.slice(start, end) + wrapper + val.slice(end);
+    } else {
+      nextVal = val.slice(0, start) + wrapper + val.slice(start);
     }
-    setNewTopicInput('');
-    setIsAddingTopic(false);
-  };
 
-  const handleRemoveTopic = (topicToRemove) => {
-    setTopics(topics.filter((t) => t !== topicToRemove));
-  };
-
-  // AI Generation Trigger
-  const handleGenerateAI = () => {
-    setIsGeneratingAI(true);
-    setError(null);
-
-    // Pick best template matching concept or topic, or fallback
+    setStatement(nextVal);
+    triggerAutoSave();
     setTimeout(() => {
-      let chosenKey = 'Two Pointers';
-      if (aiConcept.toLowerCase().includes('window') || aiPrompt.toLowerCase().includes('window')) {
-        chosenKey = 'Sliding Window';
-      } else if (aiConcept.toLowerCase().includes('prefix') || aiPrompt.toLowerCase().includes('prefix')) {
-        chosenKey = 'Prefix Sums';
-      } else if (aiConcept.toLowerCase().includes('search') || aiPrompt.toLowerCase().includes('search')) {
-        chosenKey = 'Binary Search';
-      } else if (AI_QUESTION_TEMPLATES[aiConcept]) {
-        chosenKey = aiConcept;
-      }
-
-      const generated = AI_QUESTION_TEMPLATES[chosenKey] || AI_QUESTION_TEMPLATES['Two Pointers'];
-
-      setTitle(generated.title);
-      setStatement(generated.statement);
-      setInputFormat(generated.inputFormat);
-      setOutputFormat(generated.outputFormat);
-      setConstraints(generated.constraints);
-      setExplanation(generated.explanation);
-      setExamples(generated.examples);
-      setDifficulty(aiDifficulty);
-      setLanguage(aiLanguage);
-      setTopics(generated.topics);
-
-      // Adjust templates for chosen language
-      const langTpl = LANGUAGE_TEMPLATES[aiLanguage] || LANGUAGE_TEMPLATES.java;
-      setStarterCode(langTpl.starterCode);
-      setReferenceSolution(langTpl.referenceSolution);
-
-      setIsGeneratingAI(false);
-      setAiSuccessBanner(true);
-      setActiveTab('details');
-
-      setTimeout(() => setAiSuccessBanner(false), 5000);
-    }, 800);
+      ta.focus();
+      ta.setSelectionRange(start + wrapper.length, start + wrapper.length);
+    }, 10);
   };
 
-  // Completeness Calculation (100% dynamic)
-  const completenessDetails = useMemo(() => {
-    const items = [
-      {
-        id: 'basic',
-        label: 'Basic Information',
-        isComplete: title.trim().length >= 3 && Boolean(difficulty) && Boolean(language)
-      },
-      {
-        id: 'statement',
-        label: 'Problem Statement',
-        isComplete: statement.trim().length >= 15
-      },
-      {
-        id: 'io',
-        label: 'Input / Output Format',
-        isComplete: inputFormat.trim().length > 0 || outputFormat.trim().length > 0
-      },
-      {
-        id: 'constraints',
-        label: 'Constraints',
-        isComplete: constraints.trim().length > 0
-      },
-      {
-        id: 'examples',
-        label: 'Examples',
-        isComplete: examples.length > 0 && examples[0].input.trim().length > 0 && examples[0].output.trim().length > 0
-      },
-      {
-        id: 'explanation',
-        label: 'Explanation',
-        isComplete: explanation.trim().length > 0 || examples.some((ex) => ex.explanation?.trim().length > 0)
-      },
-      {
-        id: 'code',
-        label: 'Code (Starter & Reference)',
-        isComplete: starterCode.trim().length > 10 && referenceSolution.trim().length > 10
-      }
-    ];
-
-    const completedCount = items.filter((i) => i.isComplete).length;
-    const percentage = Math.round((completedCount / items.length) * 100);
-
-    return { items, percentage };
-  }, [
-    title,
-    difficulty,
-    language,
-    statement,
-    inputFormat,
-    outputFormat,
-    constraints,
-    examples,
-    explanation,
-    starterCode,
-    referenceSolution
-  ]);
-
-  // Submit Handler (Draft or Publish)
+  // Save to Backend (Published or Draft)
   const handleSaveQuestion = async (targetStatus = 'published') => {
     if (!title.trim()) {
-      setError('Question Title is required.');
+      showToast('Add title before saving');
       setActiveTab('details');
+      document.getElementById('f-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (!statement.trim()) {
-      setError('Problem Statement is required.');
+      showToast('Add problem statement before saving');
       setActiveTab('details');
+      document.getElementById('f-stmt')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -618,7 +504,6 @@ export const QuestionCreatorView = ({
     setError(null);
 
     try {
-      // Build composite statement if separate input/output formats are populated
       let finalStatement = statement;
       if (inputFormat.trim() && !finalStatement.includes('**Input Format:**')) {
         finalStatement += `\n\n### Input Format\n${inputFormat}`;
@@ -651,1110 +536,1446 @@ export const QuestionCreatorView = ({
         await api.post('/questions', payload);
       }
 
-      setSuccessMsg(
-        targetStatus === 'draft'
-          ? 'Draft successfully saved!'
-          : isEditing
-          ? 'Question updated successfully!'
-          : 'Question published successfully!'
-      );
+      if (targetStatus === 'published') {
+        triggerConfettiBurst();
+        showToast('Published to Question Bank!');
+      } else {
+        showToast('Draft saved successfully!');
+      }
 
       setTimeout(() => {
         if (onSuccess) onSuccess();
-      }, 700);
+      }, 750);
     } catch (err) {
       const serverMsg =
         err.response?.data?.error?.message ||
         err?.customMessage ||
-        'Failed to save question. Please check all fields.';
+        'Failed to save question. Please verify fields.';
       setError(serverMsg);
+      showToast(serverMsg);
     } finally {
       setLoading(false);
       setSaveDraftLoading(false);
     }
   };
 
+  // Staggered characters for Title Animation like Question Bank
+  const titleText = isEditing ? 'Edit Question' : 'Create Question';
+  const titleCharacters = titleText.split('');
+
   return (
-    <div className="w-full pb-16 animate-fadeIn select-none">
+    <div className="tf-cq-root select-none font-sans text-[#171819] pb-16">
       {/* ────────────────────────────────────────────────────────────────────────────
-          1. TOP HEADER & BREADCRUMB
+          SCOPED STYLES: 100% LIGHT THEME, 3D ISOMETRIC DICE, QUESTION BANK TEXT & NUMBER ANIMATION
           ──────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
-        <div>
-          {/* Eyebrow matching screenshot */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#EDFF72] shadow-xs" />
-            <span className="text-[11px] font-extrabold tracking-wider text-[#777D78] uppercase">
-              TESTFORGE / QUESTION AUTHORING WORKSPACE
-            </span>
-          </div>
+      <style>{`
+        .tf-cq-root {
+          --out: #a9b0a4;
+          --bg: #F2F3F0;
+          --card: #ffffff;
+          --surf: #E9ECE7;
+          --ink: #171819;
+          --mute: #777D78;
+          --line: #DDE1DA;
+          --acc: #EDFF72;
+          --side: #191A1D;
+          --ok: #1f9d5a;
+          --hard: #e5484d;
+          --in: #f4f5f2;
+          --mono: "JetBrains Mono", monospace;
+          color: var(--ink);
+        }
+        .tf-cq-root * {
+          box-sizing: border-box;
+        }
 
-          {/* Main Title */}
-          <h1 className="text-3xl font-black text-[#171819] tracking-tight flex items-center gap-3">
-            {isEditing ? `Edit Question: ${title || initialQuestion.title}` : 'Create Question'}
-          </h1>
-          <p className="text-xs text-[#777D78] font-medium mt-0.5">
-            Design, configure and publish programming challenges.
-          </p>
-        </div>
+        /* Staggered Rise Entrance Animation */
+        .tf-cq-root .rise {
+          opacity: 0;
+          transform: translateY(18px);
+          filter: blur(4px);
+          animation: tfRise .7s cubic-bezier(.2,.8,.2,1) forwards;
+          animation-delay: calc(var(--k, 0) * 80ms + .1s);
+        }
+        @keyframes tfRise {
+          to {
+            opacity: 1;
+            transform: none;
+            filter: none;
+          }
+        }
 
-        {/* Right Header Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="px-3 py-1.5 rounded-full bg-white border border-[#DDE1DA] flex items-center gap-1.5 text-xs font-bold text-[#777D78]">
-            <span className={`w-2 h-2 rounded-full ${isEditing ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-            <span>{isEditing ? 'Editing' : 'Draft'}</span>
-          </div>
+        /* Top Grid */
+        .tf-cq-root .tf-top {
+          display: grid;
+          grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+          gap: 14px;
+          margin-bottom: 14px;
+        }
+        .tf-cq-root .tf-hero {
+          position: relative;
+          background: #101112;
+          color: #fff;
+          border-radius: 28px;
+          padding: 30px 34px;
+          overflow: hidden;
+          min-height: 270px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 20px 40px -20px rgba(0,0,0,0.5);
+          isolation: isolate;
+        }
+        .tf-cq-root .tf-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          background: radial-gradient(460px circle at var(--mx, 80%) var(--my, 50%), rgba(237,255,114,.18), transparent 70%);
+          transition: background .15s ease-out;
+        }
+        .tf-cq-root .tf-eyebrow {
+          font: 600 11px/1 var(--mono);
+          letter-spacing: .14em;
+          text-transform: uppercase;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          color: #e3e8e2;
+        }
+        .tf-cq-root .tf-eyebrow i {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: var(--acc);
+          box-shadow: 0 0 0 3px rgba(237,255,114,.25);
+        }
 
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3.5 py-2 rounded-full bg-white hover:bg-[#F2F3F0] text-xs font-bold text-[#777D78] hover:text-[#171819] border border-[#DDE1DA] transition-all cursor-pointer flex items-center gap-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back</span>
-          </button>
+        /* Hero Title Staggered Letter Animation like Question Bank */
+        .tf-cq-root h1.hero-title {
+          font-size: clamp(32px, 4.5vw, 48px);
+          margin: 14px 0 8px;
+          letter-spacing: -.035em;
+          line-height: 1.05;
+          font-weight: 700;
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .tf-cq-root h1.hero-title span {
+          display: inline-block;
+          transform: translateY(110%) rotate(6deg);
+          opacity: 0;
+          animation: tfTitleChar .7s cubic-bezier(.2,.9,.2,1) forwards;
+          animation-delay: calc(var(--c) * 35ms + .15s);
+        }
+        @keyframes tfTitleChar {
+          to {
+            transform: none;
+            opacity: 1;
+          }
+        }
+        .tf-cq-root h1.hero-title .sp2 {
+          width: .28em;
+        }
 
-          <button
-            type="button"
-            disabled={saveDraftLoading || loading}
-            onClick={() => handleSaveQuestion('draft')}
-            className="px-4 py-2 rounded-full bg-white hover:bg-[#F2F3F0] text-xs font-bold text-[#171819] border border-[#DDE1DA] shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            <Save className="w-3.5 h-3.5 text-[#777D78]" />
-            <span>{saveDraftLoading ? 'Saving...' : 'Save Draft'}</span>
-          </button>
+        .tf-cq-root .tf-hero p {
+          margin: 0 0 20px;
+          color: #b7bdb6;
+          max-width: 42ch;
+          font-size: 14.5px;
+          line-height: 1.5;
+        }
+        .tf-cq-root .tf-btns {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .tf-cq-root .tf-btn {
+          border: 0;
+          cursor: pointer;
+          border-radius: 99px;
+          padding: 11px 22px;
+          font-weight: 600;
+          font-size: 13.5px;
+          display: inline-flex;
+          gap: 8px;
+          align-items: center;
+          transition: transform .2s, box-shadow .25s;
+        }
+        .tf-cq-root .tf-btn:hover {
+          transform: translateY(-2px);
+        }
+        .tf-cq-root .tf-btn:active {
+          transform: scale(.97);
+        }
+        .tf-cq-root .tf-btn.pri {
+          background: var(--acc);
+          color: #111;
+          font-weight: 700;
+        }
+        .tf-cq-root .tf-btn.pri.ready {
+          animation: tfPulse 2s infinite;
+        }
+        @keyframes tfPulse {
+          50% { box-shadow: 0 0 0 9px rgba(237,255,114,.35); }
+        }
+        .tf-cq-root .tf-btn.gh {
+          background: #26282b;
+          color: #fff;
+          border: 1px solid #3a3d41;
+        }
+        .tf-cq-root .tf-btn.lt {
+          background: var(--card);
+          border: 1px solid var(--line);
+          color: var(--ink);
+        }
+        .tf-cq-root .tf-facts {
+          display: flex;
+          gap: 22px;
+          border-top: 1px solid #2b2d30;
+          padding-top: 14px;
+          margin-top: 20px;
+          font-size: 13px;
+          color: #c8cdc7;
+        }
+        .tf-cq-root .tf-facts b {
+          color: #fff;
+          font-size: 15px;
+          margin-right: 4px;
+        }
 
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
-            className="px-4 py-2 rounded-full bg-white hover:bg-[#F2F3F0] text-xs font-bold text-[#171819] border border-[#DDE1DA] shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            <Eye className="w-3.5 h-3.5 text-[#777D78]" />
-            <span>Preview</span>
-          </button>
+        /* 3D Dice (Cube) Stage - Aligned like the 3D Ball in the Right Half of Hero */
+        .tf-cq-root .stage {
+          position: absolute;
+          right: 12px;
+          top: 0;
+          bottom: 0;
+          width: 46%;
+          perspective: 850px;
+          display: grid;
+          place-items: center;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .tf-cq-root .tilt {
+          transform-style: preserve-3d;
+          transition: transform .12s ease-out;
+        }
+        .tf-cq-root .cube {
+          width: 136px;
+          height: 136px;
+          transform-style: preserve-3d;
+          animation: tfSpin 14s linear infinite;
+          transform: rotateX(-18deg) rotateY(0);
+        }
+        .tf-cq-root .cube i {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          font: 800 42px var(--mono);
+          font-style: normal;
+          border-radius: 22px;
+          border: 2.5px solid #191A1D;
+          backface-visibility: visible;
+          user-select: none;
+          box-shadow: inset 0 0 16px rgba(0,0,0,0.12);
+        }
+        .tf-cq-root .f1 {
+          background: var(--acc);
+          color: #191A1D;
+          transform: translateZ(68px);
+        }
+        .tf-cq-root .f2 {
+          background: #2c2f34;
+          color: var(--acc);
+          transform: rotateY(180deg) translateZ(68px);
+        }
+        .tf-cq-root .f3 {
+          background: #e3f55f;
+          color: #191A1D;
+          transform: rotateY(90deg) translateZ(68px);
+        }
+        .tf-cq-root .f4 {
+          background: #33363b;
+          color: var(--acc);
+          transform: rotateY(-90deg) translateZ(68px);
+        }
+        .tf-cq-root .f5 {
+          background: #f7ffa8;
+          color: #191A1D;
+          transform: rotateX(90deg) translateZ(68px);
+        }
+        .tf-cq-root .f6 {
+          background: #23252a;
+          color: var(--acc);
+          transform: rotateX(-90deg) translateZ(68px);
+        }
+        @keyframes tfSpin {
+          0% { transform: rotateX(-18deg) rotateY(0deg); }
+          100% { transform: rotateX(-18deg) rotateY(360deg); }
+        }
+        .tf-cq-root .stage .float {
+          animation: tfFloat 3.2s ease-in-out infinite;
+          transform-style: preserve-3d;
+        }
+        @keyframes tfFloat {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-16px); }
+        }
+        .tf-cq-root .stage .shadow {
+          position: absolute;
+          bottom: 24px;
+          width: 140px;
+          height: 22px;
+          border-radius: 50%;
+          background: rgba(0,0,0,.55);
+          filter: blur(10px);
+          animation: tfShadow 3.2s ease-in-out infinite;
+        }
+        @keyframes tfShadow {
+          0%, 100% { transform: scale(1); opacity: 0.55; }
+          50% { transform: scale(0.72); opacity: 0.28; }
+        }
 
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => handleSaveQuestion('published')}
-            className="px-5 py-2 rounded-full bg-[#EDFF72] hover:bg-[#E2F560] text-xs font-black text-[#191A1D] shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-          >
-            <Send className="w-3.5 h-3.5 fill-current" />
-            <span>{loading ? 'Publishing...' : isEditing ? 'Update & Publish' : 'Publish Question'}</span>
-          </button>
-        </div>
-      </div>
+        /* 4 Quick Stats Cards */
+        .tf-cq-root .tf-cards {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+        .tf-cq-root .tf-card {
+          background: var(--card);
+          border-radius: 28px;
+          padding: 18px 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.04);
+          border: 1px solid var(--line);
+        }
+        .tf-cq-root .tf-mini {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-height: 128px;
+          position: relative;
+          transition: transform .25s ease;
+        }
+        .tf-cq-root .tf-mini:hover {
+          transform: translateY(-2.5px);
+        }
+        .tf-cq-root .tf-tile {
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background: var(--surf);
+          display: grid;
+          place-items: center;
+          font: 600 13px var(--mono);
+          color: #171819;
+        }
+        .tf-cq-root .tf-tile.a {
+          background: var(--acc);
+          color: #111;
+        }
+        .tf-cq-root .tf-cap {
+          font: 600 11px/1 var(--mono);
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          color: var(--mute);
+          margin-top: auto;
+        }
+        .tf-cq-root .tf-big {
+          font-size: 34px;
+          font-weight: 700;
+          letter-spacing: -.03em;
+          line-height: 1;
+        }
+        .tf-cq-root .tf-sub {
+          font-size: 12px;
+          color: var(--mute);
+        }
+        .tf-cq-root .tf-sub.g {
+          color: var(--ok);
+          font-weight: 600;
+        }
+        .tf-cq-root .tf-ringm {
+          position: absolute;
+          right: 16px;
+          top: 14px;
+          width: 42px;
+          height: 42px;
+        }
+        .tf-cq-root .tf-ringm circle {
+          fill: none;
+          stroke-width: 6;
+          stroke-linecap: round;
+        }
+        .tf-cq-root .tf-ringm .b {
+          stroke: var(--surf);
+        }
+        .tf-cq-root .tf-ringm .f {
+          stroke: #a9c400;
+          transition: stroke-dashoffset .8s cubic-bezier(.3,1.3,.5,1);
+        }
+        .tf-cq-root .tf-ringm svg {
+          transform: rotate(-90deg);
+        }
 
-      {/* Notifications */}
-      {error && (
-        <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{error}</span>
-          </div>
-          <button type="button" onClick={() => setError(null)} className="text-rose-400 hover:text-rose-600">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        /* Language chips */
+        .tf-cq-root .tf-chips {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .tf-cq-root .tf-chp {
+          border: 0;
+          background: var(--surf);
+          border-radius: 8px;
+          padding: 5px 10px;
+          font: 600 11px var(--mono);
+          cursor: pointer;
+          transition: .2s;
+          color: #171819;
+        }
+        .tf-cq-root .tf-chp[aria-pressed=true] {
+          background: #111;
+          color: var(--acc);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
 
-      {successMsg && (
-        <div className="mb-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>{successMsg}</span>
-        </div>
-      )}
+        /* Difficulty Selector */
+        .tf-cq-root .tf-dbar {
+          display: flex;
+          gap: 3px;
+          height: 8px;
+          margin: 6px 0;
+        }
+        .tf-cq-root .tf-dbar i {
+          flex: 1;
+          border-radius: 9px;
+          background: var(--surf);
+          transition: .3s;
+        }
+        .tf-cq-root .tf-dbar i.on.e { background: #26b870; }
+        .tf-cq-root .tf-dbar i.on.m { background: #d8ee3b; }
+        .tf-cq-root .tf-dbar i.on.h { background: var(--hard); }
+        .tf-cq-root .tf-leg {
+          display: flex;
+          gap: 6px;
+          font-size: 12px;
+        }
+        .tf-cq-root .tf-leg button {
+          border: 0;
+          background: none;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 99px;
+          display: flex;
+          gap: 5px;
+          align-items: center;
+          color: var(--mute);
+          font-weight: 500;
+          transition: .2s;
+        }
+        .tf-cq-root .tf-leg button i {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+        }
+        .tf-cq-root .tf-leg button[aria-pressed=true] {
+          background: var(--surf);
+          color: var(--ink);
+          font-weight: 700;
+        }
+
+        /* 3-Column Main Body Grid */
+        .tf-cq-root .tf-body {
+          display: grid;
+          grid-template-columns: 240px minmax(0, 1fr) 350px;
+          gap: 14px;
+          align-items: start;
+        }
+        .tf-cq-root .tf-col {
+          position: sticky;
+          top: 12px;
+        }
+        .tf-cq-root h3 {
+          font-size: 15px;
+          margin: 2px 0 12px;
+          font-weight: 700;
+          color: #171819;
+        }
+
+        /* Outline Checklist */
+        .tf-cq-root .tf-secs {
+          display: grid;
+          gap: 4px;
+        }
+        .tf-cq-root .tf-sec {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          border: 0;
+          background: none;
+          text-align: left;
+          padding: 9px 12px;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 13.5px;
+          transition: .2s;
+          color: #171819;
+        }
+        .tf-cq-root .tf-sec:hover {
+          background: var(--surf);
+        }
+        .tf-cq-root .tf-sec.on {
+          background: var(--acc);
+          color: #111;
+          font-weight: 700;
+        }
+        .tf-cq-root .tf-sec i {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 1.5px solid var(--line);
+          display: grid;
+          place-items: center;
+          font-style: normal;
+          font-size: 9px;
+          color: transparent;
+          flex: none;
+          transition: .3s;
+        }
+        .tf-cq-root .tf-sec.done i {
+          background: var(--ok);
+          border-color: var(--ok);
+          color: #fff;
+        }
+        .tf-cq-root .tf-sec.on.done i {
+          border-color: #111;
+        }
+
+        /* Topic Tags */
+        .tf-cq-root .tf-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .tf-cq-root .tf-tag {
+          display: inline-flex;
+          gap: 6px;
+          align-items: center;
+          background: var(--surf);
+          border-radius: 8px;
+          padding: 4px 6px 4px 10px;
+          font: 600 12px var(--mono);
+          color: #171819;
+        }
+        .tf-cq-root .tf-tag button {
+          border: 0;
+          background: var(--card);
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          cursor: pointer;
+          line-height: 1;
+          color: var(--mute);
+          display: grid;
+          place-items: center;
+          padding: 0;
+          font-size: 11px;
+        }
+        .tf-cq-root .tf-tag button:hover {
+          color: #111;
+          background: #e1e4de;
+        }
+        .tf-cq-root .tf-tin {
+          display: flex;
+          gap: 6px;
+          margin-top: 10px;
+        }
+
+        /* Sliding Pill Tabs */
+        .tf-cq-root .tf-ptabs {
+          display: inline-flex;
+          background: var(--surf);
+          border-radius: 99px;
+          padding: 4px;
+          gap: 2px;
+          margin-bottom: 16px;
+          position: relative;
+        }
+        .tf-cq-root .tf-ptabs button {
+          position: relative;
+          z-index: 1;
+          border: 0;
+          background: none;
+          padding: 8px 16px;
+          border-radius: 99px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 13px;
+          color: var(--mute);
+          transition: color .2s;
+        }
+        .tf-cq-root .tf-ptabs button.active {
+          color: #fff;
+          background: #111;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        /* Form Inputs & Code Blocks */
+        .tf-cq-root input[type=text],
+        .tf-cq-root textarea,
+        .tf-cq-root select {
+          width: 100%;
+          border: 1px solid var(--line);
+          background: var(--in);
+          border-radius: 14px;
+          padding: 12px 14px;
+          font-size: 14px;
+          transition: .2s;
+          color: var(--ink);
+          font-family: inherit;
+        }
+        .tf-cq-root input:focus,
+        .tf-cq-root textarea:focus,
+        .tf-cq-root select:focus {
+          outline: 0;
+          border-color: #c3d63a;
+          background: var(--card);
+          box-shadow: 0 0 0 4px rgba(237,255,114,.55);
+        }
+        .tf-cq-root textarea {
+          resize: vertical;
+          min-height: 120px;
+          line-height: 1.55;
+        }
+        .tf-cq-root .mono {
+          font-family: var(--mono);
+          font-size: 13px;
+        }
+        .tf-cq-root .code {
+          background: #15161a !important;
+          color: #d6ef6b !important;
+          border-color: #2b2e35 !important;
+        }
+        .tf-cq-root label,
+        .tf-cq-root .lab {
+          display: block;
+          font-size: 13px;
+          font-weight: 700;
+          margin: 0 0 6px;
+          color: #171819;
+        }
+        .tf-cq-root .req {
+          color: var(--hard);
+        }
+        .tf-cq-root .fld {
+          margin-bottom: 18px;
+          scroll-margin-top: 16px;
+        }
+        .tf-cq-root .two {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+        .tf-cq-root .tb {
+          display: flex;
+          gap: 2px;
+          flex-wrap: wrap;
+          padding: 5px;
+          background: var(--surf);
+          border-radius: 14px 14px 0 0;
+          border: 1px solid var(--line);
+          border-bottom: 0;
+        }
+        .tf-cq-root .tb button {
+          border: 0;
+          background: none;
+          border-radius: 8px;
+          padding: 5px 10px;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 12.5px;
+          color: var(--mute);
+          transition: .15s;
+        }
+        .tf-cq-root .tb button:hover {
+          background: var(--card);
+          color: var(--ink);
+        }
+        .tf-cq-root .tb + textarea {
+          border-radius: 0 0 14px 14px;
+          min-height: 160px;
+        }
+        .tf-cq-root .empty-tip {
+          text-align: center;
+          color: var(--mute);
+          padding: 20px;
+          border: 1.5px dashed var(--line);
+          border-radius: 18px;
+          margin-top: 10px;
+          background: #fafbfa;
+        }
+        .tf-cq-root .empty-tip b {
+          display: block;
+          width: 34px;
+          height: 34px;
+          margin: 0 auto 8px;
+          border-radius: 10px;
+          background: var(--acc);
+          color: #111;
+          line-height: 34px;
+          font-weight: 800;
+          box-shadow: 0 6px 0 -1px #c8dc43;
+        }
+        .tf-cq-root .ex {
+          background: var(--in);
+          border-radius: 18px;
+          padding: 14px;
+          margin-bottom: 10px;
+          border: 1px solid var(--line);
+          transition: transform .25s ease;
+        }
+        .tf-cq-root .ex:hover {
+          transform: translateY(-2px);
+        }
+        .tf-cq-root .ex input {
+          background: var(--card);
+        }
+        .tf-cq-root .hd {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .tf-cq-root .link {
+          background: none;
+          border: 0;
+          cursor: pointer;
+          font-weight: 700;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          color: #171819;
+          font-size: 13px;
+        }
+        .tf-cq-root .note {
+          background: var(--acc);
+          color: #111;
+          border-radius: 12px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 700;
+          margin-bottom: 14px;
+          border: 1px solid #d8ec48;
+        }
+
+        /* Live Student Preview */
+        .tf-cq-root .pill {
+          display: inline-block;
+          border-radius: 99px;
+          padding: 3px 10px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .tf-cq-root .pill.Easy { background: #c8f0d8; color: #15663c; }
+        .tf-cq-root .pill.Medium { background: #f1fbb0; color: #5b6a00; }
+        .tf-cq-root .pill.Hard { background: #ffd2d3; color: #99262b; }
+        .tf-cq-root .pill.v { background: var(--surf); color: #171819; }
+        .tf-cq-root .pill.ok { background: #d7f3e3; color: #15663c; }
+        .tf-cq-root .pv h2 {
+          font-size: 19px;
+          letter-spacing: -.02em;
+          margin: 10px 0 8px;
+          line-height: 1.25;
+          font-weight: 700;
+        }
+        .tf-cq-root .pv pre {
+          margin: 0 0 12px;
+          background: var(--in);
+          padding: 12px;
+          border-radius: 12px;
+          white-space: pre-wrap;
+          word-break: break-word;
+          font: inherit;
+          border: 1px solid var(--line);
+          font-size: 13px;
+        }
+        .tf-cq-root .pv pre.mono {
+          font-family: var(--mono);
+          font-size: 12px;
+        }
+        .tf-cq-root .pv .cap {
+          margin: 12px 0 5px;
+          display: block;
+          font: 600 11px/1 var(--mono);
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          color: var(--mute);
+        }
+
+        /* Toast */
+        .tf-cq-root .tf-toast {
+          position: fixed;
+          left: 50%;
+          bottom: 24px;
+          transform: translate(-50%, 120px);
+          background: #111;
+          color: #fff;
+          padding: 12px 22px;
+          border-radius: 99px;
+          z-index: 999;
+          font-size: 13.5px;
+          font-weight: 600;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+          transition: transform .4s cubic-bezier(.3,1.4,.5,1);
+          pointer-events: none;
+        }
+        .tf-cq-root .tf-toast.on {
+          transform: translate(-50%, 0);
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1180px) {
+          .tf-cq-root .tf-body {
+            grid-template-columns: 220px minmax(0, 1fr);
+          }
+          .tf-cq-root .tf-body .right-col {
+            grid-column: 1 / -1;
+            position: static;
+          }
+        }
+        @media (max-width: 900px) {
+          .tf-cq-root .tf-top {
+            grid-template-columns: 1fr;
+          }
+          .tf-cq-root .tf-hero {
+            flex-direction: column;
+            gap: 20px;
+          }
+        }
+        @media (max-width: 720px) {
+          .tf-cq-root .tf-body {
+            grid-template-columns: 1fr;
+          }
+          .tf-cq-root .two {
+            grid-template-columns: 1fr;
+          }
+          .tf-cq-root .tf-cards {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+      `}</style>
 
       {/* ────────────────────────────────────────────────────────────────────────────
-          2. HERO ROW: MODE SELECTORS
+          TOP BANNER GRID: HERO CARD (3D ISOMETRIC DICE) + 4 STATS CARDS
           ──────────────────────────────────────────────────────────────────────────── */}
-      <div className="mb-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        {/* Mode Switcher Pills */}
-        <div className="flex items-center gap-2 bg-white/70 p-1 rounded-full border border-[#DDE1DA]">
-          <button
-            type="button"
-            onClick={() => setCreationMode('manual')}
-            className={`px-5 py-2 rounded-full text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-              creationMode === 'manual'
-                ? 'bg-[#EDFF72] text-[#191A1D] shadow-xs'
-                : 'text-[#777D78] hover:text-[#171819]'
-            }`}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span>Manual Creation</span>
-          </button>
+      <div className="tf-top">
+        {/* Left Hero Card with 3D Dice and Staggered Character Title */}
+        <section
+          ref={heroRef}
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={handleHeroMouseLeave}
+          className="tf-hero rise"
+          style={{ '--k': 1 }}
+        >
+          <div style={{ position: 'relative', zIndex: 2, maxWidth: '58%' }}>
+            <div className="tf-eyebrow">
+              <i />
+              Question authoring workspace
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setCreationMode('ai')}
-            className={`px-5 py-2 rounded-full text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-              creationMode === 'ai'
-                ? 'bg-[#EDFF72] text-[#191A1D] shadow-xs'
-                : 'text-[#777D78] hover:text-[#171819]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI-Assisted Creation</span>
-          </button>
-        </div>
-      </div>
+            {/* Staggered Animated Title like Question Bank */}
+            <h1 className="hero-title">
+              {titleCharacters.map((ch, idx) => (
+                <span
+                  key={idx}
+                  style={{ '--c': idx }}
+                  className={ch === ' ' ? 'sp2' : ''}
+                >
+                  {ch === ' ' ? '\u00A0' : ch}
+                </span>
+              ))}
+            </h1>
 
-      {/* ────────────────────────────────────────────────────────────────────────────
-          3. AI-ASSISTED CREATION CARD (SHOWN IN AI MODE OR TOGGLED)
-          ──────────────────────────────────────────────────────────────────────────── */}
-      {creationMode === 'ai' && (
-        <div className="bg-white border border-[#DDE1DA] rounded-[24px] p-5 mb-5 shadow-xs animate-fadeIn">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-[#DDE1DA]/60">
-            {/* Header info */}
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-2xl bg-[#EDFF72] text-[#191A1D] flex items-center justify-center font-bold shadow-xs">
-                <Sparkles className="w-5 h-5 fill-current" />
+            <p>Write the problem, set the rules, and check what students will see before you publish.</p>
+
+            <div className="tf-btns">
+              <button
+                ref={publishBtnRef}
+                type="button"
+                onClick={() => handleSaveQuestion('published')}
+                disabled={loading}
+                className={`tf-btn pri ${isReadyToPublish ? 'ready' : ''}`}
+              >
+                {loading ? 'Publishing…' : '+ Publish question'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveQuestion('draft')}
+                disabled={saveDraftLoading}
+                className="tf-btn gh"
+              >
+                {saveDraftLoading ? 'Saving…' : 'Save draft'}
+              </button>
+            </div>
+
+            {/* Live Count Up Facts Bar */}
+            <div className="tf-facts">
+              <span>
+                <b><AnimatedCount value={completedCount} /></b>checks passed
               </span>
-              <div>
-                <h3 className="text-sm font-extrabold text-[#171819]">AI-Assisted Creation</h3>
-                <p className="text-xs text-[#777D78]">
-                  Generate a complete, editable question with AI based on your inputs.
-                </p>
-              </div>
-            </div>
-
-            {/* Quick selectors matching screenshot */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full lg:w-auto">
-              <div>
-                <label className="text-[10px] font-bold text-[#777D78] block mb-1">Topic</label>
-                <select
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none"
-                >
-                  <option value="Arrays">Arrays</option>
-                  <option value="Strings">Strings</option>
-                  <option value="Hash Tables">Hash Tables</option>
-                  <option value="Dynamic Programming">Dynamic Programming</option>
-                  <option value="Binary Search">Binary Search</option>
-                  <option value="Trees">Trees</option>
-                  <option value="Graphs">Graphs</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-[#777D78] block mb-1">Difficulty</label>
-                <select
-                  value={aiDifficulty}
-                  onChange={(e) => setAiDifficulty(e.target.value)}
-                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none"
-                >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-[#777D78] block mb-1">Language</label>
-                <select
-                  value={aiLanguage}
-                  onChange={(e) => setAiLanguage(e.target.value)}
-                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none"
-                >
-                  <option value="java">Java</option>
-                  <option value="javascript">JavaScript</option>
-                  <option value="python">Python</option>
-                  <option value="cpp">C++</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-[#777D78] block mb-1">Concept</label>
-                <input
-                  type="text"
-                  value={aiConcept}
-                  onChange={(e) => setAiConcept(e.target.value)}
-                  placeholder="e.g. Two Pointers"
-                  className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none"
-                />
-              </div>
+              <span>
+                <b><AnimatedCount value={1} /></b>language
+              </span>
+              <span>
+                <b><AnimatedCount value={topics.length} /></b>topics
+              </span>
             </div>
           </div>
 
-          {/* Prompt row */}
-          <div className="mt-3.5 flex flex-col sm:flex-row items-center gap-2.5">
-            <div className="relative flex-1 w-full">
-              <input
-                type="text"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Describe the question you want to create..."
-                className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-full pl-4 pr-10 py-2.5 text-xs font-medium text-[#171819] focus:outline-none focus:border-[#191A1D] transition-colors"
-              />
-              <Sparkles className="w-4 h-4 text-[#777D78] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          {/* 3D Dice Stage with Interactive Cursor Gyro Tilt */}
+          <div className="stage" aria-hidden="true">
+            <div className="float">
+              <div className="tilt" ref={tiltRef}>
+                <div className="cube">
+                  <i className="f1">0(n)</i>
+                  <i className="f2">&#123;&#125;</i>
+                  <i className="f3">?</i>
+                  <i className="f4">&lt;/&gt;</i>
+                  <i className="f5">"</i>
+                  <i className="f6">[ ]</i>
+                </div>
+              </div>
             </div>
+            <div className="shadow" />
+          </div>
+        </section>
 
+        {/* Right 2x2 Quick Stats Cards with Smooth Animated Numbers */}
+        <div className="tf-cards">
+          {/* Card 1: Completeness with Animated Counting Percentage */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 2 }}>
+            <div className="tf-tile a">%</div>
+            <div className="tf-ringm">
+              <svg viewBox="0 0 42 42" width="42" height="42">
+                <circle className="b" cx="21" cy="21" r="17" />
+                <circle
+                  className="f"
+                  cx="21"
+                  cy="21"
+                  r="17"
+                  strokeDasharray="107"
+                  strokeDashoffset={107 * (1 - completenessPercent / 100)}
+                />
+              </svg>
+            </div>
+            <div className="tf-cap">Completeness</div>
+            <div className="tf-big">
+              <AnimatedCount value={completenessPercent} />%
+            </div>
+            <div className="tf-sub">
+              {completenessPercent === 100
+                ? 'Everything is filled in'
+                : `${outlineItems.length - completedCount} left to add`}
+            </div>
+          </div>
+
+          {/* Card 2: Status */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 3 }}>
+            <div className="tf-tile">✓</div>
+            <div className="tf-cap">Status</div>
+            <div className="tf-big" style={{ fontSize: '28px' }}>
+              {isReadyToPublish ? 'Ready' : 'Draft'}
+            </div>
+            <div className={`tf-sub ${isReadyToPublish ? 'g' : ''}`}>
+              {isReadyToPublish ? 'Ready to publish' : 'Not ready to publish'}
+            </div>
+          </div>
+
+          {/* Card 3: Language Selector Chips */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 4 }}>
+            <div className="tf-tile">&lt;/&gt;</div>
+            <div className="tf-cap">Language</div>
+            <div className="tf-chips">
+              {SUPPORTED_LANGS.map((lang) => (
+                <button
+                  key={lang.id}
+                  type="button"
+                  aria-pressed={language === lang.id}
+                  onClick={() => handleLanguageChange(lang.id)}
+                  className="tf-chp"
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 4: Difficulty Selector */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 5 }}>
+            <div className="tf-tile">≡</div>
+            <div className="tf-cap">Difficulty</div>
+            <div className="tf-dbar">
+              <i className={`e ${['Easy', 'Medium', 'Hard'].includes(difficulty) ? 'on' : ''}`} />
+              <i className={`m ${['Medium', 'Hard'].includes(difficulty) ? 'on' : ''}`} />
+              <i className={`h ${difficulty === 'Hard' ? 'on' : ''}`} />
+            </div>
+            <div className="tf-leg">
+              <button
+                type="button"
+                data-d="Easy"
+                aria-pressed={difficulty === 'Easy'}
+                onClick={() => setDifficulty('Easy')}
+              >
+                <i style={{ background: '#26b870' }} />
+                Easy
+              </button>
+              <button
+                type="button"
+                data-d="Medium"
+                aria-pressed={difficulty === 'Medium'}
+                onClick={() => setDifficulty('Medium')}
+              >
+                <i style={{ background: '#d8ee3b' }} />
+                Medium
+              </button>
+              <button
+                type="button"
+                data-d="Hard"
+                aria-pressed={difficulty === 'Hard'}
+                onClick={() => setDifficulty('Hard')}
+              >
+                <i style={{ background: 'var(--hard)' }} />
+                Hard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          MAIN BODY: 3-COLUMN WORKSPACE
+          Left (240px) Outline & Topics | Center (1fr) Tabs & Editors | Right (350px) Live Preview
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="tf-body">
+        {/* LEFT COLUMN: Outline Checklist & Topic Tags */}
+        <section className="tf-card tf-col rise" style={{ '--k': 6 }} aria-label="Outline">
+          <h3>Outline</h3>
+          <div className="tf-secs">
+            {outlineItems.map((item, idx) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleOutlineClick(item, idx)}
+                className={`tf-sec ${activeOutlineIndex === idx ? 'on' : ''} ${item.isComplete ? 'done' : ''}`}
+              >
+                <i>✓</i>
+                {item.name}
+              </button>
+            ))}
+          </div>
+
+          <h3 style={{ marginTop: '22px' }}>Topics</h3>
+          <div className="tf-tags">
+            {topics.map((t, idx) => (
+              <span key={idx} className="tf-tag">
+                #{t}
+                <button
+                  type="button"
+                  aria-label={`Remove ${t}`}
+                  onClick={() => handleRemoveTopic(idx)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="tf-tin">
+            <input
+              type="text"
+              placeholder="Add a topic"
+              value={newTopicInput}
+              onChange={(e) => setNewTopicInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTopic();
+                }
+              }}
+            />
             <button
               type="button"
-              disabled={isGeneratingAI}
-              onClick={handleGenerateAI}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#EDFF72] hover:bg-[#E2F560] text-xs font-black text-[#191A1D] flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0"
+              onClick={handleAddTopic}
+              className="tf-btn lt"
+              style={{ padding: '8px 14px', borderRadius: '12px' }}
             >
-              <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>{isGeneratingAI ? 'Generating...' : 'Generate'}</span>
+              Add
+            </button>
+          </div>
+        </section>
+
+        {/* CENTER COLUMN: Tabs + Details, Starter Code & Reference Solution */}
+        <section className="tf-card rise" style={{ '--k': 7 }} aria-label="Question editor">
+          {/* Sliding Pill Tabs */}
+          <div className="tf-ptabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'details'}
+              className={activeTab === 'details' ? 'active' : ''}
+              onClick={() => setActiveTab('details')}
+            >
+              Details
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'starter'}
+              className={activeTab === 'starter' ? 'active' : ''}
+              onClick={() => setActiveTab('starter')}
+            >
+              Starter code
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'reference'}
+              className={activeTab === 'reference' ? 'active' : ''}
+              onClick={() => setActiveTab('reference')}
+            >
+              Reference solution
             </button>
           </div>
 
-          {aiSuccessBanner && (
-            <div className="mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Question generated! Review and fine-tune your parameters below.</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ────────────────────────────────────────────────────────────────────────────
-          4. MAIN TWO-COLUMN WORKSPACE
-          Left: Authoring Area (72%)
-          Right: Sticky Configuration & Completeness Panels (28%)
-          ──────────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* ── LEFT COLUMN (72% approx: 8 or 9 cols out of 12) ── */}
-        <div className="lg:col-span-8 xl:col-span-9 space-y-5">
-          {/* Main Card with Tabs */}
-          <div className="bg-white border border-[#DDE1DA] rounded-[28px] p-6 shadow-xs">
-            {/* Top Tab Bar matching screenshot */}
-            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#DDE1DA]/60">
-              <button
-                type="button"
-                onClick={() => setActiveTab('details')}
-                className={`px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'details'
-                    ? 'bg-[#EDFF72] text-[#191A1D] shadow-xs'
-                    : 'bg-white hover:bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] border border-[#DDE1DA]'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Question Details</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('starter')}
-                className={`px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'starter'
-                    ? 'bg-[#EDFF72] text-[#191A1D] shadow-xs'
-                    : 'bg-white hover:bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] border border-[#DDE1DA]'
-                }`}
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                <span>Starter Code</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('reference')}
-                className={`px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'reference'
-                    ? 'bg-[#EDFF72] text-[#191A1D] shadow-xs'
-                    : 'bg-white hover:bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] border border-[#DDE1DA]'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Reference Solution</span>
-              </button>
-            </div>
-
-            {/* TAB 1: QUESTION DETAILS */}
-            {activeTab === 'details' && (
-              <div className="space-y-5 animate-fadeIn">
-                {/* A. QUESTION TITLE */}
-                <div>
-                  <label className="block text-xs font-black text-[#171819] mb-1.5">
-                    Question Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter a clear and concise question title..."
-                    className="w-full bg-[#FFFFFF] border border-[#DDE1DA] rounded-xl px-4 py-3 text-sm font-semibold text-[#171819] placeholder:text-[#CBD0C8] focus:outline-none focus:border-[#191A1D] focus:ring-1 focus:ring-[#191A1D] transition-colors"
-                  />
-                </div>
-
-                {/* B. PROBLEM STATEMENT WITH RICH-TEXT TOOLBAR */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-black text-[#171819]">
-                      Problem Statement <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[11px] text-[#777D78]">Markdown formatting supported</span>
-                  </div>
-
-                  <div className="border border-[#DDE1DA] rounded-2xl overflow-hidden focus-within:border-[#191A1D] transition-colors">
-                    {/* Rich-Text Toolbar matching screenshot */}
-                    <div className="bg-[#F2F3F0] border-b border-[#DDE1DA] px-3 py-2 flex items-center gap-1 flex-wrap select-none">
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('h1')}
-                        title="Heading 1"
-                        className="px-2 py-1 rounded-md text-xs font-bold text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        H1
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('h2')}
-                        title="Heading 2"
-                        className="px-2 py-1 rounded-md text-xs font-bold text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        H2
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('h3')}
-                        title="Heading 3"
-                        className="px-2 py-1 rounded-md text-xs font-bold text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        H3
-                      </button>
-
-                      <div className="w-px h-4 bg-[#DDE1DA] mx-1" />
-
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('bold')}
-                        title="Bold"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <Bold className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('italic')}
-                        title="Italic"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <Italic className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('code')}
-                        title="Inline Code"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer font-mono text-xs"
-                      >
-                        <Code className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="w-px h-4 bg-[#DDE1DA] mx-1" />
-
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('bullet')}
-                        title="Bullet List"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <List className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('numbered')}
-                        title="Numbered List"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <ListOrdered className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('quote')}
-                        title="Quote"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <Quote className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="w-px h-4 bg-[#DDE1DA] mx-1" />
-
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('link')}
-                        title="Insert Link"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <Link2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyToolbarAction('table')}
-                        title="Insert Table"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer"
-                      >
-                        <TableIcon className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="flex-1" />
-
-                      <button
-                        type="button"
-                        onClick={handleUndo}
-                        disabled={historyIndex === 0}
-                        title="Undo"
-                        className={`p-1.5 rounded-md transition-colors ${
-                          historyIndex === 0
-                            ? 'text-slate-300'
-                            : 'text-[#171819] hover:bg-white cursor-pointer'
-                        }`}
-                      >
-                        <Undo className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRedo}
-                        disabled={historyIndex >= history.length - 1}
-                        title="Redo"
-                        className={`p-1.5 rounded-md transition-colors ${
-                          historyIndex >= history.length - 1
-                            ? 'text-slate-300'
-                            : 'text-[#171819] hover:bg-white cursor-pointer'
-                        }`}
-                      >
-                        <Redo className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsFullscreenEditor(!isFullscreenEditor)}
-                        title="Toggle Fullscreen"
-                        className="p-1.5 rounded-md text-[#171819] hover:bg-white transition-colors cursor-pointer ml-1"
-                      >
-                        {isFullscreenEditor ? (
-                          <Minimize2 className="w-3.5 h-3.5" />
-                        ) : (
-                          <Maximize2 className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    <textarea
-                      ref={statementRef}
-                      rows={isFullscreenEditor ? 22 : 9}
-                      value={statement}
-                      onChange={(e) => handleStatementChange(e.target.value)}
-                      placeholder="Write the complete problem statement here...&#10;You can use formatting, code blocks, lists, and more."
-                      className="w-full bg-[#FFFFFF] p-4 text-xs font-normal text-[#171819] leading-relaxed placeholder:text-[#CBD0C8] focus:outline-none resize-y font-sans"
-                    />
-                  </div>
-                </div>
-
-                {/* C. INPUT FORMAT & OUTPUT FORMAT (SIDE BY SIDE) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xs">
-                    <label className="flex items-center gap-1.5 text-xs font-black text-[#171819] mb-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#777D78]" />
-                      <span>Input Format</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={inputFormat}
-                      onChange={(e) => setInputFormat(e.target.value)}
-                      placeholder="Describe the input format..."
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] placeholder:text-[#CBD0C8] focus:outline-none focus:border-[#191A1D] transition-colors resize-none"
-                    />
-                  </div>
-
-                  <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xs">
-                    <label className="flex items-center gap-1.5 text-xs font-black text-[#171819] mb-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#777D78]" />
-                      <span>Output Format</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={outputFormat}
-                      onChange={(e) => setOutputFormat(e.target.value)}
-                      placeholder="Describe the output format..."
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] placeholder:text-[#CBD0C8] focus:outline-none focus:border-[#191A1D] transition-colors resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* D. CONSTRAINTS (FULL WIDTH) */}
-                <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="flex items-center gap-1.5 text-xs font-black text-[#171819]">
-                      <Layers className="w-3.5 h-3.5 text-[#777D78]" />
-                      <span>Constraints</span>
-                    </label>
-                    <span className="text-[10px] text-[#777D78] font-semibold">e.g., 1 ≤ n ≤ 10⁵</span>
-                  </div>
-                  <textarea
-                    rows={2}
-                    value={constraints}
-                    onChange={(e) => setConstraints(e.target.value)}
-                    placeholder="Add problem constraints (e.g., 1 ≤ n ≤ 10⁵)..."
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs font-mono text-[#171819] placeholder:text-[#CBD0C8] focus:outline-none focus:border-[#191A1D] transition-colors resize-none"
-                  />
-                </div>
-
-                {/* E. EXAMPLES & EXPLANATION (SIDE BY SIDE) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Left: Examples Card */}
-                  <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xs">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <label className="flex items-center gap-1.5 text-xs font-black text-[#171819]">
-                        <Code2 className="w-3.5 h-3.5 text-[#777D78]" />
-                        <span>Examples</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddExample}
-                        className="text-[11px] font-bold text-[#171819] hover:text-black flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3 text-[#777D78]" />
-                        <span>Add Example</span>
-                      </button>
-                    </div>
-
-                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                      {examples.map((ex, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 relative group"
-                        >
-                          {examples.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveExample(idx)}
-                              title="Delete Example"
-                              className="absolute top-2.5 right-2.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <span className="text-[10px] font-bold text-[#777D78] uppercase block mb-1">
-                            Example {idx + 1}
-                          </span>
-
-                          <div className="space-y-2">
-                            <div>
-                              <span className="text-[10px] font-semibold text-[#777D78] block">Sample Input</span>
-                              <input
-                                type="text"
-                                value={ex.input}
-                                onChange={(e) => handleUpdateExample(idx, 'input', e.target.value)}
-                                placeholder="e.g. nums = [2, 7, 11, 15], target = 9"
-                                className="w-full bg-white border border-[#DDE1DA] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#171819] focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-semibold text-[#777D78] block">Sample Output</span>
-                              <input
-                                type="text"
-                                value={ex.output}
-                                onChange={(e) => handleUpdateExample(idx, 'output', e.target.value)}
-                                placeholder="e.g. [0, 1]"
-                                className="w-full bg-white border border-[#DDE1DA] rounded-lg px-2.5 py-1.5 text-xs font-mono text-emerald-600 font-bold focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-semibold text-[#777D78] block">Explanation (Optional)</span>
-                              <input
-                                type="text"
-                                value={ex.explanation}
-                                onChange={(e) => handleUpdateExample(idx, 'explanation', e.target.value)}
-                                placeholder="Brief reason why this output is correct..."
-                                className="w-full bg-white border border-[#DDE1DA] rounded-lg px-2.5 py-1.5 text-xs text-[#171819] focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Right: Explanation Card */}
-                  <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xs">
-                    <label className="flex items-center gap-1.5 text-xs font-black text-[#171819] mb-2">
-                      <BookOpen className="w-3.5 h-3.5 text-[#777D78]" />
-                      <span>Explanation</span>
-                    </label>
-                    <textarea
-                      rows={8}
-                      value={explanation}
-                      onChange={(e) => setExplanation(e.target.value)}
-                      placeholder="Provide a brief explanation for the example or approach..."
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] placeholder:text-[#CBD0C8] focus:outline-none focus:border-[#191A1D] transition-colors resize-none leading-relaxed"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: STARTER CODE */}
-            {activeTab === 'starter' && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#F2F3F0] p-3 rounded-2xl border border-[#DDE1DA]">
-                  <div>
-                    <span className="text-xs font-extrabold text-[#171819] block">Student Starter Code</span>
-                    <span className="text-[11px] text-[#777D78]">
-                      Initial scaffold loaded in the student editor during assessment.
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleResetStarter}
-                      className="px-3 py-1.5 rounded-full bg-white hover:bg-[#E9ECE7] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center gap-1 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3 text-[#777D78]" />
-                      <span>Reset</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(starterCode);
-                        setCopiedStarter(true);
-                        setTimeout(() => setCopiedStarter(false), 2000);
-                      }}
-                      className="px-3 py-1.5 rounded-full bg-white hover:bg-[#E9ECE7] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedStarter ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-600" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 text-[#777D78]" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative rounded-2xl overflow-hidden border border-[#191A1D]/20 bg-[#191A1D] shadow-inner">
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#26282E] text-slate-400 text-xs font-mono border-b border-white/5">
-                    <span className="text-white font-bold">{LANGUAGE_TEMPLATES[language]?.name || language}</span>
-                    <span>Student Scaffold</span>
-                  </div>
-                  <textarea
-                    rows={16}
-                    value={starterCode}
-                    onChange={(e) => setStarterCode(e.target.value)}
-                    className="w-full bg-transparent p-4 font-mono text-xs text-emerald-300 leading-relaxed focus:outline-none resize-none"
-                    spellCheck={false}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: REFERENCE SOLUTION */}
-            {activeTab === 'reference' && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#F2F3F0] p-3 rounded-2xl border border-[#DDE1DA]">
-                  <div>
-                    <span className="text-xs font-extrabold text-[#171819] block">Faculty Reference Solution</span>
-                    <span className="text-[11px] text-[#777D78]">
-                      Private verified implementation used for reference and test validation.
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleResetReference}
-                      className="px-3 py-1.5 rounded-full bg-white hover:bg-[#E9ECE7] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center gap-1 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3 text-[#777D78]" />
-                      <span>Reset</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(referenceSolution);
-                        setCopiedRef(true);
-                        setTimeout(() => setCopiedRef(false), 2000);
-                      }}
-                      className="px-3 py-1.5 rounded-full bg-white hover:bg-[#E9ECE7] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedRef ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-600" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 text-[#777D78]" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative rounded-2xl overflow-hidden border border-[#191A1D]/20 bg-[#191A1D] shadow-inner">
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#26282E] text-slate-400 text-xs font-mono border-b border-white/5">
-                    <span className="text-[#EDFF72] font-bold">{LANGUAGE_TEMPLATES[language]?.name || language}</span>
-                    <span className="text-amber-400 font-bold">Faculty Only</span>
-                  </div>
-                  <textarea
-                    rows={16}
-                    value={referenceSolution}
-                    onChange={(e) => setReferenceSolution(e.target.value)}
-                    className="w-full bg-transparent p-4 font-mono text-xs text-amber-200 leading-relaxed focus:outline-none resize-none"
-                    spellCheck={false}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT COLUMN (28% approx: 4 or 3 cols out of 12) ── */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-4 sticky top-4">
-          {/* CARD A: QUESTION COMPLETENESS */}
-          <div className="bg-white border border-[#DDE1DA] rounded-[28px] p-5 shadow-xs">
-            <h3 className="text-xs font-black text-[#171819] flex items-center gap-2 mb-4">
-              <FileText className="w-4 h-4 text-[#777D78]" />
-              <span>Question Completeness</span>
-            </h3>
-
-            <div className="flex items-center gap-5">
-              {/* Circular Gauge matching screenshot */}
-              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-[#E9ECE7]"
-                    strokeWidth="3.8"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-[#EDFF72] transition-all duration-700 ease-out"
-                    strokeDasharray={`${completenessDetails.percentage}, 100`}
-                    strokeWidth="3.8"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-black text-[#171819] tracking-tight">
-                    {completenessDetails.percentage}%
-                  </span>
-                </div>
+          {/* PANEL 1: Details */}
+          {activeTab === 'details' && (
+            <div id="details-panel" className="space-y-4">
+              {/* Question title */}
+              <div className="fld" id="f-title">
+                <label htmlFor="title">
+                  Question title <span className="req">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  placeholder="e.g. Find the first non-repeating character"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    triggerAutoSave();
+                  }}
+                />
               </div>
 
-              {/* Checklist items */}
-              <div className="space-y-1.5 flex-1 min-w-0">
-                {completenessDetails.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 text-[11px]">
-                    {item.isComplete ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100 shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-[#CBD0C8] shrink-0" />
-                    )}
-                    <span
-                      className={`truncate ${
-                        item.isComplete ? 'font-bold text-[#171819]' : 'text-[#777D78]'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* CARD B: QUESTION CONFIGURATION */}
-          <div className="bg-white border border-[#DDE1DA] rounded-[28px] p-5 shadow-xs">
-            <h3 className="text-xs font-black text-[#171819] flex items-center gap-2 mb-4">
-              <Cpu className="w-4 h-4 text-[#777D78]" />
-              <span>Question Configuration</span>
-            </h3>
-
-            <div className="space-y-3.5">
-              {/* Language Selector */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[#777D78]">Language</span>
-                <select
-                  value={language}
-                  onChange={(e) => handleLanguageSelect(e.target.value)}
-                  className="bg-[#F2F3F0] hover:bg-[#E9ECE7] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                >
-                  <option value="java">Java 17/21</option>
-                  <option value="javascript">JavaScript ES6</option>
-                  <option value="python">Python 3</option>
-                  <option value="cpp">C++ 20</option>
-                </select>
-              </div>
-
-              {/* Difficulty Selector */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[#777D78]">Difficulty</span>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                  className="bg-[#F2F3F0] hover:bg-[#E9ECE7] border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-
-              {/* Topics / Tags Chips */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#777D78]">Topics</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingTopic(true)}
-                    className="text-[11px] font-bold text-[#171819] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3 text-[#777D78]" />
-                    <span>Add Topic</span>
+              {/* Problem statement */}
+              <div className="fld" id="f-stmt">
+                <span className="lab">
+                  Problem statement <span className="req">*</span>
+                </span>
+                <div className="tb" role="toolbar" aria-label="Formatting">
+                  <button type="button" onClick={() => handleApplyMarkdown('\n# ')}>H1</button>
+                  <button type="button" onClick={() => handleApplyMarkdown('\n## ')}>H2</button>
+                  <button type="button" onClick={() => handleApplyMarkdown('**', true)}>B</button>
+                  <button type="button" onClick={() => handleApplyMarkdown('*', true)}>
+                    <i>I</i>
                   </button>
+                  <button type="button" onClick={() => handleApplyMarkdown('`', true)} className="mono">
+                    &lt;/&gt;
+                  </button>
+                  <button type="button" onClick={() => handleApplyMarkdown('\n- ')}>List</button>
+                  <button type="button" onClick={() => handleApplyMarkdown('\n> ')}>Quote</button>
                 </div>
-
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {topics.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#F2F3F0] text-[#171819] border border-[#DDE1DA]"
-                    >
-                      <span>{t}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTopic(t)}
-                        className="text-[#777D78] hover:text-rose-600 transition-colors cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-
-                  {isAddingTopic ? (
-                    <div className="inline-flex items-center gap-1">
-                      <input
-                        type="text"
-                        autoFocus
-                        value={newTopicInput}
-                        onChange={(e) => setNewTopicInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleAddTopic();
-                          else if (e.key === 'Escape') setIsAddingTopic(false);
-                        }}
-                        placeholder="Tag..."
-                        className="w-20 bg-white border border-[#191A1D] rounded-full px-2 py-0.5 text-[11px] text-[#171819] focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddTopic}
-                        className="text-[10px] font-bold bg-[#EDFF72] text-[#191A1D] px-2 py-0.5 rounded-full"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingTopic(true)}
-                      className="text-[10px] font-bold text-[#777D78] hover:text-[#171819] px-2 py-1 rounded-full border border-dashed border-[#DDE1DA] cursor-pointer"
-                    >
-                      + Add Topic
-                    </button>
-                  )}
-                </div>
+                <textarea
+                  ref={statementRef}
+                  id="stmt"
+                  placeholder="Describe the task. Markdown works here."
+                  value={statement}
+                  onChange={(e) => {
+                    setStatement(e.target.value);
+                    triggerAutoSave();
+                  }}
+                />
+                {!statement.trim() && (
+                  <div className="empty-tip">
+                    <b>?</b>
+                    Start with one sentence: what should the program do?
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
 
-          {/* CARD C: QUICK ACTIONS */}
-          <div className="bg-white border border-[#DDE1DA] rounded-[28px] p-5 shadow-xs">
-            <h3 className="text-xs font-black text-[#171819] flex items-center gap-2 mb-3.5">
-              <Sparkles className="w-4 h-4 text-[#777D78]" />
-              <span>Quick Actions</span>
-            </h3>
-
-            <div className="space-y-2.5">
-              {/* Preview Button (Large Lime matching screenshot) */}
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(true)}
-                className="w-full py-3 rounded-full bg-[#EDFF72] hover:bg-[#E2F560] text-xs font-extrabold text-[#191A1D] flex items-center justify-center gap-2 shadow-xs transition-transform active:scale-98 cursor-pointer"
-              >
-                <Eye className="w-4 h-4" />
-                <span>Preview Question</span>
-              </button>
-
-              {/* Bottom Row: Save Draft & Publish Question */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={saveDraftLoading || loading}
-                  onClick={() => handleSaveQuestion('draft')}
-                  className="py-2.5 px-3 rounded-full bg-white hover:bg-[#F2F3F0] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5 text-[#777D78]" />
-                  <span>{saveDraftLoading ? 'Saving...' : 'Save Draft'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleSaveQuestion('published')}
-                  className="py-2.5 px-3 rounded-full bg-white hover:bg-[#F2F3F0] text-xs font-bold text-[#171819] border border-[#DDE1DA] flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5 text-[#777D78]" />
-                  <span>{loading ? 'Publishing...' : 'Publish Question'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ────────────────────────────────────────────────────────────────────────────
-          5. STUDENT PREVIEW MODAL
-          ──────────────────────────────────────────────────────────────────────────── */}
-      {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#191A1D]/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-[32px] border border-[#DDE1DA] max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#DDE1DA] flex items-center justify-between bg-[#F2F3F0]">
-              <div className="flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-xl bg-[#EDFF72] text-[#191A1D] flex items-center justify-center font-bold">
-                  <Eye className="w-4 h-4" />
-                </span>
+              {/* Input & Output format 2-column */}
+              <div className="fld two" id="f-io">
                 <div>
-                  <span className="text-[10px] font-bold text-[#777D78] uppercase">Student Perspective</span>
-                  <h3 className="text-base font-extrabold text-[#171819] leading-tight">
-                    {title || 'Untitled Assessment Challenge'}
-                  </h3>
+                  <label htmlFor="inf">Input format</label>
+                  <textarea
+                    id="inf"
+                    style={{ minHeight: '90px' }}
+                    placeholder="First line: a string s."
+                    value={inputFormat}
+                    onChange={(e) => {
+                      setInputFormat(e.target.value);
+                      triggerAutoSave();
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="outf">Output format</label>
+                  <textarea
+                    id="outf"
+                    style={{ minHeight: '90px' }}
+                    placeholder="Print the first unique character, or #."
+                    value={outputFormat}
+                    onChange={(e) => {
+                      setOutputFormat(e.target.value);
+                      triggerAutoSave();
+                    }}
+                  />
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="w-8 h-8 rounded-full bg-white border border-[#DDE1DA] text-[#777D78] hover:text-[#171819] flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto space-y-5 text-xs text-[#171819]">
-              {/* Badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-3 py-1 rounded-full bg-[#EDFF72] text-[#191A1D] font-black text-xs">
-                  {difficulty}
-                </span>
-                <span className="px-3 py-1 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] text-[#171819] font-bold text-xs">
-                  {LANGUAGE_TEMPLATES[language]?.name || language}
-                </span>
-                {topics.map((t) => (
-                  <span
-                    key={t}
-                    className="px-2.5 py-1 rounded-full bg-white border border-[#DDE1DA] text-[#777D78] font-semibold text-[11px]"
-                  >
-                    #{t}
-                  </span>
-                ))}
-              </div>
-
-              {/* Problem Statement */}
-              <div className="bg-[#F2F3F0] rounded-2xl p-5 border border-[#DDE1DA] leading-relaxed whitespace-pre-wrap font-sans">
-                {statement || 'No problem statement provided yet.'}
-              </div>
-
-              {/* Input / Output Format */}
-              {(inputFormat || outputFormat) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {inputFormat && (
-                    <div className="p-4 rounded-xl bg-white border border-[#DDE1DA]">
-                      <span className="text-[10px] font-bold text-[#777D78] uppercase block mb-1">
-                        Input Format
-                      </span>
-                      <p className="text-xs text-[#171819] font-medium">{inputFormat}</p>
-                    </div>
-                  )}
-                  {outputFormat && (
-                    <div className="p-4 rounded-xl bg-white border border-[#DDE1DA]">
-                      <span className="text-[10px] font-bold text-[#777D78] uppercase block mb-1">
-                        Output Format
-                      </span>
-                      <p className="text-xs text-[#171819] font-medium">{outputFormat}</p>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Constraints */}
-              {constraints && (
-                <div className="p-4 rounded-xl bg-white border border-[#DDE1DA]">
-                  <span className="text-[10px] font-bold text-[#777D78] uppercase block mb-1">
-                    Constraints
-                  </span>
-                  <pre className="text-xs font-mono text-[#171819] whitespace-pre-wrap">{constraints}</pre>
-                </div>
-              )}
+              <div className="fld" id="f-cons">
+                <label htmlFor="cons">Constraints</label>
+                <textarea
+                  id="cons"
+                  className="code mono"
+                  style={{ minHeight: '90px' }}
+                  value={constraints}
+                  onChange={(e) => {
+                    setConstraints(e.target.value);
+                    triggerAutoSave();
+                  }}
+                />
+              </div>
 
               {/* Examples */}
-              <div className="space-y-3">
-                <span className="text-xs font-black text-[#171819] block">Examples</span>
-                {examples.map((ex, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-[#DDE1DA] space-y-2">
-                    <span className="text-[10px] font-bold text-[#777D78] uppercase block">
-                      Example {idx + 1}
-                    </span>
-                    <div className="font-mono text-xs">
+              <div className="fld" id="f-ex">
+                <div className="hd">
+                  <span className="lab" style={{ margin: 0 }}>
+                    Examples
+                  </span>
+                  <button type="button" className="link" onClick={handleAddExample}>
+                    + Add example
+                  </button>
+                </div>
+                {examples.map((ex, i) => (
+                  <div key={i} className="ex">
+                    <div className="hd">
+                      <b>Example {i + 1}</b>
+                      {examples.length > 1 && (
+                        <button
+                          type="button"
+                          className="link text-rose-600 hover:text-rose-700"
+                          onClick={() => handleRemoveExample(i)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="two">
                       <div>
-                        <span className="text-[#777D78]">Input: </span>
-                        <span className="font-bold text-[#171819]">{ex.input}</span>
+                        <label>Sample input</label>
+                        <input
+                          type="text"
+                          className="mono"
+                          placeholder="e.g. swiss"
+                          value={ex.input}
+                          onChange={(e) => handleUpdateExample(i, 'input', e.target.value)}
+                        />
                       </div>
                       <div>
-                        <span className="text-[#777D78]">Output: </span>
-                        <span className="font-bold text-emerald-600">{ex.output}</span>
+                        <label>Sample output</label>
+                        <input
+                          type="text"
+                          className="mono"
+                          placeholder="e.g. w"
+                          value={ex.output}
+                          onChange={(e) => handleUpdateExample(i, 'output', e.target.value)}
+                        />
                       </div>
                     </div>
-                    {ex.explanation && (
-                      <p className="text-xs text-[#777D78] italic pt-1 border-t border-[#DDE1DA]/60">
-                        Explanation: {ex.explanation}
-                      </p>
-                    )}
+                    <div style={{ marginTop: '10px' }}>
+                      <label>Explanation (optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. w is the first character that appears once."
+                        value={ex.explanation}
+                        onChange={(e) => handleUpdateExample(i, 'explanation', e.target.value)}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
 
-              {/* Starter Code Preview */}
-              <div>
-                <span className="text-xs font-black text-[#171819] block mb-2">Student Starter Code</span>
-                <div className="rounded-2xl bg-[#191A1D] p-4 font-mono text-xs text-emerald-300 overflow-x-auto">
-                  <pre>{starterCode}</pre>
-                </div>
+          {/* PANEL 2: Starter Code */}
+          {activeTab === 'starter' && (
+            <div id="f-starter" className="space-y-3">
+              <div className="hd">
+                <label htmlFor="starter" style={{ margin: 0 }}>
+                  Starter code (students see this)
+                </label>
+                <button
+                  type="button"
+                  className="link text-xs"
+                  onClick={() => {
+                    const tpl = LANGUAGE_TEMPLATES[language];
+                    if (tpl) setStarterCode(tpl.starterCode);
+                    triggerAutoSave();
+                    showToast('Reset to default language template');
+                  }}
+                >
+                  Reset template
+                </button>
               </div>
+              <textarea
+                id="starter"
+                className="code mono"
+                style={{ minHeight: '340px' }}
+                value={starterCode}
+                onChange={(e) => {
+                  setStarterCode(e.target.value);
+                  triggerAutoSave();
+                }}
+              />
             </div>
+          )}
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-[#DDE1DA] flex justify-end gap-2 bg-[#F2F3F0]">
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="px-5 py-2 rounded-full bg-white hover:bg-[#E4E8E2] text-xs font-bold text-[#171819] border border-[#DDE1DA] cursor-pointer"
-              >
-                Close Preview
-              </button>
+          {/* PANEL 3: Reference Solution */}
+          {activeTab === 'reference' && (
+            <div id="f-ref" className="space-y-3">
+              <div className="note">Teacher only. Never shown in the student preview.</div>
+              <div className="hd">
+                <label htmlFor="ref" style={{ margin: 0 }}>
+                  Reference solution
+                </label>
+                <button
+                  type="button"
+                  className="link text-xs"
+                  onClick={() => {
+                    const tpl = LANGUAGE_TEMPLATES[language];
+                    if (tpl) setReferenceSolution(tpl.referenceSolution);
+                    triggerAutoSave();
+                    showToast('Reset to default reference solution');
+                  }}
+                >
+                  Reset template
+                </button>
+              </div>
+              <textarea
+                id="ref"
+                className="code mono"
+                style={{ minHeight: '340px' }}
+                placeholder="Paste the verified reference solution here."
+                value={referenceSolution}
+                onChange={(e) => {
+                  setReferenceSolution(e.target.value);
+                  triggerAutoSave();
+                }}
+              />
             </div>
+          )}
+        </section>
+
+        {/* RIGHT COLUMN: Student Live Preview */}
+        <section className="tf-card tf-col right-col rise" style={{ '--k': 8 }} aria-label="Student preview">
+          <div className="hd">
+            <h3 style={{ margin: 0 }}>Student preview</h3>
+            <span className="pill v">Live</span>
           </div>
-        </div>
-      )}
+
+          <div className="tf-ptabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewTab === 'problem'}
+              className={previewTab === 'problem' ? 'active' : ''}
+              onClick={() => setPreviewTab('problem')}
+            >
+              Problem
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewTab === 'example'}
+              className={previewTab === 'example' ? 'active' : ''}
+              onClick={() => setPreviewTab('example')}
+            >
+              Example
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewTab === 'starter'}
+              className={previewTab === 'starter' ? 'active' : ''}
+              onClick={() => setPreviewTab('starter')}
+            >
+              Starter
+            </button>
+          </div>
+
+          <div className="pv">
+            {previewTab === 'problem' && (
+              <div>
+                <div className="flex gap-1.5 flex-wrap mb-2">
+                  <span className={`pill ${difficulty}`}>{difficulty}</span>
+                  <span className="pill v">
+                    {SUPPORTED_LANGS.find((l) => l.id === language)?.label || language}
+                  </span>
+                  <span className="pill ok">Verified</span>
+                </div>
+                <h2>{title.trim() || 'Untitled question'}</h2>
+
+                <span className="cap">Problem statement</span>
+                <pre>{statement.trim() || 'No problem statement yet.'}</pre>
+
+                <span className="cap">Input</span>
+                <pre>{inputFormat.trim() || '—'}</pre>
+
+                <span className="cap">Output</span>
+                <pre>{outputFormat.trim() || '—'}</pre>
+
+                <span className="cap">Constraints</span>
+                <pre className="mono">{constraints.trim() || '—'}</pre>
+              </div>
+            )}
+
+            {previewTab === 'example' && (
+              <div>
+                <span className="cap">Sample input</span>
+                <pre className="mono">{examples[0]?.input || '—'}</pre>
+
+                <span className="cap">Sample output</span>
+                <pre className="mono">{examples[0]?.output || '—'}</pre>
+
+                <span className="cap">Explanation</span>
+                <pre>{examples[0]?.explanation || '—'}</pre>
+              </div>
+            )}
+
+            {previewTab === 'starter' && (
+              <div>
+                <span className="cap">Starter code</span>
+                <pre className="mono">{starterCode.trim() || '// No starter code specified'}</pre>
+              </div>
+            )}
+          </div>
+
+          <p className="tf-sub" style={{ margin: '14px 0 0' }}>
+            Reference solution and hidden tests never appear here.
+          </p>
+        </section>
+      </div>
+
+      {/* Floating Status Toast */}
+      <div className={`tf-toast ${toastMsg ? 'on' : ''}`} role="status">
+        {toastMsg}
+      </div>
     </div>
   );
 };
-
-export default QuestionCreatorView;

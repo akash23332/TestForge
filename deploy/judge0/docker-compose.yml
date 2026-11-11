@@ -1,0 +1,109 @@
+version: '3.8'
+
+# ==============================================================================
+# TestForge Dedicated Execution Runner - Docker Compose Stack
+# Pinned Image: Judge0 CE v1.13.1
+# Security Notice: Privileged mode is strictly confined to judge0-server and
+# judge0-workers as required by isolate. The Docker socket is NEVER mounted.
+# Host cgroups are managed dynamically by the container engine.
+# ==============================================================================
+
+services:
+  judge0-server:
+    image: judge0/judge0:v1.13.1
+    container_name: testforge-judge0-server
+    restart: always
+    privileged: true # Required for Rails initializer isolate checks
+    env_file:
+      - judge0.conf
+    environment:
+      - REDIS_HOST=judge0-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-judge0_secret_redis_pass}
+      - POSTGRES_HOST=judge0-db
+      - POSTGRES_USER=${POSTGRES_USER:-judge0}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-judge0_secret_db_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-judge0}
+    ports:
+      # Bind exclusively to 127.0.0.1 so it cannot be reached from the public internet without TLS reverse proxy
+      - '127.0.0.1:2358:2358'
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+    networks:
+      - judge0-net
+
+  judge0-workers:
+    image: judge0/judge0:v1.13.1
+    container_name: testforge-judge0-workers
+    restart: always
+    privileged: true # Required for isolate to manage mount/net namespaces, cgroup v1, and chroot
+    env_file:
+      - judge0.conf
+    environment:
+      - REDIS_HOST=judge0-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-judge0_secret_redis_pass}
+      - POSTGRES_HOST=judge0-db
+      - POSTGRES_USER=${POSTGRES_USER:-judge0}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-judge0_secret_db_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-judge0}
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+    networks:
+      - judge0-net
+    # Note: Host /sys/fs/cgroup is NOT mounted read-only (:ro).
+    # In privileged mode, Docker provides read-write cgroups directly into the container.
+
+  judge0-db:
+    image: postgres:16-alpine
+    container_name: testforge-judge0-db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-judge0}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-judge0_secret_db_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-judge0}
+    volumes:
+      - judge0_db_data:/var/lib/postgresql/data
+    networks:
+      - judge0-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U judge0']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  judge0-redis:
+    image: redis:7-alpine
+    container_name: testforge-judge0-redis
+    restart: always
+    command: [
+      'redis-server',
+      '--appendonly', 'yes',
+      '--requirepass', '${REDIS_PASSWORD:-judge0_secret_redis_pass}',
+      '--maxmemory', '256mb',
+      '--maxmemory-policy', 'allkeys-lru'
+    ]
+    volumes:
+      - judge0_redis_data:/data
+    networks:
+      - judge0-net
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-judge0_secret_redis_pass}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  judge0-net:
+    driver: bridge
+    internal: false # Requires internet for apt/package initialization, isolate disables egress per box
+
+volumes:
+  judge0_db_data:
+  judge0_redis_data:

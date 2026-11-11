@@ -24,8 +24,16 @@ export const AuthModal = ({
     setLoading(true);
     setError(null);
     try {
+      if (isRegister && role === 'teacher') {
+        setError('Faculty accounts must be provisioned by an institutional administrator. Please sign in or contact your department admin.');
+        setLoading(false);
+        return;
+      }
+
       const endpoint = isRegister ? '/auth/register' : '/auth/login';
-      const payload = isRegister ? { name, email, password, role } : { email, password };
+      const payload = isRegister
+        ? { name: name.trim(), email: email.trim().toLowerCase(), password, role: 'student' }
+        : { email: email.trim().toLowerCase(), password };
       const res = await api.post(endpoint, payload);
       
       const { user, token } = res.data.data;
@@ -37,6 +45,20 @@ export const AuthModal = ({
       setError(err?.customMessage || 'Authentication failed. Please check credentials.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    setError(null);
+    if (!isRegister) {
+      if (newRole === 'student') {
+        setEmail('student@testforge.edu');
+        setPassword('Student@123');
+      } else {
+        setEmail('teacher@testforge.edu');
+        setPassword('Teacher@123');
+      }
     }
   };
 
@@ -140,7 +162,7 @@ export const AuthModal = ({
                 <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setRole('teacher')}
+                    onClick={() => handleRoleChange('teacher')}
                     className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       role === 'teacher' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -149,7 +171,7 @@ export const AuthModal = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRole('student')}
+                    onClick={() => handleRoleChange('student')}
                     className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       role === 'student' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}

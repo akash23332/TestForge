@@ -113,6 +113,7 @@ export const StudentExamWorkspace = ({
   // Runner & Submission state
   const [isExecuting, setIsExecuting] = useState(false);
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
+  const [executionStatusMessage, setExecutionStatusMessage] = useState('');
   const [activeTab, setActiveTab] = useState('samples'); // 'samples' | 'evaluation'
   const [sampleResults, setSampleResults] = useState(null);
   const [submissionResults, setSubmissionResults] = useState(null);
@@ -391,10 +392,38 @@ export const StudentExamWorkspace = ({
     }
   };
 
+  // ── Polling Helper for Asynchronous Execution ─────────────────────────────
+  const pollSubmissionStatus = async (attemptId, submissionId, setStatusMsg) => {
+    const startTime = Date.now();
+    const maxTimeout = 45000;
+    let delay = 500;
+
+    while (Date.now() - startTime < maxTimeout) {
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 1.3, 2000);
+
+      const res = await api.get(`/attempts/${attemptId}/submissions/${submissionId}`);
+      const sub = res.data?.data;
+      if (!sub) continue;
+
+      if (sub.status === 'RUNNING') {
+        setStatusMsg?.('Executing test suite in worker...');
+      } else if (sub.status === 'QUEUED') {
+        setStatusMsg?.('Queued for execution...');
+      }
+
+      if (sub.status !== 'QUEUED' && sub.status !== 'RUNNING') {
+        return sub;
+      }
+    }
+    throw new Error('Execution timed out waiting for worker results. Please try again.');
+  };
+
   // ── Run Sample Tests (Coding Only) ─────────────────────────────────────────
   const handleRunSampleTests = async () => {
-    if (!currentQuestion._id || isMcq) return;
+    if (!currentQuestion._id || isMcq || isExecuting || isSubmittingQuestion) return;
     setIsExecuting(true);
+    setExecutionStatusMessage('Queuing sample run...');
     setActiveTab('samples');
     setIsTestDrawerExpanded(true);
 
@@ -404,16 +433,23 @@ export const StudentExamWorkspace = ({
         code: currentCode,
         language: selectedLanguage
       });
-      setSampleResults(res.data.data);
+      const data = res.data?.data;
+      if (data?.status === 'QUEUED' || data?.status === 'RUNNING') {
+        setExecutionStatusMessage(data.status === 'RUNNING' ? 'Executing test suite in worker...' : 'Queued for execution...');
+        const finalResult = await pollSubmissionStatus(attempt._id, data.submissionId, setExecutionStatusMessage);
+        setSampleResults(finalResult);
+      } else {
+        setSampleResults(data);
+      }
     } catch (err) {
       setSampleResults({
         testResults: [
           {
             input: 'Test Execution',
             expectedOutput: 'Clean Execution',
-            actualOutput: err.response?.data?.message || err.customMessage || 'Execution error encountered.',
+            actualOutput: err.response?.data?.message || err.message || 'Execution error encountered.',
             passed: false,
-            error: err.response?.data?.message || err.customMessage
+            error: err.response?.data?.message || err.message
           }
         ],
         passedCount: 0,
@@ -422,13 +458,15 @@ export const StudentExamWorkspace = ({
       });
     } finally {
       setIsExecuting(false);
+      setExecutionStatusMessage('');
     }
   };
 
   // ── Submit Question (Coding or MCQ) ───────────────────────────────────────
   const handleSubmitQuestion = async () => {
-    if (!currentQuestion._id) return;
+    if (!currentQuestion._id || isSubmittingQuestion || isExecuting) return;
     setIsSubmittingQuestion(true);
+    setExecutionStatusMessage(isMcq ? 'Grading answer...' : 'Queuing submission...');
     if (!isMcq) {
       setActiveTab('evaluation');
       setIsTestDrawerExpanded(true);
@@ -440,22 +478,34 @@ export const StudentExamWorkspace = ({
         : { questionId: currentQuestion._id, code: currentCode, language: selectedLanguage };
 
       const res = await api.post(`/attempts/${attempt._id}/submit-question`, payload);
-      const data = res.data.data;
+      let data = res.data?.data;
+
+      if (!isMcq && (data?.status === 'QUEUED' || data?.status === 'RUNNING')) {
+        setExecutionStatusMessage(data.status === 'RUNNING' ? 'Evaluating test suite in worker...' : 'Queued for evaluation...');
+        data = await pollSubmissionStatus(attempt._id, data.submissionId, setExecutionStatusMessage);
+      }
+
       setSubmissionResults(data);
 
-      setAnswers((prev) => ({
-        ...prev,
-        [currentQuestion._id]: {
-          ...prev[currentQuestion._id],
-          code: currentCode,
-          language: selectedLanguage,
-          selectedOption,
-          status: 'SUBMITTED',
-          score: data?.scoreAwarded,
-          testCasesPassed: data?.passedTests || 1,
-          totalTestCases: data?.totalTests || 1
-        }
-      }));
+      const isUnavailable = data?.status === 'EXECUTION_UNAVAILABLE' || data?.verdict === 'EXECUTION_UNAVAILABLE';
+      setAnswers((prev) => {
+        const prevAns = prev[currentQuestion._id] || {};
+        return {
+          ...prev,
+          [currentQuestion._id]: {
+            ...prevAns,
+            code: currentCode,
+            language: selectedLanguage,
+            selectedOption,
+            status: isUnavailable ? (prevAns.status || 'SAVED') : 'SUBMITTED',
+            // Preserve previously finalized valid score if unavailable
+            score: isUnavailable ? (prevAns.score ?? null) : data?.scoreAwarded,
+            testCasesPassed: isUnavailable ? (prevAns.testCasesPassed ?? 0) : (data?.passedTests ?? 0),
+            totalTestCases: data?.totalTests ?? 1,
+            executionUnavailable: isUnavailable
+          }
+        };
+      });
 
       // In MCQ, smoothly advance to next question if available
       if (isMcq && currentIndex < questions.length - 1) {
@@ -464,9 +514,10 @@ export const StudentExamWorkspace = ({
         }, 250);
       }
     } catch (err) {
-      alert(err.response?.data?.message || err.customMessage || 'Submission error');
+      alert(err.response?.data?.message || err.message || 'Submission error');
     } finally {
       setIsSubmittingQuestion(false);
+      setExecutionStatusMessage('');
     }
   };
 
@@ -1060,7 +1111,11 @@ export const StudentExamWorkspace = ({
                         <span>Test Results</span>
                         {submissionResults && (
                           <span className={`w-2 h-2 rounded-full ${
-                            submissionResults.verdict === 'ACCEPTED' ? 'bg-emerald-500' : 'bg-amber-500'
+                            submissionResults.status === 'EXECUTION_UNAVAILABLE'
+                              ? 'bg-amber-500 animate-pulse'
+                              : submissionResults.verdict === 'ACCEPTED'
+                              ? 'bg-emerald-500'
+                              : 'bg-amber-500'
                           }`} />
                         )}
                       </button>
@@ -1069,7 +1124,13 @@ export const StudentExamWorkspace = ({
                     <div className="flex items-center gap-3">
                       {submissionResults && activeTab === 'evaluation' && (
                         <span className="font-bold text-xs text-[#171819]">
-                          Score: {submissionResults.scoreAwarded} / {submissionResults.maxMarks}
+                          {submissionResults.status === 'EXECUTION_UNAVAILABLE' ? (
+                            <span className="text-amber-700">Grading Pending (Runner Offline)</span>
+                          ) : submissionResults.scoreAwarded !== null && submissionResults.scoreAwarded !== undefined ? (
+                            `Score: ${submissionResults.scoreAwarded} / ${submissionResults.maxMarks}`
+                          ) : (
+                            'Score: Pending'
+                          )}
                         </span>
                       )}
 
@@ -1092,7 +1153,7 @@ export const StudentExamWorkspace = ({
                           {isExecuting ? (
                             <div className="flex items-center justify-center h-full text-[#777D78] gap-2 py-6">
                               <div className="w-4 h-4 border-2 border-[#191A1D] border-t-transparent rounded-full animate-spin" />
-                              <span>Executing candidate code against sample test cases...</span>
+                              <span>{executionStatusMessage || 'Executing candidate code against sample test cases...'}</span>
                             </div>
                           ) : sampleResults ? (
                             <div className="space-y-3">
@@ -1151,25 +1212,44 @@ export const StudentExamWorkspace = ({
                           {isSubmittingQuestion ? (
                             <div className="flex items-center justify-center h-full text-[#777D78] gap-2 py-6">
                               <div className="w-4 h-4 border-2 border-[#191A1D] border-t-transparent rounded-full animate-spin" />
-                              <span>Evaluating solution against comprehensive test suite...</span>
+                              <span>{executionStatusMessage || 'Evaluating solution against comprehensive test suite...'}</span>
                             </div>
                           ) : submissionResults ? (
                             <div className="space-y-3">
-                              <div className="flex items-center justify-between pb-1">
-                                <span className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 ${
-                                  submissionResults.verdict === 'ACCEPTED'
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : submissionResults.verdict === 'PARTIALLY_ACCEPTED'
-                                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
-                                }`}>
-                                  Verdict: {submissionResults.verdict} ({submissionResults.passedTests}/{submissionResults.totalTests} Passed)
-                                </span>
+                              {submissionResults.errorMessage && (
+                                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 font-mono text-xs whitespace-pre-wrap">
+                                  <div className="font-bold mb-1 text-rose-800 flex items-center gap-1.5">
+                                    <XCircle className="h-4 w-4" /> {submissionResults.status || 'Execution Error'}
+                                  </div>
+                                  <div>{submissionResults.errorMessage}</div>
+                                </div>
+                              )}
+                              {submissionResults.status === 'EXECUTION_UNAVAILABLE' || submissionResults.verdict === 'EXECUTION_UNAVAILABLE' ? (
+                                <div className="flex items-center justify-between pb-1">
+                                  <span className="px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600" /> Execution Unavailable (Preserved for Automatic Retry)
+                                  </span>
+                                  <span className="text-xs text-amber-700 font-medium">
+                                    Grading Deferred — No Marks Deducted
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between pb-1">
+                                  <span className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 ${
+                                    submissionResults.verdict === 'ACCEPTED'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : submissionResults.verdict === 'PARTIALLY_ACCEPTED'
+                                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  }`}>
+                                    Verdict: {submissionResults.verdict} ({submissionResults.passedTests}/{submissionResults.totalTests} Passed)
+                                  </span>
 
-                                <span className="text-xs text-[#777D78]">
-                                  Points Awarded: <strong className="text-[#171819]">{submissionResults.scoreAwarded}</strong> / {submissionResults.maxMarks}
-                                </span>
-                              </div>
+                                  <span className="text-xs text-[#777D78]">
+                                    Points Awarded: <strong className="text-[#171819]">{submissionResults.scoreAwarded ?? 0}</strong> / {submissionResults.maxMarks}
+                                  </span>
+                                </div>
+                              )}
 
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 {submissionResults.testResults?.map((r, i) => (

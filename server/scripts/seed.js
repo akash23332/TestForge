@@ -17,15 +17,26 @@ const seed = async () => {
     ]);
 
     console.log('[Seed] Creating demo teacher user...');
-    const passwordHash = await User.hashPassword('Teacher@123');
+    const teacherPasswordHash = await User.hashPassword('Teacher@123');
     const teacher = await User.create({
       name: 'Dr. Sarah Mitchell',
       email: 'teacher@testforge.edu',
-      passwordHash,
+      passwordHash: teacherPasswordHash,
       role: 'teacher'
     });
 
     console.log(`[Seed] Created teacher: ${teacher.email}`);
+
+    console.log('[Seed] Creating demo student user...');
+    const studentPasswordHash = await User.hashPassword('Student@123');
+    const student = await User.create({
+      name: 'Alex Rivera',
+      email: 'student@testforge.edu',
+      passwordHash: studentPasswordHash,
+      role: 'student'
+    });
+
+    console.log(`[Seed] Created student: ${student.email}`);
 
     // Create Sample Questions
     const questionsData = [

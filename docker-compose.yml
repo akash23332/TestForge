@@ -5,6 +5,8 @@ services:
     image: mongo:7.0
     container_name: testforge-mongodb
     restart: always
+    networks:
+      - backend-net
     ports:
       - '27017:27017'
     volumes:
@@ -17,14 +19,60 @@ services:
       timeout: 5s
       retries: 5
 
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: testforge-valkey
+    restart: always
+    networks:
+      - backend-net
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sandbox:
+    build:
+      context: ./sandbox
+      dockerfile: Dockerfile
+    container_name: testforge-sandbox
+    restart: always
+    read_only: true
+    networks:
+      - sandbox-net
+    tmpfs:
+      - /tmp/testforge-sandboxes:rw,exec,nosuid,size=512m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - '5050:5050'
+    environment:
+      - PORT=5050
+      - SANDBOX_API_KEY=testforge_sandbox_internal_secret
+    healthcheck:
+      test: node -e "fetch('http://127.0.0.1:5050/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
     container_name: testforge-api
     restart: always
+    networks:
+      - frontend-net
+      - backend-net
+      - sandbox-net
     depends_on:
       mongodb:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     ports:
       - '5000:5000'
@@ -32,9 +80,13 @@ services:
       - PORT=5000
       - NODE_ENV=development
       - MONGODB_URI=mongodb://mongodb:27017/testforge
-      - JWT_SECRET=testforge_docker_super_secret_key_32_characters_minimum
+      - REDIS_URL=redis://valkey:6379
+      - JWT_SECRET=${JWT_SECRET:-testforge_dev_secret_key_override_in_env_file}
       - JWT_EXPIRES_IN=15m
       - CLIENT_ORIGIN=http://localhost:5173
+      - EXECUTION_PROVIDER=render_sandbox
+      - RENDER_SANDBOX_ENDPOINT=http://sandbox:5050
+      - RENDER_SANDBOX_API_KEY=testforge_sandbox_internal_secret
 
   client:
     build:
@@ -42,10 +94,21 @@ services:
       dockerfile: Dockerfile
     container_name: testforge-client
     restart: always
+    networks:
+      - frontend-net
     depends_on:
       - server
     ports:
       - '5173:5173'
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  sandbox-net:
+    driver: bridge
+    internal: true
 
 volumes:
   testforge_mongo_data:

@@ -1,11 +1,17 @@
 import express from 'express';
-import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, requireAttemptAccess } from '../middleware/auth.js';
+import {
+  executionRateLimiter,
+  submissionRateLimiter,
+  authRateLimiter
+} from '../middleware/rateLimiter.js';
 import {
   joinExamByCode,
   getAttemptState,
   autosaveAnswer,
   runSampleTests,
   submitQuestion,
+  getSubmissionStatus,
   finalizeExam,
   recordActivity,
   getMyExamAttempts,
@@ -15,28 +21,31 @@ import {
 const router = express.Router();
 
 // Candidate joins with code & identity (optional auth links logged-in student)
-router.post('/join', optionalAuth, joinExamByCode);
+router.post('/join', optionalAuth, authRateLimiter, joinExamByCode);
 
 // Student authenticated personal history and active tests
 router.get('/my/history', requireAuth, getMyExamAttempts);
 router.get('/my/available-exams', requireAuth, getAvailableExamsForStudent);
 
-// Attempt session state
-router.get('/:attemptId', getAttemptState);
+// Attempt session state (Protected by Attempt Ownership Guard)
+router.get('/:attemptId', requireAttemptAccess, getAttemptState);
 
-// Autosave draft code
-router.post('/:attemptId/save', autosaveAnswer);
+// Autosave draft code (Protected by Attempt Ownership Guard)
+router.post('/:attemptId/save', requireAttemptAccess, autosaveAnswer);
 
-// Run sample tests against student code
-router.post('/:attemptId/run', runSampleTests);
+// Run sample tests against student code (Protected & Rate Limited)
+router.post('/:attemptId/run', requireAttemptAccess, executionRateLimiter, runSampleTests);
 
-// Submit code for a question (evaluates against full hidden suite with Zero-Leak)
-router.post('/:attemptId/submit-question', submitQuestion);
+// Submit code for a question (Protected & Rate Limited)
+router.post('/:attemptId/submit-question', requireAttemptAccess, submissionRateLimiter, submitQuestion);
 
-// Finalize and submit entire exam
-router.post('/:attemptId/finalize', finalizeExam);
+// Poll submission execution status and results (Protected by Attempt Ownership Guard)
+router.get('/:attemptId/submissions/:submissionId', requireAttemptAccess, getSubmissionStatus);
 
-// Activity and anti-cheat heartbeat
-router.post('/:attemptId/activity', recordActivity);
+// Finalize and submit entire exam (Protected by Attempt Ownership Guard)
+router.post('/:attemptId/finalize', requireAttemptAccess, finalizeExam);
+
+// Activity and anti-cheat heartbeat (Protected by Attempt Ownership Guard)
+router.post('/:attemptId/activity', requireAttemptAccess, recordActivity);
 
 export default router;

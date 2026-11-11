@@ -27,12 +27,34 @@ export const createQuestion = async (req, res, next) => {
   }
 };
 
+/**
+ * Explicit student-facing allowlist for coding questions.
+ * Strict zero-leak security: never contains referenceSolution, hidden tests, or private teacher fields.
+ */
+export const sanitizeQuestionAllowlist = (q) => ({
+  _id: q._id,
+  title: q.title,
+  statement: q.statement,
+  constraints: q.constraints || '',
+  language: q.language || 'javascript',
+  difficulty: q.difficulty || 'Medium',
+  tags: q.tags || [],
+  examples: q.examples || [],
+  starterCode: q.starterCode || '',
+  createdAt: q.createdAt,
+  updatedAt: q.updatedAt
+});
+
 export const getQuestions = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, search = '', difficulty = '', language = '', sort = '-updatedAt' } = req.query;
 
     const filter = {};
-    if (req.user) {
+    const isTeacher = req.user && req.user.role === 'teacher';
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    // If authenticated teacher, show their authored questions
+    if (isTeacher) {
       filter.ownerId = req.user._id;
     }
 
@@ -53,16 +75,25 @@ export const getQuestions = async (req, res, next) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+
+    // ZERO-LEAK: If not an authorized teacher or admin, exclude referenceSolution at database projection level
+    const isAuthorizedFaculty = isTeacher || isAdmin;
+    let query = Question.find(filter).sort(sort).skip(skip).limit(Number(limit));
+    if (!isAuthorizedFaculty) {
+      query = query.select('-referenceSolution');
+    }
+
     const [questions, total] = await Promise.all([
-      Question.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(Number(limit))
-        .lean(),
+      query.lean(),
       Question.countDocuments(filter)
     ]);
 
-    return ApiResponse.paginated(res, questions, page, limit, total);
+    // Apply explicit student allowlist for non-faculty/student callers
+    const safeQuestions = isAuthorizedFaculty
+      ? questions
+      : questions.map(sanitizeQuestionAllowlist);
+
+    return ApiResponse.paginated(res, safeQuestions, page, limit, total);
   } catch (error) {
     next(error);
   }
@@ -77,9 +108,13 @@ export const getQuestionById = async (req, res, next) => {
       throw ApiError.notFound('Question not found');
     }
 
-    // Owner check if user is authenticated
-    if (req.user && question.ownerId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      throw ApiError.forbidden('You do not have permission to access this question.');
+    const isOwnerOrAdmin =
+      req.user &&
+      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+
+    if (!isOwnerOrAdmin) {
+      // ZERO-LEAK: Explicit student-facing allowlist - never leaks referenceSolution or private fields
+      return ApiResponse.success(res, 200, sanitizeQuestionAllowlist(question), 'Question retrieved');
     }
 
     return ApiResponse.success(res, 200, question, 'Question retrieved');

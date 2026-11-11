@@ -19,6 +19,9 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode 
   // Auto-resume if active workspace session was saved
   useEffect(() => {
     if (sessionData && sessionData.attempt) {
+      if (sessionData.token) {
+        localStorage.setItem('testforge_attempt_token', sessionData.token);
+      }
       if (sessionData.attempt.status === 'SUBMITTED' || sessionData.attempt.status === 'TIMED_OUT') {
         setResultData(sessionData.attempt);
         setStep('results');
@@ -29,6 +32,9 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode 
   }, []);
 
   const handleJoined = (data) => {
+    if (data.token) {
+      localStorage.setItem('testforge_attempt_token', data.token);
+    }
     if (data.alreadyCompleted) {
       setResultData(data);
       setStep('results');
@@ -46,11 +52,13 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode 
   const handleExamSubmitted = (results) => {
     setResultData(results);
     localStorage.removeItem('testforge_student_session');
+    localStorage.removeItem('testforge_attempt_token');
     setStep('results');
   };
 
   const handleExit = () => {
     localStorage.removeItem('testforge_student_session');
+    localStorage.removeItem('testforge_attempt_token');
     setSessionData(null);
     setResultData(null);
     setStep('join');

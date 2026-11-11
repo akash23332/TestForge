@@ -177,6 +177,34 @@ export const App = () => {
     );
   }
 
+  // 3. When activeTab is 'dashboard', render the full-screen edge-to-edge Landing Hero experience
+  // (NO outer sidebar, NO top header, NO pills - completely full-screen hero on load,
+  // sliding up the side panel and dashboard content as the user scrolls down)
+  if (activeTab === 'dashboard') {
+    return (
+      <div className="min-h-screen w-full bg-[#121212] selection:bg-[#e8ff5a] selection:text-[#121212] overflow-x-hidden">
+        <DashboardView
+          questions={questions}
+          onNavigate={(tab) => setActiveTab(tab)}
+          onSelectQuestion={(q) => setSelectedQuestion(q)}
+          currentUser={currentUser}
+          health={health}
+          onOpenProfile={() => setIsProfileOpen(true)}
+          onLogout={handleLogout}
+        />
+
+        {/* Profile & Settings Modal */}
+        <ProfileSettingsModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          health={health}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="tf-outer-frame selection:bg-[#EDFF72] selection:text-[#191A1D]">
       <div className="tf-inner-canvas">
@@ -294,16 +322,6 @@ export const App = () => {
 
           {/* Main Workspace Body */}
           <main className="flex-1 mt-3">
-            {activeTab === 'dashboard' && (
-              <DashboardView
-                questions={questions}
-                onNavigate={(tab) => setActiveTab(tab)}
-                onSelectQuestion={(q) => setSelectedQuestion(q)}
-                currentUser={currentUser}
-                health={health}
-              />
-            )}
-
             {activeTab === 'bank' && (
               <QuestionBankView
                 questions={questions}

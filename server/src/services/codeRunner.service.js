@@ -3,6 +3,17 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
+import { config } from '../config/env.js';
+
+let _activeRegistry = null;
+
+export const setExecutionRegistry = (registry) => {
+  _activeRegistry = registry;
+};
+
+export const getActiveProvider = () => {
+  return _activeRegistry ? _activeRegistry.getProvider() : null;
+};
 
 /**
  * Parses diverse input formats into an array of argument values.
@@ -24,7 +35,7 @@ export const parseInputArguments = (inputStr) => {
 
   // Remove parameter names if present (e.g. "nums = [1,2], target = 3" -> "[1,2], 3")
   const cleaned = trimmed.replace(/(?:^|,|\n)\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/g, (match) => {
-    return match.startsWith(',') ? ', ' : match.startsWith('\n') ? '\n' : '';
+    return match.startsWith(',') ? ', ' : match.startsWith('\n') ? ', ' : '';
   }).trim();
 
   // Evaluate safely within an isolated array wrapper
@@ -100,8 +111,32 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     return JSON.stringify(normActual) === JSON.stringify(normExpected);
   }
 
+  // Deep object & array comparison supporting key-order independence
+  const isDeepEqual = (a, b) => {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (typeof a !== typeof b) return false;
+    if (typeof a !== 'object') return false;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (!isDeepEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+      if (!isDeepEqual(a[key], b[key])) return false;
+    }
+    return true;
+  };
+
   if (typeof normActual === 'object' && typeof normExpected === 'object' && normActual !== null && normExpected !== null) {
-    return JSON.stringify(normActual) === JSON.stringify(normExpected);
+    return isDeepEqual(normActual, normExpected);
   }
 
   return String(normActual).trim() === String(normExpected).trim();
@@ -1180,7 +1215,28 @@ int main(){
 /**
  * Validates a single test case against reference code.
  */
-export const validateSingleTestCase = async ({ code, testCase, questionContext = {}, timeoutMs = 4500 }) => {
+export const validateSingleTestCase = async ({
+  code,
+  testCase,
+  questionContext = {},
+  timeoutMs = 4500,
+  provider = null
+}) => {
+  if (!testCase || typeof testCase !== 'object') {
+    return {
+      testCaseId: null,
+      category: 'sample',
+      visibility: 'public',
+      input: '',
+      expectedOutput: '',
+      actualOutput: null,
+      status: 'invalid_test',
+      passed: false,
+      error: 'Invalid test case object provided.',
+      runtimeMs: 0
+    };
+  }
+
   if (testCase.input === undefined || testCase.input === null || String(testCase.input).trim() === '') {
     return {
       testCaseId: testCase._id,
@@ -1214,15 +1270,36 @@ export const validateSingleTestCase = async ({ code, testCase, questionContext =
   const parsedArgs = parseInputArguments(testCase.input);
   const lang = detectLanguage(code, questionContext);
 
+  // Decoupled Execution: Run code through configured Execution Provider
+  const activeProvider = provider || getActiveProvider();
   let execResult;
-  if (lang === 'java') {
-    execResult = await runJavaIsolated({ code, inputArgs: parsedArgs, timeoutMs });
-  } else if (lang === 'python') {
-    execResult = await runPythonIsolated({ code, inputArgs: parsedArgs, timeoutMs });
-  } else if (lang === 'cpp') {
-    execResult = await runCppIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+  if (activeProvider) {
+    execResult = await activeProvider.executeCode({
+      language: lang,
+      code,
+      inputArgs: parsedArgs,
+      timeoutMs,
+      questionContext
+    });
   } else {
-    execResult = await runCodeIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+    // FAIL-CLOSED PRODUCTION GATE:
+    // Direct host execution without a hardened provider is strictly forbidden in production
+    if (config.env === 'production' || process.env.NODE_ENV === 'production') {
+      execResult = {
+        status: 'internal_error',
+        output: null,
+        error: '[CodeRunner FAIL-CLOSED] No hardened execution provider available. Direct host execution is forbidden in production.',
+        runtimeMs: 0
+      };
+    } else if (lang === 'java') {
+      execResult = await runJavaIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+    } else if (lang === 'python') {
+      execResult = await runPythonIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+    } else if (lang === 'cpp') {
+      execResult = await runCppIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+    } else {
+      execResult = await runCodeIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+    }
   }
 
   if (execResult.status === 'timeout') {
@@ -1240,7 +1317,22 @@ export const validateSingleTestCase = async ({ code, testCase, questionContext =
     };
   }
 
-  if (execResult.status === 'runtime_error' || execResult.status === 'compilation_error') {
+  if (execResult.status === 'compilation_error') {
+    return {
+      testCaseId: testCase._id,
+      category: testCase.category,
+      visibility: testCase.visibility,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      actualOutput: null,
+      status: 'compilation_error',
+      passed: false,
+      error: execResult.error,
+      runtimeMs: execResult.runtimeMs
+    };
+  }
+
+  if (execResult.status === 'runtime_error') {
     return {
       testCaseId: testCase._id,
       category: testCase.category,
@@ -1251,6 +1343,36 @@ export const validateSingleTestCase = async ({ code, testCase, questionContext =
       status: 'runtime_error',
       passed: false,
       error: execResult.error,
+      runtimeMs: execResult.runtimeMs
+    };
+  }
+
+  if (execResult.status === 'memory_limit_exceeded') {
+    return {
+      testCaseId: testCase._id,
+      category: testCase.category,
+      visibility: testCase.visibility,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      actualOutput: null,
+      status: 'memory_limit_exceeded',
+      passed: false,
+      error: execResult.error || 'Memory limit exceeded',
+      runtimeMs: execResult.runtimeMs
+    };
+  }
+
+  if (execResult.status === 'internal_error') {
+    return {
+      testCaseId: testCase._id,
+      category: testCase.category,
+      visibility: testCase.visibility,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      actualOutput: null,
+      status: 'internal_error',
+      passed: false,
+      error: execResult.error || 'Execution environment internal error',
       runtimeMs: execResult.runtimeMs
     };
   }
@@ -1282,5 +1404,7 @@ export default {
   runJavaIsolated,
   runPythonIsolated,
   runCppIsolated,
-  validateSingleTestCase
+  validateSingleTestCase,
+  setExecutionRegistry,
+  getActiveProvider
 };

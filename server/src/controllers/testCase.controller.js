@@ -4,10 +4,27 @@ import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { validateSingleTestCase } from '../services/codeRunner.service.js';
 
+const checkQuestionOwner = (question, user) => {
+  if (!user) {
+    throw ApiError.unauthorized('Authentication required to inspect or manage test cases.');
+  }
+  if (user.role !== 'admin' && question.ownerId.toString() !== user._id.toString()) {
+    throw ApiError.forbidden('You do not have permission to view or manage test cases for this question.');
+  }
+};
+
 export const getTestCases = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { visibility } = req.query;
+
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    // Strict Zero-Leak Guard: Only owner teacher or admin can inspect private test suites
+    checkQuestionOwner(question, req.user);
 
     const filter = { questionId: id };
     if (visibility) {
@@ -29,6 +46,8 @@ export const createTestCase = async (req, res, next) => {
       throw ApiError.notFound('Question not found');
     }
 
+    checkQuestionOwner(question, req.user);
+
     const { input, expectedOutput, category, visibility } = req.body;
 
     const testCase = await TestCase.create({
@@ -49,6 +68,13 @@ export const createTestCase = async (req, res, next) => {
 export const updateTestCase = async (req, res, next) => {
   try {
     const { id, testId } = req.params;
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    checkQuestionOwner(question, req.user);
+
     const { input, expectedOutput, category, visibility } = req.body;
 
     const testCase = await TestCase.findOne({ _id: testId, questionId: id });
@@ -80,6 +106,12 @@ export const updateTestCase = async (req, res, next) => {
 export const deleteTestCase = async (req, res, next) => {
   try {
     const { id, testId } = req.params;
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    checkQuestionOwner(question, req.user);
 
     const testCase = await TestCase.findOneAndDelete({ _id: testId, questionId: id });
     if (!testCase) {
@@ -103,6 +135,8 @@ export const validateReferenceSolution = async (req, res, next) => {
     if (!question) {
       throw ApiError.notFound('Question not found');
     }
+
+    checkQuestionOwner(question, req.user);
 
     const testCases = await TestCase.find({ questionId: id }).sort('createdAt');
     if (testCases.length === 0) {
@@ -151,18 +185,8 @@ export const validateReferenceSolution = async (req, res, next) => {
         passedCount++;
       } else {
         failedCount++;
-        if (execResult.status === 'timeout') {
-          dbStatus = 'timeout';
-        } else if (execResult.status === 'runtime_error') {
-          dbStatus = 'error';
-        } else if (execResult.status === 'invalid_test') {
-          dbStatus = 'invalid_test';
-        } else {
-          dbStatus = 'failed';
-        }
       }
 
-      // Update test case status in DB
       tc.verificationStatus = dbStatus;
       await tc.save();
 
@@ -173,15 +197,24 @@ export const validateReferenceSolution = async (req, res, next) => {
         input: tc.input,
         expectedOutput: tc.expectedOutput,
         actualOutput: execResult.actualOutput,
-        status: execResult.status,
-        verificationStatus: dbStatus,
         passed: execResult.passed,
+        verificationStatus: dbStatus,
         error: execResult.error,
         runtimeMs: execResult.runtimeMs
       });
     }
 
-    const allPassed = passedCount === testCases.length;
+    // Determine overall question verification status
+    let questionStatus = 'unverified';
+    if (failedCount === 0 && passedCount > 0) {
+      questionStatus = 'verified';
+    } else if (failedCount > 0) {
+      questionStatus = 'failed';
+    }
+
+    question.isVerified = questionStatus === 'verified';
+    question.status = questionStatus === 'verified' ? 'active' : 'draft';
+    await question.save();
 
     return ApiResponse.success(
       res,
@@ -191,12 +224,11 @@ export const validateReferenceSolution = async (req, res, next) => {
         totalTests: testCases.length,
         passedTests: passedCount,
         failedTests: failedCount,
-        status: allPassed ? 'all_passed' : 'failed',
+        questionStatus,
+        isVerified: question.isVerified,
         results
       },
-      allPassed
-        ? 'Reference solution verified against all test cases'
-        : `Validation completed with ${failedCount} failure(s)`
+      `Validation complete: ${passedCount}/${testCases.length} tests passed`
     );
   } catch (error) {
     next(error);

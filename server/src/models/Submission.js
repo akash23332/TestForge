@@ -2,9 +2,13 @@ import mongoose from 'mongoose';
 
 const submissionResultSchema = new mongoose.Schema(
   {
+    testIndex: {
+      type: Number
+    },
     testCaseId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'TestCase'
+      ref: 'TestCase',
+      default: null
     },
     category: {
       type: String,
@@ -30,6 +34,22 @@ const submissionResultSchema = new mongoose.Schema(
     error: {
       type: String,
       default: null
+    },
+    input: {
+      type: String,
+      default: null
+    },
+    expectedOutput: {
+      type: String,
+      default: null
+    },
+    actualOutput: {
+      type: String,
+      default: null
+    },
+    isHidden: {
+      type: Boolean,
+      default: false
     }
   },
   { _id: false }
@@ -57,6 +77,39 @@ const submissionSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    runType: {
+      type: String,
+      enum: ['SAMPLE', 'SUBMISSION'],
+      default: 'SUBMISSION',
+      index: true
+    },
+    status: {
+      type: String,
+      enum: [
+        'QUEUED',
+        'RUNNING',
+        'COMPLETED',
+        'COMPILE_ERROR',
+        'RUNTIME_ERROR',
+        'TIME_LIMIT_EXCEEDED',
+        'MEMORY_LIMIT_EXCEEDED',
+        'OUTPUT_LIMIT_EXCEEDED',
+        'INTERNAL_ERROR',
+        'EXECUTION_UNAVAILABLE',
+        'RECOVERING'
+      ],
+      default: 'QUEUED',
+      index: true
+    },
+    jobId: {
+      type: String,
+      default: null,
+      index: true
+    },
+    errorMessage: {
+      type: String,
+      default: null
+    },
     testResults: [submissionResultSchema],
     totalTests: {
       type: Number,
@@ -68,7 +121,7 @@ const submissionSchema = new mongoose.Schema(
     },
     scoreAwarded: {
       type: Number,
-      default: 0
+      default: null
     },
     maxMarks: {
       type: Number,
@@ -76,8 +129,20 @@ const submissionSchema = new mongoose.Schema(
     },
     verdict: {
       type: String,
-      enum: ['ACCEPTED', 'PARTIALLY_ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'COMPILATION_ERROR', 'RUNTIME_ERROR'],
-      default: 'WRONG_ANSWER'
+      enum: [
+        'PENDING',
+        'ACCEPTED',
+        'PARTIALLY_ACCEPTED',
+        'WRONG_ANSWER',
+        'TIME_LIMIT_EXCEEDED',
+        'COMPILATION_ERROR',
+        'RUNTIME_ERROR',
+        'MEMORY_LIMIT_EXCEEDED',
+        'INTERNAL_ERROR',
+        'EXECUTION_UNAVAILABLE',
+        'RECOVERING'
+      ],
+      default: 'PENDING'
     }
   },
   {

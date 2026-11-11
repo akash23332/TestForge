@@ -1,5 +1,5 @@
 import express from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import {
   createExam,
   getTeacherExams,
@@ -12,7 +12,8 @@ import {
 
 const router = express.Router();
 
-router.use(requireAuth);
+// All exam management endpoints require authenticated teacher or admin role
+router.use(requireAuth, requireRole('teacher', 'admin'));
 
 router.post('/', createExam);
 router.get('/', getTeacherExams);

@@ -14,19 +14,24 @@ const generateToken = (user) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
+    const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       throw ApiError.conflict('An account with this email address already exists.');
     }
 
+    // Public registration strictly provisions student accounts only.
+    // Teachers and Admins must be provisioned via authorized invitation/admin workflows.
+    const assignedRole = 'student';
+
     const passwordHash = await User.hashPassword(password);
     const user = await User.create({
-      name,
-      email,
+      name: name?.trim(),
+      email: cleanEmail,
       passwordHash,
-      role: role || 'teacher'
+      role: assignedRole
     });
 
     const token = generateToken(user);
@@ -44,7 +49,7 @@ export const register = async (req, res, next) => {
         },
         token
       },
-      'Teacher registered successfully'
+      'Account registered successfully'
     );
   } catch (error) {
     next(error);
@@ -54,8 +59,9 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: cleanEmail });
     if (!user) {
       throw ApiError.unauthorized('Invalid email or password.');
     }

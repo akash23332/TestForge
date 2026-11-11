@@ -180,15 +180,10 @@ export const saveMcqBatch = async (req, res, next) => {
       throw ApiError.badRequest('Expected non-empty "rows" array in request body.');
     }
 
-    let ownerId = req.user ? req.user._id : req.body.ownerId;
-    if (!ownerId || String(ownerId).length !== 24) {
-      const defaultUser = await User.findOne({ role: 'teacher' });
-      if (defaultUser) {
-        ownerId = defaultUser._id;
-      } else {
-        throw ApiError.unauthorized('User must be authenticated to save MCQs.');
-      }
+    if (!req.user || !req.user._id) {
+      throw ApiError.unauthorized('Authentication required to save MCQs.');
     }
+    const ownerId = req.user._id;
 
     const docsToInsert = rows
       .map((r) => ({
@@ -276,14 +271,19 @@ export const getSavedMcqs = async (req, res, next) => {
 export const deleteSavedMcq = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const filter = { _id: id };
-    if (req.user) {
-      filter.ownerId = req.user._id;
+    const mcq = await McqQuestion.findById(id);
+    if (!mcq) {
+      throw ApiError.notFound('MCQ question not found');
     }
-    const deleted = await McqQuestion.findOneAndDelete(filter);
-    if (!deleted) {
-      throw ApiError.notFound('MCQ question not found or unauthorized');
+
+    const isOwner = req.user && mcq.ownerId.toString() === req.user._id.toString();
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      throw ApiError.forbidden('You do not have permission to delete this MCQ question.');
     }
+
+    await McqQuestion.findByIdAndDelete(id);
     return ApiResponse.success(res, 200, { id }, 'MCQ deleted from MongoDB');
   } catch (error) {
     next(error);
@@ -317,15 +317,10 @@ export const createSingleMcq = async (req, res, next) => {
       throw ApiError.badRequest('Question statement and all 4 options (A, B, C, D) are required.');
     }
 
-    let ownerId = req.user ? req.user._id : req.body.ownerId;
-    if (!ownerId || String(ownerId).length !== 24) {
-      const defaultUser = await User.findOne({ role: 'teacher' });
-      if (defaultUser) {
-        ownerId = defaultUser._id;
-      } else {
-        throw ApiError.unauthorized('User must be authenticated to save MCQs.');
-      }
+    if (!req.user || !req.user._id) {
+      throw ApiError.unauthorized('Authentication required to save MCQs.');
     }
+    const ownerId = req.user._id;
 
     const created = await McqQuestion.create({
       ownerId,
@@ -354,6 +349,18 @@ export const updateSavedMcq = async (req, res, next) => {
     const { id } = req.params;
     const { question, optionA, optionB, optionC, optionD, correctAnswer, marks, topic, explanation } = req.body;
 
+    const mcq = await McqQuestion.findById(id);
+    if (!mcq) {
+      throw ApiError.notFound('MCQ question not found');
+    }
+
+    const isOwner = req.user && mcq.ownerId.toString() === req.user._id.toString();
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      throw ApiError.forbidden('You do not have permission to modify this MCQ question.');
+    }
+
     const updateData = {};
     if (question !== undefined) updateData.question = question.trim();
     if (optionA !== undefined) updateData.optionA = optionA.trim();
@@ -366,9 +373,6 @@ export const updateSavedMcq = async (req, res, next) => {
     if (explanation !== undefined) updateData.explanation = (explanation || '').trim();
 
     const updated = await McqQuestion.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-    if (!updated) {
-      throw ApiError.notFound('MCQ question not found');
-    }
 
     return ApiResponse.success(res, 200, updated, 'MCQ updated successfully in MongoDB');
   } catch (error) {

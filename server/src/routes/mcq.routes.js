@@ -9,17 +9,20 @@ import {
   deleteSavedMcq,
   clearSavedMcqs
 } from '../controllers/mcq.controller.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/preview', optionalAuth, previewMcq);
-router.post('/generate', optionalAuth, generateMcqBatch);
-router.post('/save', optionalAuth, saveMcqBatch);
-router.post('/', optionalAuth, createSingleMcq);
-router.get('/saved', optionalAuth, getSavedMcqs);
-router.put('/saved/:id', optionalAuth, updateSavedMcq);
-router.delete('/saved/:id', optionalAuth, deleteSavedMcq);
-router.delete('/saved', optionalAuth, clearSavedMcqs);
+// All MCQ Generation & Authoring routes require authenticated faculty/admin role
+router.use(requireAuth, requireRole('teacher', 'admin'));
+
+router.post('/preview', previewMcq);
+router.post('/generate', generateMcqBatch);
+router.post('/save', saveMcqBatch);
+router.post('/', createSingleMcq);
+router.get('/saved', getSavedMcqs);
+router.put('/saved/:id', updateSavedMcq);
+router.delete('/saved/:id', deleteSavedMcq);
+router.delete('/saved', clearSavedMcqs);
 
 export default router;

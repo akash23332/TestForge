@@ -18,7 +18,8 @@ export const BentoSidebar = ({
   onNavigate,
   currentUser,
   onOpenProfile,
-  onLogout
+  onLogout,
+  className = 'my-3.5 ml-3.5 relative'
 }) => {
   const [tooltip, setTooltip] = useState({ text: '', top: 0, visible: false });
 
@@ -66,7 +67,7 @@ export const BentoSidebar = ({
 
   return (
     <aside
-      className="hidden md:flex flex-col items-center w-[78px] shrink-0 h-[calc(100vh-28px)] my-3.5 ml-3.5 bg-[#191A1D] rounded-[32px] py-4 px-3 shadow-2xl relative z-40 select-none"
+      className={`hidden md:flex flex-col items-center w-[78px] shrink-0 h-[calc(100vh-36px)] max-h-[850px] bg-[#191A1D] rounded-[32px] py-4 px-3 shadow-2xl z-40 select-none ${className}`}
       aria-label="TestForge Navigation"
     >
       {/* 1. TOP LOGO SECTION */}

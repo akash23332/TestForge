@@ -68,9 +68,32 @@ const examAttemptSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
-    percentage: {
+    finalizedMaxScore: {
       type: Number,
       default: 0
+    },
+    pendingMaxScore: {
+      type: Number,
+      default: 0
+    },
+    pendingQuestionsCount: {
+      type: Number,
+      default: 0
+    },
+    gradingStatus: {
+      type: String,
+      enum: ['FINALIZED', 'PROVISIONAL'],
+      default: 'FINALIZED',
+      index: true
+    },
+    isProvisional: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    percentage: {
+      type: Number,
+      default: null
     },
     tabSwitchCount: {
       type: Number,

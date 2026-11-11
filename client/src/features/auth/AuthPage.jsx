@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import {
@@ -39,15 +39,49 @@ export const AuthPage = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Auto-set demo credentials when role changes during sign in
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    setError(null);
+    if (!isRegister) {
+      if (newRole === 'student') {
+        setEmail('student@testforge.edu');
+        setPassword('Student@123');
+      } else {
+        setEmail('teacher@testforge.edu');
+        setPassword('Teacher@123');
+      }
+    }
+  };
+
+  // Initial population on sign in
+  useEffect(() => {
+    if (!isRegister && !email) {
+      if (role === 'student') {
+        setEmail('student@testforge.edu');
+        setPassword('Student@123');
+      } else {
+        setEmail('teacher@testforge.edu');
+        setPassword('Teacher@123');
+      }
+    }
+  }, [isRegister]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      if (isRegister && role === 'teacher') {
+        setError('Faculty accounts must be provisioned by an institutional administrator. Please sign in or contact your department admin.');
+        setLoading(false);
+        return;
+      }
+
       const endpoint = isRegister ? '/auth/register' : '/auth/login';
       const payload = isRegister
-        ? { name, email, password, role }
-        : { email, password };
+        ? { name: name.trim(), email: email.trim().toLowerCase(), password, role: 'student' }
+        : { email: email.trim().toLowerCase(), password };
       const res = await api.post(endpoint, payload);
 
       const { user, token } = res.data.data;
@@ -250,10 +284,7 @@ export const AuthPage = ({
               <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    setRole('teacher');
-                    setError(null);
-                  }}
+                  onClick={() => handleRoleChange('teacher')}
                   className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     role === 'teacher'
                       ? 'bg-orange-600 text-white shadow-xs'
@@ -265,10 +296,7 @@ export const AuthPage = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setRole('student');
-                    setError(null);
-                  }}
+                  onClick={() => handleRoleChange('student')}
                   className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     role === 'student'
                       ? 'bg-indigo-600 text-white shadow-xs'

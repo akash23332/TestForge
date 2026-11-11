@@ -19,26 +19,26 @@ import {
   validateCreateQuestion,
   validateListQuestions
 } from '../validators/question.validator.js';
-import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-// Question CRUD
+// Question Discovery & Management
 router.get('/', optionalAuth, validateListQuestions, getQuestions);
-router.post('/', optionalAuth, validateCreateQuestion, createQuestion);
+router.post('/', requireAuth, requireRole('teacher', 'admin'), validateCreateQuestion, createQuestion);
 router.get('/:id', optionalAuth, getQuestionById);
 router.get('/:id/student-view', optionalAuth, getQuestionStudentView);
-router.patch('/:id', optionalAuth, updateQuestion);
-router.delete('/:id', optionalAuth, deleteQuestion);
+router.patch('/:id', requireAuth, requireRole('teacher', 'admin'), updateQuestion);
+router.delete('/:id', requireAuth, requireRole('teacher', 'admin'), deleteQuestion);
 
-// Test Cases & Verification
-router.get('/:id/tests', optionalAuth, getTestCases);
-router.post('/:id/tests', optionalAuth, createTestCase);
-router.patch('/:id/tests/:testId', optionalAuth, updateTestCase);
-router.delete('/:id/tests/:testId', optionalAuth, deleteTestCase);
-router.post('/:id/validate', optionalAuth, validateReferenceSolution);
+// Test Cases & Verification (Strictly Restricted to Authorized Faculty / Admins)
+router.get('/:id/tests', requireAuth, requireRole('teacher', 'admin'), getTestCases);
+router.post('/:id/tests', requireAuth, requireRole('teacher', 'admin'), createTestCase);
+router.patch('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), updateTestCase);
+router.delete('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), deleteTestCase);
+router.post('/:id/validate', requireAuth, requireRole('teacher', 'admin'), validateReferenceSolution);
 
 // Mutation Testing
-router.post('/:id/mutation-runs', optionalAuth, runMutations);
+router.post('/:id/mutation-runs', requireAuth, requireRole('teacher', 'admin'), runMutations);
 
 export default router;

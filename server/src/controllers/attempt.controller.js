@@ -1,3 +1,5 @@
+import jwt from 'jsonwebtoken';
+import { config } from '../config/env.js';
 import { Exam } from '../models/Exam.js';
 import { ExamAttempt } from '../models/ExamAttempt.js';
 import { StudentAnswer } from '../models/StudentAnswer.js';
@@ -9,6 +11,8 @@ import { McqQuestion } from '../models/McqQuestion.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { validateSingleTestCase } from '../services/codeRunner.service.js';
+import { enqueueExecutionJob } from '../services/queue/executionQueue.js';
+import { recalculateAttemptGrading } from '../services/attemptGrading.service.js';
 
 /**
  * Sanitizes coding question for student: strictly removes reference solutions
@@ -74,7 +78,23 @@ export const joinExamByCode = async (req, res, next) => {
 
     const now = Date.now();
 
+    // Helper to sign scoped attempt session token (valid for exam duration + 4h buffer)
+    const signAttemptToken = (targetAttempt) => {
+      return jwt.sign(
+        {
+          attemptId: targetAttempt._id,
+          email: cleanEmail,
+          examId: exam._id,
+          type: 'attempt_session'
+        },
+        config.jwt.secret,
+        { expiresIn: `${Math.max(2, Math.ceil((exam.durationMinutes || 60) / 60) + 4)}h` }
+      );
+    };
+
     if (attempt) {
+      const attemptToken = signAttemptToken(attempt);
+
       if (attempt.status === 'SUBMITTED' || attempt.status === 'DISQUALIFIED') {
         return ApiResponse.success(
           res,
@@ -82,6 +102,7 @@ export const joinExamByCode = async (req, res, next) => {
           {
             alreadyCompleted: true,
             attemptId: attempt._id,
+            token: attemptToken,
             status: attempt.status,
             totalScore: attempt.totalScore,
             maxScore: attempt.maxScore,
@@ -101,6 +122,7 @@ export const joinExamByCode = async (req, res, next) => {
           {
             alreadyCompleted: true,
             attemptId: attempt._id,
+            token: attemptToken,
             status: 'TIMED_OUT',
             totalScore: attempt.totalScore,
             maxScore: attempt.maxScore,
@@ -238,13 +260,16 @@ export const joinExamByCode = async (req, res, next) => {
       Math.floor((new Date(attempt.expiresAt).getTime() - Date.now()) / 1000)
     );
 
+    const activeAttemptToken = signAttemptToken(attempt);
+
     return ApiResponse.success(
       res,
       200,
       {
+        token: activeAttemptToken,
         attempt: {
           _id: attempt._id,
-          sessionToken: attempt.sessionToken,
+          sessionToken: activeAttemptToken,
           startedAt: attempt.startedAt,
           expiresAt: attempt.expiresAt,
           status: attempt.status,
@@ -394,61 +419,66 @@ export const runSampleTests = async (req, res, next) => {
       throw ApiError.notFound('Question not found.');
     }
 
-    const sampleTests = await TestCase.find({
+    // Duplicate Job Protection: If sample run is already queued/running, return existing tracker
+    const activeExisting = await Submission.findOne({
+      attemptId,
       questionId,
-      $or: [{ visibility: 'public' }, { category: 'sample' }]
-    }).lean();
+      runType: 'SAMPLE',
+      status: { $in: ['QUEUED', 'RUNNING'] }
+    }).sort({ createdAt: -1 });
 
-    if (!sampleTests.length) {
+    if (activeExisting) {
       return ApiResponse.success(
         res,
         200,
         {
-          testResults: [],
-          passedCount: 0,
-          totalCount: 0,
-          message: 'No sample test cases configured for this challenge.'
+          submissionId: activeExisting._id,
+          status: activeExisting.status,
+          jobId: activeExisting.jobId,
+          runType: 'SAMPLE',
+          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
+          isDuplicate: true
         },
-        'Sample tests evaluated.'
+        'A sample execution job is already in progress for this question.'
       );
     }
 
-    const testResults = [];
-    let passedCount = 0;
+    // 1. Create authoritative Submission record in MongoDB
+    const submission = await Submission.create({
+      attemptId,
+      questionId,
+      code: code || '',
+      language: language || question.language || 'javascript',
+      runType: 'SAMPLE',
+      status: 'QUEUED',
+      verdict: 'PENDING'
+    });
 
-    for (const testCase of sampleTests) {
-      const result = await validateSingleTestCase({
-        code,
-        testCase,
-        questionContext: { language: language || question.language, title: question.title },
-        timeoutMs: 3000
-      });
+    // 2. Enqueue execution job in BullMQ
+    const job = await enqueueExecutionJob({
+      submissionId: submission._id,
+      attemptId,
+      questionId,
+      runType: 'SAMPLE',
+      language: submission.language,
+      studentEmail: attempt.candidateInfo?.email || ''
+    });
 
-      testResults.push({
-        testCaseId: testCase._id,
-        category: testCase.category,
-        input: testCase.input,
-        expectedOutput: testCase.expectedOutput,
-        actualOutput: result.actualOutput,
-        passed: result.passed,
-        status: result.status,
-        error: result.error,
-        runtimeMs: result.runtimeMs
-      });
+    submission.jobId = job.id;
+    await submission.save();
 
-      if (result.passed) passedCount++;
-    }
-
+    // 3. Return 202 immediately with submissionId and pollUrl
     return ApiResponse.success(
       res,
-      200,
+      202,
       {
-        testResults,
-        passedCount,
-        totalCount: sampleTests.length,
-        allPassed: passedCount === sampleTests.length
+        submissionId: submission._id,
+        status: 'QUEUED',
+        jobId: job.id,
+        runType: 'SAMPLE',
+        pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
       },
-      'Sample tests completed.'
+      'Sample test run queued successfully.'
     );
   } catch (error) {
     next(error);
@@ -545,138 +575,151 @@ export const submitQuestion = async (req, res, next) => {
       );
     }
 
-    // ── CODING EVALUATION ─────────────────────────────────────────────────────
+    // ── CODING EVALUATION (ASYNCHRONOUS QUEUE) ────────────────────────────────
     const question = await Question.findById(questionId).lean();
     if (!question) {
       throw ApiError.notFound('Coding challenge not found.');
     }
 
-    const allTests = await TestCase.find({ questionId }).lean();
+    // Duplicate Job Protection: If submission is already queued/running, return existing tracker
+    const activeExisting = await Submission.findOne({
+      attemptId,
+      questionId,
+      runType: 'SUBMISSION',
+      status: { $in: ['QUEUED', 'RUNNING'] }
+    }).sort({ createdAt: -1 });
 
-    if (!allTests.length) {
-      if (studentAnswer) {
-        studentAnswer.code = code;
-        studentAnswer.language = language;
-        studentAnswer.score = maxMarks;
-        studentAnswer.status = 'SUBMITTED';
-        studentAnswer.testCasesPassed = 1;
-        studentAnswer.totalTestCases = 1;
-        await studentAnswer.save();
-      }
-
+    if (activeExisting) {
       return ApiResponse.success(
         res,
         200,
         {
-          scoreAwarded: maxMarks,
-          maxMarks,
-          passedTests: 1,
-          totalTests: 1,
-          verdict: 'ACCEPTED',
-          testResults: []
+          submissionId: activeExisting._id,
+          status: activeExisting.status,
+          jobId: activeExisting.jobId,
+          runType: 'SUBMISSION',
+          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
+          isDuplicate: true
         },
-        'Submitted successfully.'
+        'A submission job is already in progress for this challenge.'
       );
     }
 
-    let passedCount = 0;
-    const fullResults = [];
-    const sanitizedResults = [];
-
-    for (const testCase of allTests) {
-      const isHidden = testCase.visibility === 'hidden';
-      const result = await validateSingleTestCase({
-        code,
-        testCase,
-        questionContext: { language: language || question.language, title: question.title },
-        timeoutMs: 3500
-      });
-
-      if (result.passed) passedCount++;
-
-      fullResults.push({
-        testCaseId: testCase._id,
-        category: testCase.category,
-        visibility: testCase.visibility,
-        passed: result.passed,
-        status: result.status,
-        runtimeMs: result.runtimeMs,
-        error: result.error
-      });
-
-      // ZERO LEAK: input and expectedOutput are omitted for hidden test cases
-      if (isHidden) {
-        sanitizedResults.push({
-          testCaseId: testCase._id,
-          category: 'hidden_suite',
-          visibility: 'hidden',
-          passed: result.passed,
-          status: result.status,
-          runtimeMs: result.runtimeMs,
-          isHidden: true
-        });
-      } else {
-        sanitizedResults.push({
-          testCaseId: testCase._id,
-          category: testCase.category,
-          visibility: 'public',
-          passed: result.passed,
-          status: result.status,
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          actualOutput: result.actualOutput,
-          runtimeMs: result.runtimeMs,
-          error: result.error,
-          isHidden: false
-        });
-      }
-    }
-
-    const passRatio = passedCount / allTests.length;
-    const scoreAwarded = Math.round(passRatio * maxMarks * 10) / 10;
-
-    let verdict = 'WRONG_ANSWER';
-    if (passedCount === allTests.length) {
-      verdict = 'ACCEPTED';
-    } else if (passedCount > 0) {
-      verdict = 'PARTIALLY_ACCEPTED';
-    }
-
-    await Submission.create({
+    // 1. Create authoritative Submission record in MongoDB
+    const submission = await Submission.create({
       attemptId,
       questionId,
-      code,
-      language,
-      testResults: fullResults,
-      totalTests: allTests.length,
-      passedTests: passedCount,
-      scoreAwarded,
-      maxMarks,
-      verdict
+      code: code || '',
+      language: language || question.language || 'javascript',
+      runType: 'SUBMISSION',
+      status: 'QUEUED',
+      verdict: 'PENDING',
+      maxMarks
     });
 
-    if (studentAnswer) {
-      studentAnswer.code = code;
-      studentAnswer.language = language;
-      studentAnswer.score = scoreAwarded;
-      studentAnswer.testCasesPassed = passedCount;
-      studentAnswer.totalTestCases = allTests.length;
-      studentAnswer.status = 'SUBMITTED';
-      await studentAnswer.save();
+    // 2. Enqueue execution job in BullMQ
+    const job = await enqueueExecutionJob({
+      submissionId: submission._id,
+      attemptId,
+      questionId,
+      runType: 'SUBMISSION',
+      language: submission.language,
+      studentEmail: attempt.candidateInfo?.email || ''
+    });
+
+    submission.jobId = job.id;
+    await submission.save();
+
+    // 3. Return 202 immediately with submissionId and pollUrl
+    return ApiResponse.success(
+      res,
+      202,
+      {
+        submissionId: submission._id,
+        status: 'QUEUED',
+        jobId: job.id,
+        runType: 'SUBMISSION',
+        pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
+      },
+      'Question submission queued for evaluation.'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Poll submission execution status and results with ownership verification
+ */
+export const getSubmissionStatus = async (req, res, next) => {
+  try {
+    const { attemptId, submissionId } = req.params;
+
+    const submission = await Submission.findOne({
+      _id: submissionId,
+      attemptId
+    }).lean();
+
+    if (!submission) {
+      throw ApiError.notFound('Submission record not found.');
     }
+
+    // Ownership verification
+    if (req.attempt && submission.attemptId.toString() !== req.attempt._id.toString()) {
+      throw ApiError.forbidden('Access denied. Submission does not belong to this attempt.');
+    }
+
+    // Zero-Leak Sanitization for student view
+    const sanitizedResults = (submission.testResults || []).map((tr, index) => {
+      const isHidden = tr.isHidden || tr.visibility === 'hidden';
+      if (isHidden) {
+        return {
+          testIndex: tr.testIndex || index + 1,
+          category: 'hidden_suite',
+          visibility: 'hidden',
+          passed: tr.passed,
+          status: tr.status,
+          runtimeMs: tr.runtimeMs || 0,
+          isHidden: true
+        };
+      }
+      return {
+        testIndex: tr.testIndex || index + 1,
+        testCaseId: tr.testCaseId,
+        category: tr.category,
+        visibility: 'public',
+        passed: tr.passed,
+        status: tr.status,
+        input: tr.input,
+        expectedOutput: tr.expectedOutput,
+        actualOutput: tr.actualOutput,
+        runtimeMs: tr.runtimeMs || 0,
+        error: tr.error,
+        isHidden: false
+      };
+    });
+
+    const isGraded = submission.status === 'COMPLETED' || 
+      ['ACCEPTED', 'PARTIALLY_ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'COMPILATION_ERROR', 'RUNTIME_ERROR', 'MEMORY_LIMIT_EXCEEDED'].includes(submission.verdict);
 
     return ApiResponse.success(
       res,
       200,
       {
-        scoreAwarded,
-        maxMarks,
-        passedTests: passedCount,
-        totalTests: allTests.length,
-        verdict,
-        testResults: sanitizedResults
+        submissionId: submission._id,
+        status: submission.status,
+        verdict: submission.verdict,
+        runType: submission.runType,
+        totalTests: submission.totalTests || 0,
+        passedTests: submission.passedTests || 0,
+        scoreAwarded: isGraded ? (submission.scoreAwarded ?? 0) : null,
+        maxMarks: submission.maxMarks || 10,
+        errorMessage: submission.errorMessage || null,
+        testResults: sanitizedResults,
+        createdAt: submission.createdAt,
+        updatedAt: submission.updatedAt
       },
-      'Solution verified against test suite.'
+      `Submission status: ${submission.status}`
     );
   } catch (error) {
     next(error);
@@ -702,6 +745,11 @@ export const finalizeExam = async (req, res, next) => {
         {
           totalScore: attempt.totalScore,
           maxScore: attempt.maxScore,
+          finalizedMaxScore: attempt.finalizedMaxScore || attempt.maxScore,
+          pendingMaxScore: attempt.pendingMaxScore || 0,
+          pendingQuestionsCount: attempt.pendingQuestionsCount || 0,
+          isProvisional: Boolean(attempt.isProvisional),
+          gradingStatus: attempt.gradingStatus || 'FINALIZED',
           percentage: attempt.percentage,
           status: attempt.status,
           submittedAt: attempt.submittedAt
@@ -710,36 +758,31 @@ export const finalizeExam = async (req, res, next) => {
       );
     }
 
-    const answers = await StudentAnswer.find({ attemptId }).lean();
-    let totalScore = 0;
-    let maxScore = 0;
-
-    for (const ans of answers) {
-      totalScore += (ans.score || 0);
-      maxScore += (ans.maxMarks || (ans.questionType === 'mcq' ? 2 : 10));
-    }
-
-    const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
-
-    attempt.totalScore = Math.round(totalScore * 10) / 10;
-    attempt.maxScore = maxScore;
-    attempt.percentage = percentage;
     attempt.status = 'SUBMITTED';
     attempt.submittedAt = new Date();
     await attempt.save();
+
+    const updatedAttempt = await recalculateAttemptGrading(attempt._id);
 
     return ApiResponse.success(
       res,
       200,
       {
-        totalScore: attempt.totalScore,
-        maxScore: attempt.maxScore,
-        percentage: attempt.percentage,
-        status: attempt.status,
-        submittedAt: attempt.submittedAt,
-        candidateInfo: attempt.candidateInfo
+        totalScore: updatedAttempt.totalScore,
+        maxScore: updatedAttempt.maxScore,
+        finalizedMaxScore: updatedAttempt.finalizedMaxScore,
+        pendingMaxScore: updatedAttempt.pendingMaxScore,
+        pendingQuestionsCount: updatedAttempt.pendingQuestionsCount,
+        isProvisional: updatedAttempt.isProvisional,
+        gradingStatus: updatedAttempt.gradingStatus,
+        percentage: updatedAttempt.percentage,
+        status: updatedAttempt.status,
+        submittedAt: updatedAttempt.submittedAt,
+        candidateInfo: updatedAttempt.candidateInfo
       },
-      'Examination submitted successfully. Your results have been recorded.'
+      updatedAttempt.isProvisional
+        ? `Examination submitted. ${updatedAttempt.pendingQuestionsCount} submission(s) pending runner recovery for grading. Results are provisional.`
+        : 'Examination submitted successfully. Your results have been recorded.'
     );
   } catch (error) {
     next(error);
@@ -757,6 +800,12 @@ export const recordActivity = async (req, res, next) => {
     const attempt = await ExamAttempt.findById(attemptId);
     if (!attempt) {
       throw ApiError.notFound('Attempt not found.');
+    }
+
+    if (attempt.status !== 'IN_PROGRESS') {
+      throw ApiError.badRequest(
+        `Cannot record activity for an examination with status '${attempt.status}'. Only active exams accept activity tracking.`
+      );
     }
 
     await ActivityLog.create({

@@ -1,0 +1,16 @@
+{
+  "name": "testforge-sandbox",
+  "version": "1.0.0",
+  "description": "TestForge Isolated Code Execution Daemon",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {}
+}

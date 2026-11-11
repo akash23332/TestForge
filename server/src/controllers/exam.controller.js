@@ -74,7 +74,11 @@ export const createExam = async (req, res, next) => {
  */
 export const getTeacherExams = async (req, res, next) => {
   try {
-    const exams = await Exam.find({ createdBy: req.user._id })
+    const filter = req.user.role === 'admin' && req.query.all === 'true'
+      ? {}
+      : { createdBy: req.user._id };
+
+    const exams = await Exam.find(filter)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -127,7 +131,8 @@ export const getTeacherExams = async (req, res, next) => {
 export const getExamById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findOne({ _id: id, createdBy: req.user._id })
+    const filter = req.user.role === 'admin' ? { _id: id } : { _id: id, createdBy: req.user._id };
+    const exam = await Exam.findOne(filter)
       .populate('sections.questions.questionId')
       .lean();
 
@@ -147,7 +152,8 @@ export const getExamById = async (req, res, next) => {
 export const updateExam = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findOne({ _id: id, createdBy: req.user._id });
+    const filter = req.user.role === 'admin' ? { _id: id } : { _id: id, createdBy: req.user._id };
+    const exam = await Exam.findOne(filter);
 
     if (!exam) {
       throw ApiError.notFound('Exam not found or access denied.');
@@ -185,7 +191,8 @@ export const updateExam = async (req, res, next) => {
 export const deleteExam = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findOneAndDelete({ _id: id, createdBy: req.user._id });
+    const filter = req.user.role === 'admin' ? { _id: id } : { _id: id, createdBy: req.user._id };
+    const exam = await Exam.findOneAndDelete(filter);
 
     if (!exam) {
       throw ApiError.notFound('Exam not found or access denied.');
@@ -203,7 +210,8 @@ export const deleteExam = async (req, res, next) => {
 export const getExamAnalytics = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findOne({ _id: id, createdBy: req.user._id });
+    const filter = req.user.role === 'admin' ? { _id: id } : { _id: id, createdBy: req.user._id };
+    const exam = await Exam.findOne(filter);
 
     if (!exam) {
       throw ApiError.notFound('Exam not found or access denied.');
