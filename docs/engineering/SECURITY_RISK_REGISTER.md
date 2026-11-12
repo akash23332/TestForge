@@ -1,9 +1,9 @@
 # SECURITY RISK REGISTER: TESTFORGE
 
 **Document ID:** DOC-ENG-005  
-**Version:** 1.5.0  
+**Version:** 1.6.0  
 **Status:** Active Security Risk Registry  
-**Date:** November 12, 2026  
+**Date:** November 13, 2026  
 **Primary Architect:** Antigravity Engineering Agent  
 
 ---
@@ -11,6 +11,8 @@
 ## 1. Risk Governance & Severity Matrix
 
 This register catalogs known architectural, implementation, and operational risks across TestForge. Each risk is evaluated by Impact and Likelihood to produce a Severity Rating (Critical, High, Medium, Low). Risks remain active until independently audited and verified with concrete runtime evidence.
+
+In Milestone R1, hermetic local integration testing with a mock Judge0 server verified client-side credential redaction (`_sanitize`) and Zero-Leak hiding of test case inputs/outputs (`input: null`, `expectedOutput: null`). However, mock testing does not execute untrusted student binaries and provides zero kernel isolation. Finding **SEC-001 remains CRITICAL and UNRESOLVED**.
 
 ---
 

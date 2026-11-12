@@ -444,12 +444,6 @@ export const StudentDashboardView = ({ currentUser, onSignOut }) => {
                 onClick={handleEnterDashboard}
                 className="rounded-full px-4 py-2 text-xs font-semibold text-white/80 transition-colors hover:text-white"
               >
-                Why TestForge
-              </button>
-              <button
-                onClick={handleEnterDashboard}
-                className="rounded-full px-4 py-2 text-xs font-semibold text-white/80 transition-colors hover:text-white"
-              >
                 Student portal
               </button>
               <button

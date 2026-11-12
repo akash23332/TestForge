@@ -37,12 +37,17 @@ export interface HeroScrollProps {
   className?: string;
 }
 
-interface Particle {
+interface ShardParticle {
   x: number;
   y: number;
+  s: number;
   vx: number;
   vy: number;
-  radius: number;
+  c: string;
+  a: number;
+  r: number;
+  rs: number;
+  g: number;
 }
 
 interface CursorState {
@@ -118,6 +123,9 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 }) => {
   const shouldReduceMotion = Boolean(useReducedMotion());
 
+  /* 3D Scene Parallax State */
+  const [sceneRot, setSceneRot] = useState({ rx: 9, ry: -20 });
+
   /* Scroll Progress Tracking for the sticky hero exit */
   const trackRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -149,7 +157,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
     }
   }, [onExplore]);
 
-  /* ── Interactive Particle Canvas ─────────────────────────────────────────── */
+  /* ── Interactive Particle Canvas (Shard Particles with Pointer Swirl) ───── */
   useEffect(() => {
     if (shouldReduceMotion) return;
 
@@ -163,22 +171,27 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
     let isVisible = true;
     let width = 0;
     let height = 0;
-    let particles: Particle[] = [];
+    let particles: ShardParticle[] = [];
+    const RAD = 260;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const initParticles = (w: number, h: number) => {
-      const density = Math.floor((w * h) / 7500);
-      const count = Math.min(150, Math.max(50, density));
-      const arr: Particle[] = [];
+      const count = Math.min(800, Math.floor((w * h) / 2300));
+      const arr: ShardParticle[] = [];
 
       for (let i = 0; i < count; i++) {
         arr.push({
           x: Math.random() * w,
           y: Math.random() * h,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          radius: Math.random() * 1.5 + 1.2,
+          s: Math.random() * 1.5 + 0.6,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2,
+          c: Math.random() > 0.7 ? '240,245,255' : '120,122,128',
+          a: Math.random() * 0.4 + 0.15,
+          r: Math.random() * 6.283,
+          rs: (Math.random() - 0.5) * 0.05,
+          g: 0,
         });
       }
       particles = arr;
@@ -191,7 +204,9 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#0B0C0E';
+      ctx.fillRect(0, 0, width, height);
 
       initParticles(width, height);
     };
@@ -221,19 +236,19 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       };
+
+      const ry = ((e.clientX - rect.left) / rect.width - 0.5) * -28 - 6;
+      const rx = ((e.clientY - rect.top) / rect.height - 0.5) * -16 + 8;
+      setSceneRot({ rx, ry });
     };
 
     const handleMouseLeave = () => {
       cursorRef.current = { x: null, y: null };
+      setSceneRot({ rx: 9, ry: -20 });
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('mouseleave', handleMouseLeave);
-
-    /* Main Render Loop - Extended moving lines length */
-    const maxLinkDistance = 290;
-    const maxLinkDistanceSq = maxLinkDistance * maxLinkDistance;
-    const repelRadius = 220;
 
     const render = () => {
       if (!isVisible) {
@@ -241,97 +256,67 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
         return;
       }
 
-      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = 'rgba(11, 12, 14, 0.18)';
+      ctx.fillRect(0, 0, width, height);
 
       const cursor = cursorRef.current;
       const count = particles.length;
 
-      // Update positions & repel from cursor
       for (let i = 0; i < count; i++) {
         const p = particles[i];
 
         if (cursor.x !== null && cursor.y !== null) {
-          const dx = p.x - cursor.x;
-          const dy = p.y - cursor.y;
-          const distSq = dx * dx + dy * dy;
+          const dx = cursor.x - p.x;
+          const dy = cursor.y - p.y;
+          const dist = Math.hypot(dx, dy);
 
-          if (distSq < repelRadius * repelRadius && distSq > 0) {
-            const dist = Math.sqrt(distSq);
-            const force = (1 - dist / repelRadius) * 2.2;
-            p.x += (dx / dist) * force;
-            p.y += (dy / dist) * force;
+          if (dist < RAD && dist > 0) {
+            const f = (RAD - dist) / RAD;
+            p.vx += (dx / dist) * f * 0.12 + (dy / dist) * f * 0.7;
+            p.vy += (dy / dist) * f * 0.12 - (dy / dist) * f * 0.7;
+            p.g = f * 0.7;
+          } else {
+            p.g *= 0.92;
           }
+        } else {
+          p.g *= 0.92;
         }
 
         p.x += p.vx;
         p.y += p.vy;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        p.vx += (Math.random() - 0.5) * 0.04;
+        p.vy += (Math.random() - 0.5) * 0.04;
+        p.r += p.rs + (Math.abs(p.vx) + Math.abs(p.vy)) * 0.05;
 
-        // Bounce from boundaries
-        if (p.x < 0) {
-          p.x = 0;
-          p.vx *= -1;
-        } else if (p.x > width) {
-          p.x = width;
-          p.vx *= -1;
+        if (p.x < -20) p.x = width + 20;
+        if (p.x > width + 20) p.x = -20;
+        if (p.y < -20) p.y = height + 20;
+        if (p.y > height + 20) p.y = -20;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.r);
+
+        const alpha = Math.min(p.a + p.g, 0.95);
+        ctx.fillStyle =
+          p.g > 0.25 ? `rgba(237, 255, 114, ${alpha})` : `rgba(${p.c}, ${alpha})`;
+
+        if (p.g > 0.4) {
+          ctx.shadowBlur = 8 * p.g;
+          ctx.shadowColor = `rgba(237, 255, 114, ${p.g})`;
         }
 
-        if (p.y < 0) {
-          p.y = 0;
-          p.vy *= -1;
-        } else if (p.y > height) {
-          p.y = height;
-          p.vy *= -1;
-        }
-      }
-
-      // Single O(n²) pass with distance check for link rendering
-      for (let i = 0; i < count; i++) {
-        const p1 = particles[i];
-
-        for (let j = i + 1; j < count; j++) {
-          const p2 = particles[j];
-          const dx = p1.x - p2.x;
-          const dy = p1.y - p2.y;
-          const distSq = dx * dx + dy * dy;
-
-          if (distSq < maxLinkDistanceSq) {
-            const dist = Math.sqrt(distSq);
-            const alpha = Math.pow(1 - dist / maxLinkDistance, 1.15) * 0.45;
-
-            // Check if link is near cursor to shift to white
-            let isNearCursor = false;
-            if (cursor.x !== null && cursor.y !== null) {
-              const d1x = p1.x - cursor.x;
-              const d1y = p1.y - cursor.y;
-              const d2x = p2.x - cursor.x;
-              const d2y = p2.y - cursor.y;
-              if (
-                d1x * d1x + d1y * d1y < repelRadius * repelRadius ||
-                d2x * d2x + d2y * d2y < repelRadius * repelRadius
-              ) {
-                isNearCursor = true;
-              }
-            }
-
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = isNearCursor
-              ? `rgba(255, 255, 255, ${Math.min(0.9, alpha * 2.4)})`
-              : `rgba(232, 255, 90, ${alpha})`;
-            ctx.lineWidth = isNearCursor ? 1.6 : 1.0;
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Draw particle dots
-      for (let i = 0; i < count; i++) {
-        const p = particles[i];
+        const s = p.s;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(232, 255, 90, 0.85)';
+        ctx.moveTo(0, -s * 2.5);
+        ctx.lineTo(s, 0);
+        ctx.lineTo(0, s * 2.5);
+        ctx.lineTo(-s, 0);
+        ctx.closePath();
         ctx.fill();
+        ctx.restore();
       }
 
       animationFrameId = requestAnimationFrame(render);
@@ -386,10 +371,10 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           {/* ── TOP NAV (ABSOLUTE) ────────────────────────────────────────── */}
           <nav
             aria-label="Hero navigation"
-            className="relative z-20 w-full max-w-7xl mx-auto px-6 sm:px-10 pt-6 sm:pt-8 flex items-center justify-between"
+            className="relative z-20 w-full px-6 sm:px-12 lg:px-16 pt-6 sm:pt-8 flex items-center justify-between"
             style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
           >
-            {/* Logo */}
+            {/* Logo (Pushed to the Left) */}
             <a
               href="#top"
               className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] rounded-xl px-1 py-1"
@@ -402,8 +387,8 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               </span>
             </a>
 
-            {/* Glass Pill Links (hidden on mobile) */}
-            <div className="hidden sm:flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg shadow-black/20">
+            {/* Glass Pill Links (Pushed to the Right) */}
+            <div className="hidden sm:flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3.5 py-1.5 shadow-lg shadow-black/20">
               <a
                 href="#features"
                 onClick={(e) => {
@@ -424,73 +409,191 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
             </div>
           </nav>
 
-          {/* ── CENTER HERO CONTENT ──────────────────────────────────────── */}
-          <div className="relative z-20 flex-1 flex flex-col items-center justify-center text-center px-4 sm:px-6 max-w-5xl mx-auto my-auto py-8">
+          {/* ── TWO-COLUMN HERO CONTENT: LEFT ALIGNED CONTENT + RIGHT 3D STAGE ── */}
+          <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-16 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs */}
             <motion.div
               variants={heroVariants}
               initial="hidden"
               animate="visible"
-              className="flex flex-col items-center max-w-4xl"
+              className="lg:col-span-7 flex flex-col items-start text-left space-y-6"
             >
-              {/* 1. Lime Pill Badge */}
-              <motion.div variants={itemVariants} className="mb-6">
-                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#e8ff5a]/10 border border-[#e8ff5a]/30 text-[#e8ff5a] text-xs font-semibold tracking-wide backdrop-blur-md">
-                  <span className="w-2 h-2 rounded-full bg-[#e8ff5a] animate-pulse shadow-[0_0_8px_#e8ff5a]" />
-                  Assessment platform
-                </span>
-              </motion.div>
-
-              {/* 2. Main Headline */}
+              {/* Main Headline (prominent & left-aligned) */}
               <motion.h1
                 variants={itemVariants}
-                className="text-[clamp(2.8rem,9vw,7.5rem)] font-semibold tracking-[-0.055em] leading-[0.98] sm:leading-[0.95] text-center"
+                className="text-4xl sm:text-6xl lg:text-[4.2rem] font-bold tracking-tight leading-[1.04] text-left text-white"
               >
                 {headline ? (
                   headline
                 ) : (
                   <>
-                    <span className="bg-gradient-to-b from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
-                      Forge smarter{' '}
-                    </span>
-                    <span className="text-[#e8ff5a] drop-shadow-[0_0_24px_rgba(232,255,90,0.25)]">
+                    Forge smarter{' '}
+                    <span className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)]">
                       assessments.
                     </span>
                   </>
                 )}
               </motion.h1>
 
-              {/* 3. Subtext */}
+              {/* Subtext (left-aligned) */}
               <motion.p
                 variants={itemVariants}
-                className="mt-6 sm:mt-7 text-neutral-400 text-sm sm:text-base md:text-lg max-w-2xl font-normal leading-relaxed"
+                className="text-base sm:text-lg text-[#A4A7A1] font-normal leading-relaxed text-left max-w-xl"
               >
                 {subtext}
               </motion.p>
 
-              {/* 4. Action Pill Buttons */}
+              {/* Action Buttons (left-aligned) */}
               <motion.div
                 variants={itemVariants}
-                className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-4"
+                className="flex flex-wrap items-center justify-start gap-4 pt-2"
               >
-                {/* Primary Button */}
                 <button
                   type="button"
                   onClick={onPrimaryCta}
-                  className="px-7 py-3.5 rounded-full bg-[#e8ff5a] hover:bg-[#d9ef4f] text-[#121212] font-semibold text-sm sm:text-base tracking-tight shadow-[0_0_20px_rgba(232,255,90,0.28)] hover:shadow-[0_0_28px_rgba(232,255,90,0.4)] active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121212]"
+                  className="px-7 py-3.5 rounded-full bg-[#EDFF72] hover:bg-[#d9ef4f] text-[#121212] font-bold text-sm sm:text-base tracking-tight shadow-[0_10px_34px_-8px_rgba(237,255,114,0.45)] hover:shadow-[0_18px_40px_-8px_rgba(237,255,114,0.55)] hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EDFF72]"
                 >
                   {primaryCtaLabel}
                 </button>
 
-                {/* Ghost Explore Button */}
                 <button
                   type="button"
                   onClick={onSecondaryCta || handleScrollToContent}
-                  className="px-7 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.18] text-white font-medium text-sm sm:text-base tracking-tight backdrop-blur-md active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121212] flex items-center gap-2"
+                  className="px-7 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.18] text-white font-semibold text-sm sm:text-base tracking-tight backdrop-blur-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
                 >
                   <span>{secondaryCtaLabel}</span>
                 </button>
               </motion.div>
             </motion.div>
+
+            {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (Scaled Up) */}
+            <div className="lg:col-span-5 h-[380px] sm:h-[460px] relative flex items-center justify-center [perspective:1500px]">
+              <style>{`
+                @keyframes teacherBobbing {
+                  0%, 100% { transform: translateY(0px); }
+                  50% { transform: translateY(-14px); }
+                }
+                @keyframes teacherCubeSpin {
+                  from { transform: translateZ(135px) rotateX(20deg) rotateY(0deg); }
+                  to { transform: translateZ(135px) rotateX(380deg) rotateY(360deg); }
+                }
+                .teacher-cube-face {
+                  position: absolute;
+                  inset: 0;
+                  display: grid;
+                  place-items: center;
+                  font-weight: 700;
+                  font-size: 22px;
+                  border: 1px solid rgba(0, 0, 0, 0.2);
+                  box-shadow: inset 0 0 16px rgba(0,0,0,0.18);
+                }
+              `}</style>
+              <div
+                style={{
+                  transform: `rotateX(${sceneRot.rx}deg) rotateY(${sceneRot.ry}deg)`,
+                  transition: 'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1)',
+                  transformStyle: 'preserve-3d',
+                }}
+                className="relative h-[360px] w-full max-w-[460px]"
+              >
+                {/* Layer 1: AI Question Generator Card (Z = 35) */}
+                <div
+                  style={{
+                    transform: 'translateZ(35px)',
+                    animation: 'teacherBobbing 6s ease-in-out infinite',
+                  }}
+                  className="absolute left-0 top-2 w-[295px] rounded-2xl border border-white/10 bg-[#191A1D]/90 backdrop-blur-xl p-5 text-white shadow-2xl"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#A4A7A1]">
+                    <span>AI Question Generator</span>
+                    <span className="rounded-full bg-[#EDFF72] px-2.5 py-0.5 font-bold text-[10px] text-[#111]">
+                      READY
+                    </span>
+                  </div>
+                  <div className="mt-2.5 text-base font-semibold text-white">
+                    Topic: Arrays &amp; Vectors
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-[#EDFF72]">
+                      Medium
+                    </span>
+                    <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-white/70">
+                      MCQ
+                    </span>
+                    <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-white/70">
+                      Coding
+                    </span>
+                  </div>
+                </div>
+
+                {/* Layer 2: Evaluator Status Card (Z = 85) */}
+                <div
+                  style={{
+                    transform: 'translateZ(85px)',
+                    animation: 'teacherBobbing 6s ease-in-out infinite 1.5s',
+                  }}
+                  className="absolute -right-2 top-8 w-[230px] rounded-2xl border border-[#EDFF72]/30 bg-[#EDFF72] p-5 text-[#111] shadow-[0_20px_50px_rgba(237,255,114,0.25)]"
+                >
+                  <span className="text-[11px] font-mono uppercase tracking-wider font-semibold opacity-75">
+                    Evaluator Status
+                  </span>
+                  <div className="mt-1.5 flex items-baseline gap-2">
+                    <span className="font-mono text-4xl font-extrabold tracking-tight">100%</span>
+                    <span className="text-xs font-semibold">Automated</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1 text-xs font-medium opacity-90">
+                    <span>✓ All test cases valid</span>
+                  </div>
+                </div>
+
+                {/* Layer 3: solution.js Monospace Card (Z = 130) */}
+                <div
+                  style={{
+                    transform: 'translateZ(130px)',
+                    animation: 'teacherBobbing 6s ease-in-out infinite 3s',
+                  }}
+                  className="absolute bottom-2 left-3 w-[300px] rounded-2xl border border-white/10 bg-[#121316]/95 p-4 font-mono text-xs text-white/90 shadow-2xl backdrop-blur-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2 text-[11px] text-white/40">
+                    <span>solution.js</span>
+                    <span className="text-[#EDFF72]">2/2 passed</span>
+                  </div>
+                  <pre className="mt-2 text-[11px] leading-relaxed text-white/80">
+                    <code>
+                      <span className="text-[#EDFF72]">const</span> evaluate = (test) =&gt; &#123;<br />
+                      &nbsp;&nbsp;<span className="text-white/50">return</span> test.verifyAll();<br />
+                      &#125;;
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Layer 4: Rotating 3D Cube (Z = 145, 86px) */}
+                <div
+                  style={{
+                    transform: 'translateZ(145px)',
+                    animation: 'teacherBobbing 6s ease-in-out infinite 0.75s',
+                  }}
+                  className="absolute -right-2 bottom-6 size-[86px] [perspective:600px]"
+                >
+                  <div
+                    style={{
+                      width: '86px',
+                      height: '86px',
+                      position: 'relative',
+                      transformStyle: 'preserve-3d',
+                      animation: 'teacherCubeSpin 16s linear infinite',
+                    }}
+                  >
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'translateZ(43px)' }}>TF</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(90deg) translateZ(43px)' }}>✓</div>
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateY(180deg) translateZ(43px)' }}>A+</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(-90deg) translateZ(43px)' }}>✦</div>
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateX(90deg) translateZ(43px)' }}>#</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateX(-90deg) translateZ(43px)' }}>⚡</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* ── 5. BOTTOM CENTER: MOUSE WHEEL SCROLL CUE ─────────────────── */}

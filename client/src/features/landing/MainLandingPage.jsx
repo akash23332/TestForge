@@ -84,8 +84,8 @@ export const MainLandingPage = ({
         onNavigateStudentPortal={onNavigateStudentPortal}
       />
 
-      {/* Main Content Area (Off-white canvas with 40px top curve that slides over the hero) */}
-      <main className="relative z-10 -mt-8 rounded-t-[36px] sm:rounded-t-[44px] bg-[#F2F3F0] px-4 sm:px-8 lg:px-14 shadow-[0_-30px_80px_rgba(0,0,0,0.6)]">
+      {/* Main Content Area (Off-white canvas that rolls over upon scrolling) */}
+      <main className="relative z-10 mt-0 rounded-t-[36px] sm:rounded-t-[44px] bg-[#F2F3F0] px-4 sm:px-8 lg:px-14 shadow-[0_-30px_80px_rgba(0,0,0,0.6)]">
         <div className="max-w-7xl mx-auto">
           <AboutSection />
           <FeaturesSection />

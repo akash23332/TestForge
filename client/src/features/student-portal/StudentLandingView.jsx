@@ -1,18 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { AsmrBackground } from '@/components/ui/asmr-background';
 import {
-  Sparkles,
   ArrowRight,
   Shield,
-  Clock,
-  BarChart3,
-  KeyRound,
-  CheckCircle2,
-  ChevronRight,
-  Layers,
-  Award,
-  Zap
+  KeyRound
 } from 'lucide-react';
 
 export const StudentLandingView = ({
@@ -45,11 +37,6 @@ export const StudentLandingView = ({
     setSceneRotation({ x: 8, y: -20 });
   };
 
-  // Scroll animations: Hero scales to 0.94 and fades to 0.4 while next section slides over
-  const { scrollY } = useScroll();
-  const heroScale = useTransform(scrollY, [120, 650], [1, 0.94]);
-  const heroOpacity = useTransform(scrollY, [120, 650], [1, 0.4]);
-
   useEffect(() => {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
@@ -58,17 +45,16 @@ export const StudentLandingView = ({
   }, []);
 
   return (
-    <div ref={containerRef} className="relative min-h-screen bg-[#191A1D] font-sans text-[#171819] selection:bg-[#EDFF72] selection:text-[#191A1D]">
+    <div ref={containerRef} className="relative h-[100svh] w-full overflow-hidden bg-[#191A1D] font-sans text-[#171819] selection:bg-[#EDFF72] selection:text-[#191A1D]">
       {/* ----------------------------------------------------------------------
-        PART 1: HERO SECTION (100svh, sticky, dark #191A1D)
+        HERO SECTION (100svh, full-screen, dark #191A1D)
         Interactive ASMR particle canvas behind the 3D scene.
         ---------------------------------------------------------------------- */}
       <motion.section
         ref={heroRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        style={{ scale: heroScale, opacity: heroOpacity }}
-        className="sticky top-0 z-0 flex h-[100svh] w-full flex-col justify-between overflow-hidden bg-[#191A1D] px-[6vw] py-8 text-[#F2F3F0] select-none relative isolate"
+        className="relative z-0 flex h-[100svh] w-full flex-col justify-between overflow-hidden bg-[#191A1D] px-[6vw] py-8 text-[#F2F3F0] select-none isolate"
       >
         {/* ASMR Shard Particle Background Canvas */}
         <AsmrBackground />
@@ -100,15 +86,6 @@ export const StudentLandingView = ({
                 ← Main Site
               </button>
             )}
-            <button
-              onClick={() => {
-                const el = document.getElementById('features-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="rounded-full px-4 py-2 text-xs font-medium text-white/70 transition-colors hover:text-white"
-            >
-              Why TestForge
-            </button>
             <button
               onClick={onEnterPortal}
               className="rounded-full px-4 py-2 text-xs font-medium text-white/70 transition-colors hover:text-white"
@@ -338,147 +315,7 @@ export const StudentLandingView = ({
             </div>
           </div>
         </div>
-
-        {/* Subtle scroll cue indicator */}
-        <div className="relative z-10 flex items-center justify-center pb-2 text-xs text-white/40">
-          <span>Scroll to explore features ↓</span>
-        </div>
       </motion.section>
-
-      {/* ----------------------------------------------------------------------
-        SLIDE-OVER FEATURE SECTION
-        Top radius 36px, margin-top 0, shadow 0 -30px 80px rgba(0,0,0,.5)
-        ---------------------------------------------------------------------- */}
-      <section
-        id="features-section"
-        className="relative z-10 -mt-2 rounded-t-[36px] bg-[#F2F3F0] px-[6vw] py-24 shadow-[0_-30px_80px_rgba(0,0,0,0.5)]"
-      >
-        <div className="mx-auto max-w-6xl">
-          {/* Section Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 34 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
-            className="mb-16 text-center"
-          >
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE1DA] bg-white px-3.5 py-1 text-xs font-semibold text-[#777D78] shadow-sm">
-              <Sparkles className="size-3.5 text-[#191A1D]" />
-              <span>Engineered for Focus</span>
-            </span>
-            <h2 className="mt-4 text-[clamp(2rem,4vw,3.2rem)] font-semibold tracking-[-0.04em] text-[#171819]">
-              Everything for the exam, in one workspace.
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-base text-[#777D78]">
-              Seamless authentication, real-time code sandbox with automated unit tests, and actionable performance reports.
-            </p>
-          </motion.div>
-
-          {/* Three Feature Cards with 3D Tilt on Hover */}
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {/* Card 1 */}
-            <motion.div
-              initial={{ opacity: 0, y: 34 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.09, ease: [0.2, 0.7, 0.2, 1] }}
-              className="group relative rounded-[24px] border border-[#DDE1DA] bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(23,24,25,0.08)] [perspective:1200px]"
-            >
-              <div className="flex size-13 items-center justify-center rounded-2xl bg-[#EDFF72] text-[#191A1D] shadow-[0_4px_16px_rgba(237,255,114,0.35)] [transform:translateZ(25px)]">
-                <KeyRound className="size-6" />
-              </div>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-[#171819] [transform:translateZ(20px)]">
-                Join with a code
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[#777D78] [transform:translateZ(15px)]">
-                Enter your test PIN and candidate credentials to instantly enter the secure examination session with verified camera and hardware checks.
-              </p>
-              <div className="mt-6 flex items-center gap-1.5 text-xs font-semibold text-[#171819] group-hover:underline">
-                <span>Try quick join</span>
-                <ChevronRight className="size-3.5" />
-              </div>
-            </motion.div>
-
-            {/* Card 2 */}
-            <motion.div
-              initial={{ opacity: 0, y: 34 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.18, ease: [0.2, 0.7, 0.2, 1] }}
-              className="group relative rounded-[24px] border border-[#DDE1DA] bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(23,24,25,0.08)] [perspective:1200px]"
-            >
-              <div className="flex size-13 items-center justify-center rounded-2xl bg-[#EDFF72] text-[#191A1D] shadow-[0_4px_16px_rgba(237,255,114,0.35)] [transform:translateZ(25px)]">
-                <Shield className="size-6" />
-              </div>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-[#171819] [transform:translateZ(20px)]">
-                Distraction-free exams
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[#777D78] [transform:translateZ(15px)]">
-                Isolated Monaco code editor with live syntax highlighting, multi-language support, automated test-case runner, and autosave protection.
-              </p>
-              <div className="mt-6 flex items-center gap-1.5 text-xs font-semibold text-[#171819] group-hover:underline">
-                <span>View workspace spec</span>
-                <ChevronRight className="size-3.5" />
-              </div>
-            </motion.div>
-
-            {/* Card 3 */}
-            <motion.div
-              initial={{ opacity: 0, y: 34 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.27, ease: [0.2, 0.7, 0.2, 1] }}
-              className="group relative rounded-[24px] border border-[#DDE1DA] bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(23,24,25,0.08)] [perspective:1200px]"
-            >
-              <div className="flex size-13 items-center justify-center rounded-2xl bg-[#EDFF72] text-[#191A1D] shadow-[0_4px_16px_rgba(237,255,114,0.35)] [transform:translateZ(25px)]">
-                <BarChart3 className="size-6" />
-              </div>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-[#171819] [transform:translateZ(20px)]">
-                See where you stand
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[#777D78] [transform:translateZ(15px)]">
-                Immediate breakdown of your strengths, time per question, accuracy metrics, and AI recommendations to practice weaker concepts.
-              </p>
-              <div className="mt-6 flex items-center gap-1.5 text-xs font-semibold text-[#171819] group-hover:underline">
-                <span>Explore analytics</span>
-                <ChevronRight className="size-3.5" />
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Bottom Banner Call to Action */}
-          <div className="mt-16 rounded-[28px] bg-[#191A1D] p-8 text-white md:p-12">
-            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-              <div>
-                <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#EDFF72]">
-                  Ready to start?
-                </span>
-                <h3 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">
-                  Log in or enter an exam code to begin.
-                </h3>
-                <p className="mt-1 text-sm text-white/60">
-                  Assessments are available 24/7 with proctoring safeguards and automatic score syncing.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={onEnterPortal}
-                  className="rounded-full bg-[#EDFF72] px-6 py-3 text-sm font-semibold text-[#191A1D] shadow-md transition-all hover:scale-105 active:scale-95"
-                >
-                  Enter Portal
-                </button>
-                <button
-                  onClick={onJoinWithCode}
-                  className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-white/20"
-                >
-                  Join with Code
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Global CSS keyframes for 3D bobbing and cube spin */}
       <style>{`

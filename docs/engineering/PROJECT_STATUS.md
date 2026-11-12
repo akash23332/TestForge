@@ -1,22 +1,24 @@
 # PROJECT STATUS & REPOSITORY AUDIT: TESTFORGE
 
 **Document ID:** DOC-ENG-002  
-**Version:** 1.5.0  
+**Version:** 1.6.0  
 **Status:** Authoritative Repository Audit  
-**Date:** November 12, 2026  
+**Date:** November 13, 2026  
 **Primary Architect:** Antigravity Engineering Agent
 
 ---
 
 ## 1. Executive Summary
 
-A comprehensive, ground-truth audit of the TestForge codebase was conducted on November 12, 2026. This audit verifies the actual repository state against historical phase reports and architectural claims. 
+A comprehensive, ground-truth audit of the TestForge codebase was conducted on November 13, 2026. This audit verifies the actual repository state against historical phase reports and architectural claims. 
 
-The audit confirms that Milestone A (Execution Provider Hardening & Host `execSync` Elimination), Milestone B (ARM64 Build Preparation & Dependency Verification), Milestone C (Native ARM64 Image Build & Binary Verification), Milestone D (Staging Runtime Readiness Plan), Milestone E (Controlled Staging Startup & Benign Runtime Verification), Milestone F (Hostile-Code Security Test Readiness Audit), Milestone G (SEC-001 Isolation Architecture Design), Milestone G2 (Kata Containers ARM64 Feasibility Blueprint), and Milestone G2.1 (Azure ARM64 MSHV Feasibility Audit) are **100% complete and verified**. A critical infinite recursion vulnerability in `isolate-wrapper.sh` was discovered, neutralized, and proven with regression tests. Option C binary diversion (mode 0700 root:root) has been verified both statically and at live runtime on the staging VM (`testforge-judge0-staging`).
+The audit confirms that Milestone A (Execution Provider Hardening & Host `execSync` Elimination), Milestone B (ARM64 Build Preparation & Dependency Verification), Milestone C (Native ARM64 Image Build & Binary Verification), Milestone D (Staging Runtime Readiness Plan), Milestone E (Controlled Staging Startup & Benign Runtime Verification), Milestone F (Hostile-Code Security Test Readiness Audit), Milestone G (SEC-001 Isolation Architecture Design), Milestone G2 (Kata Containers ARM64 Feasibility Blueprint), Milestone G2.1 (Azure ARM64 MSHV Feasibility Audit), Milestone R0 (Complete Code Runner Status & Integration Audit), and Milestone R1 (Local Code Runner Integration) are **100% complete and verified**.
 
-The core regression test suite stands at **18 suites, 346 tests passed, 0 failed (100% Green)**. Option C remediation is verified and finalized in [FINAL_OPTION_C_SECURITY_GATE.md](file:///D:/TestForge/docs/engineering/reports/FINAL_OPTION_C_SECURITY_GATE.md), live runtime verification is documented in [MILESTONE_E_BASIC_RUNTIME_REPORT.md](file:///D:/TestForge/docs/engineering/reports/MILESTONE_E_BASIC_RUNTIME_REPORT.md), the hostile-code test readiness audit is documented in [MILESTONE_F_SECURITY_READINESS.md](file:///D:/TestForge/docs/engineering/reports/MILESTONE_F_SECURITY_READINESS.md), the SEC-001 isolation architecture is documented in [MILESTONE_G_ISOLATION_ARCHITECTURE.md](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G_ISOLATION_ARCHITECTURE.md), the Kata ARM64 feasibility blueprint is documented in [MILESTONE_G2_KATA_FEASIBILITY.md](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_KATA_FEASIBILITY.md), and the Azure ARM64 MSHV audit is documented in [MILESTONE_G2_1_MSHV_FEASIBILITY.md](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_1_MSHV_FEASIBILITY.md).
+The core regression test suite now stands at **19 suites, 364 tests passed, 0 failed (100% Green)** with the addition of `server/tests/judge0Integration.test.js` (18 tests).
 
-**Milestone G2.1 MSHV Feasibility Audit is COMPLETE.** Architectural investigation confirmed that `/dev/mshv` is strictly restricted to Hyper-V Root Partitions (hosts) and is completely blocked inside Azure IaaS guest VMs (child partitions). Upstream AKS documentation explicitly confirms that ARM64 is unsupported for Kata MSHV pod sandboxing. Therefore, running Kata Containers on Azure ARM64 via MSHV is an architectural dead end. Hardware microVM execution definitively requires cross-architecture migration to Azure x86_64 (`Standard_D2as_v5`) with native KVM nested virtualization. Finding SEC-001 (`privileged: true` on workers) remains **CRITICAL and UNRESOLVED** until hardware-isolated microVMs are deployed on a virtualization-capable host. All cloud spending and VM modification remain strictly prohibited.
+**Milestone R1 Local Code Runner Integration is COMPLETE.** The existing TestForge backend execution pipeline (`RenderSandboxProvider.js`) has been connected to a deterministic local mock Judge0 HTTP server (`server/tests/helpers/mockJudge0Server.js`). The end-to-end flow from attempt controller to BullMQ queue, worker evaluation, Zero-Leak hidden test case sanitization, and attempt grading recalculation is verified across all 4 supported languages (JavaScript, Python, Java, C++). 
+
+Finding SEC-001 (`privileged: true` on workers) remains **CRITICAL and UNRESOLVED** until hardware-isolated microVMs are deployed on a virtualization-capable host. All cloud spending and VM modification remain strictly prohibited.
 
 ---
 
@@ -70,8 +72,9 @@ Each of the twelve core platform modules has been inspected and classified accor
 
 ---
 
-## 4. Current Test Suite Status (18 Suites Passing: 346 / 346 Tests - 100% Green)
+## 4. Current Test Suite Status (19 Suites Passing: 364 / 364 Tests - 100% Green)
 
+* **Judge0 CE Local Integration Suite (`tests/judge0Integration.test.js`):** **18 / 18 Passing** (verifies health check, language mapping, python/cpp/java/js execution, compilation/runtime/timeout/memory errors, internal errors, secret redaction, zero-leak hidden tests, duplicate prevention, and attempt grading).
 * **SUID Bypass Investigation Suite (`tests/suidBypassInvestigation.test.js`):** **8 / 8 Passing** (verifies mode 4700 root restriction, elimination of 4755, and Option C remediation).
 * **Phase 5.1C Security & Hardening Suites (11 Suites):** 237 / 237 Passing.
 * **Milestone A Verification Suite (`tests/phaseAMilestoneVerification.test.js`):** 14 / 14 Passing.

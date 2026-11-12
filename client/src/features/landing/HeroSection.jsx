@@ -14,7 +14,7 @@ export const HeroSection = ({
   // Parallax rotation for 3D stage
   const [sceneRot, setSceneRot] = useState({ rx: 9, ry: -20 });
 
-  // Interactive Particle Canvas (Shards + Pointer Swirl)
+  // Interactive Particle Canvas (Plexus / Constellation Network + Pointer Repel)
   useEffect(() => {
     const canvas = canvasRef.current;
     const hero = heroRef.current;
@@ -24,83 +24,34 @@ export const HeroSection = ({
     if (!ctx) return;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const RAD = 260;
-    const m = { x: -1000, y: -1000 };
     let W = 0;
     let H = 0;
     let D = 1;
     let particles = [];
     let isVisible = true;
     let animId = null;
+    const cursor = { x: null, y: null };
 
-    class ShardParticle {
-      constructor() {
-        this.reset();
+    const maxLinkDistance = 290;
+    const maxLinkDistanceSq = maxLinkDistance * maxLinkDistance;
+    const repelRadius = 220;
+
+    const initParticles = (w, h) => {
+      const density = Math.floor((w * h) / 7500);
+      const count = Math.min(160, Math.max(50, density));
+      const arr = [];
+
+      for (let i = 0; i < count; i++) {
+        arr.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.45,
+          vy: (Math.random() - 0.5) * 0.45,
+          radius: Math.random() * 1.5 + 1.2
+        });
       }
-      reset() {
-        this.x = Math.random() * W;
-        this.y = Math.random() * H;
-        this.s = Math.random() * 1.5 + 0.6;
-        this.vx = (Math.random() - 0.5) * 0.2;
-        this.vy = (Math.random() - 0.5) * 0.2;
-        this.c = Math.random() > 0.7 ? '240,245,255' : '120,122,128';
-        this.a = Math.random() * 0.4 + 0.15;
-        this.r = Math.random() * 6.283;
-        this.rs = (Math.random() - 0.5) * 0.05;
-        this.g = 0;
-      }
-      update() {
-        const dx = m.x - this.x;
-        const dy = m.y - this.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist < RAD && dist > 0) {
-          const f = (RAD - dist) / RAD;
-          this.vx += (dx / dist) * f * 0.12 + (dy / dist) * f * 0.7;
-          this.vy += (dy / dist) * f * 0.12 - (dx / dist) * f * 0.7;
-          this.g = f * 0.7;
-        } else {
-          this.g *= 0.92;
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        this.vx += (Math.random() - 0.5) * 0.04;
-        this.vy += (Math.random() - 0.5) * 0.04;
-        this.r += this.rs + (Math.abs(this.vx) + Math.abs(this.vy)) * 0.05;
-
-        if (this.x < -20) this.x = W + 20;
-        if (this.x > W + 20) this.x = -20;
-        if (this.y < -20) this.y = H + 20;
-        if (this.y > H + 20) this.y = -20;
-      }
-      draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.r);
-
-        const alpha = Math.min(this.a + this.g, 0.95);
-        ctx.fillStyle =
-          this.g > 0.25 ? `rgba(237, 255, 114, ${alpha})` : `rgba(${this.c}, ${alpha})`;
-
-        if (this.g > 0.4) {
-          ctx.shadowBlur = 8 * this.g;
-          ctx.shadowColor = `rgba(237, 255, 114, ${this.g})`;
-        }
-
-        const s = this.s;
-        ctx.beginPath();
-        ctx.moveTo(0, -s * 2.5);
-        ctx.lineTo(s, 0);
-        ctx.lineTo(0, s * 2.5);
-        ctx.lineTo(-s, 0);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-    }
+      particles = arr;
+    };
 
     const resize = () => {
       D = Math.min(window.devicePixelRatio || 1, 2);
@@ -109,22 +60,104 @@ export const HeroSection = ({
       canvas.width = Math.floor(W * D);
       canvas.height = Math.floor(H * D);
       ctx.setTransform(D, 0, 0, D, 0, 0);
-      ctx.fillStyle = '#0B0C0E';
-      ctx.fillRect(0, 0, W, H);
 
-      const count = Math.min(800, Math.floor((W * H) / 2300));
-      particles = Array.from({ length: count }, () => new ShardParticle());
+      initParticles(W, H);
     };
 
     const render = () => {
       if (isVisible) {
-        ctx.fillStyle = 'rgba(11, 12, 14, 0.18)';
-        ctx.fillRect(0, 0, W, H);
-        for (let i = 0; i < particles.length; i++) {
-          particles[i].update();
-          particles[i].draw();
+        ctx.clearRect(0, 0, W, H);
+
+        const count = particles.length;
+
+        // Update positions & repel from cursor
+        for (let i = 0; i < count; i++) {
+          const p = particles[i];
+
+          if (cursor.x !== null && cursor.y !== null) {
+            const dx = p.x - cursor.x;
+            const dy = p.y - cursor.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < repelRadius * repelRadius && distSq > 0) {
+              const dist = Math.sqrt(distSq);
+              const force = (1 - dist / repelRadius) * 2.2;
+              p.x += (dx / dist) * force;
+              p.y += (dy / dist) * force;
+            }
+          }
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Bounce from boundaries
+          if (p.x < 0) {
+            p.x = 0;
+            p.vx *= -1;
+          } else if (p.x > W) {
+            p.x = W;
+            p.vx *= -1;
+          }
+
+          if (p.y < 0) {
+            p.y = 0;
+            p.vy *= -1;
+          } else if (p.y > H) {
+            p.y = H;
+            p.vy *= -1;
+          }
+        }
+
+        // Single pass for link rendering
+        for (let i = 0; i < count; i++) {
+          const p1 = particles[i];
+
+          for (let j = i + 1; j < count; j++) {
+            const p2 = particles[j];
+            const dx = p1.x - p2.x;
+            const dy = p1.y - p2.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < maxLinkDistanceSq) {
+              const dist = Math.sqrt(distSq);
+              const alpha = Math.pow(1 - dist / maxLinkDistance, 1.15) * 0.45;
+
+              let isNearCursor = false;
+              if (cursor.x !== null && cursor.y !== null) {
+                const d1x = p1.x - cursor.x;
+                const d1y = p1.y - cursor.y;
+                const d2x = p2.x - cursor.x;
+                const d2y = p2.y - cursor.y;
+                if (
+                  d1x * d1x + d1y * d1y < repelRadius * repelRadius ||
+                  d2x * d2x + d2y * d2y < repelRadius * repelRadius
+                ) {
+                  isNearCursor = true;
+                }
+              }
+
+              ctx.beginPath();
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.strokeStyle = isNearCursor
+                ? `rgba(255, 255, 255, ${Math.min(0.9, alpha * 2.4)})`
+                : `rgba(237, 255, 114, ${alpha})`;
+              ctx.lineWidth = isNearCursor ? 1.6 : 1.0;
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Draw particle nodes
+        for (let i = 0; i < count; i++) {
+          const p = particles[i];
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(237, 255, 114, 0.85)';
+          ctx.fill();
         }
       }
+
       if (!reduce) {
         animId = requestAnimationFrame(render);
       }
@@ -132,8 +165,8 @@ export const HeroSection = ({
 
     const handlePointerMove = (e) => {
       const r = hero.getBoundingClientRect();
-      m.x = e.clientX - r.left;
-      m.y = e.clientY - r.top;
+      cursor.x = e.clientX - r.left;
+      cursor.y = e.clientY - r.top;
 
       const ry = ((e.clientX - r.left) / r.width - 0.5) * -28 - 6;
       const rx = ((e.clientY - r.top) / r.height - 0.5) * -16 + 8;
@@ -141,8 +174,8 @@ export const HeroSection = ({
     };
 
     const handlePointerLeave = () => {
-      m.x = -1000;
-      m.y = -1000;
+      cursor.x = null;
+      cursor.y = null;
       setSceneRot({ rx: 9, ry: -20 });
     };
 
@@ -196,154 +229,50 @@ export const HeroSection = ({
         }}
       />
 
-      {/* Hero Content Grid */}
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center z-10">
-        {/* Left Column: Text & Primary Actions */}
-        <div className="lg:col-span-7 flex flex-col items-start space-y-6">
-          {/* Eyebrow Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EDFF72]/10 border border-[#EDFF72]/30 text-[#EDFF72] text-[11px] font-mono tracking-widest uppercase">
-            <span className="size-2 rounded-full bg-[#EDFF72] animate-ping" />
-            <span>Next-Gen Assessment Platform</span>
-          </div>
+      {/* Hero Content: Centered Layout */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center space-y-6 z-10 py-12">
+        {/* Main Headline */}
+        <h1 className="text-4xl sm:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-white leading-[1.06] max-w-4xl">
+          Smarter assessments.{' '}
+          <span className="text-white/95">Stronger learning.{' '}</span>
+          <em className="not-italic text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)]">
+            Better outcomes.
+          </em>
+        </h1>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-[4.2rem] font-bold tracking-tight text-white leading-[1.04]">
-            The Smarter Way to Create, Conduct &amp;{' '}
-            <em className="not-italic text-[#EDFF72] drop-shadow-[0_0_40px_rgba(237,255,114,0.35)]">
-              Evaluate Assessments.
-            </em>
-          </h1>
+        {/* Subtitle */}
+        <p className="text-base sm:text-lg text-[#A4A7A1] max-w-2xl leading-relaxed mx-auto">
+         One workspace for creating, taking, and evaluating smarter assessments
+        </p>
 
-          {/* Subtitle */}
-          <p className="text-base sm:text-lg text-[#A4A7A1] max-w-xl leading-relaxed">
-            TestForge empowers educators to build intelligent assessments and helps students demonstrate their skills through interactive tests and coding challenges.
-          </p>
-
-          {/* CTAs Row */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onJoinTest}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-[#EDFF72] text-sm font-bold text-[#111] shadow-[0_10px_34px_-8px_rgba(237,255,114,0.45)] hover:shadow-[0_18px_40px_-8px_rgba(237,255,114,0.55)] hover:-translate-y-0.5 transition-all cursor-pointer"
-            >
-              <KeyRound className="size-4" />
-              <span>Join a Test</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onExplorePlatform}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/20 bg-white/[0.06] text-sm font-semibold text-white hover:bg-white/15 hover:border-white/30 hover:-translate-y-0.5 transition-all cursor-pointer"
-            >
-              <span>Explore Platform</span>
-              <ArrowRight className="size-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onNavigateTeacherLogin}
-              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full border border-white/10 bg-[#191A1D] text-sm font-semibold text-[#CFD1CC] hover:text-white hover:border-[#EDFF72]/40 hover:-translate-y-0.5 transition-all cursor-pointer"
-            >
-              <Shield className="size-4 text-[#EDFF72]" />
-              <span>Teacher Login</span>
-            </button>
-          </div>
-
-          {/* Feature Highlights Tagline */}
-          <div className="font-mono text-xs text-[#8F938D] tracking-wide pt-2">
-            AI-powered question generation <span className="text-[#EDFF72]">·</span> Coding assessments <span className="text-[#EDFF72]">·</span> Automated evaluation
-          </div>
-        </div>
-
-        {/* Right Column: 3D Stage with Floating Cards & Rotating Cube */}
-        <div className="lg:col-span-5 h-[340px] sm:h-[440px] relative [perspective:1500px]">
-          <div
-            ref={sceneRef}
-            style={{
-              transform: `rotateX(${sceneRot.rx}deg) rotateY(${sceneRot.ry}deg)`,
-              transformStyle: 'preserve-3d',
-              transition: 'transform 0.15s ease-out'
-            }}
-            className="absolute inset-0 size-full"
+        {/* CTAs Row */}
+        <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+          <button
+            type="button"
+            onClick={onJoinTest}
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-[#EDFF72] text-sm font-bold text-[#111] shadow-[0_10px_34px_-8px_rgba(237,255,114,0.45)] hover:shadow-[0_18px_40px_-8px_rgba(237,255,114,0.55)] hover:-translate-y-0.5 transition-all cursor-pointer"
           >
-            {/* Card 1: AI Question Generator (Z: 20px) */}
-            <div
-              style={{
-                transform: 'translateZ(20px)',
-                animation: 'cardBobbing 6s ease-in-out infinite'
-              }}
-              className="absolute left-0 top-[8%] w-[68%] rounded-2xl bg-white p-4 sm:p-5 text-[#171819] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)]"
-            >
-              <div className="text-[11px] font-semibold text-[#777D78] uppercase tracking-wider">
-                AI Question Generator
-              </div>
-              <div className="mt-1 font-bold text-sm tracking-tight text-[#171819]">
-                Topic: Arrays &amp; Vectors
-              </div>
-              <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EDFF72] text-[#111]">
-                  Medium
-                </span>
-                <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E9ECE7] text-[#171819]">
-                  MCQ
-                </span>
-                <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E9ECE7] text-[#171819]">
-                  Coding
-                </span>
-              </div>
-            </div>
+            <KeyRound className="size-4" />
+            <span>Join a Test</span>
+          </button>
 
-            {/* Card 2: Coding Test Studio (Z: 90px) */}
-            <div
-              style={{
-                transform: 'translateZ(90px)',
-                animation: 'cardBobbing 6s ease-in-out infinite -2s'
-              }}
-              className="absolute right-0 top-0 w-[54%] rounded-2xl border border-white/15 bg-[#191A1D] p-4 sm:p-5 text-white shadow-[0_40px_70px_-20px_rgba(0,0,0,0.7)]"
-            >
-              <div className="text-[11px] font-medium text-[#9A9D97]">Coding Test Studio</div>
-              <div className="mt-1 font-mono text-2xl font-extrabold text-[#EDFF72] tracking-tight">
-                2/2 passed
-              </div>
-              <div className="mt-1 text-[11px] text-[#9A9D97] flex items-center gap-1">
-                <Check className="size-3 text-[#EDFF72]" />
-                <span>All test cases valid</span>
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={onExplorePlatform}
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/20 bg-white/[0.06] text-sm font-semibold text-white hover:bg-white/15 hover:border-white/30 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>Explore Platform</span>
+            <ArrowRight className="size-4" />
+          </button>
 
-            {/* Card 3: solution.js snippet (Z: 150px) */}
-            <div
-              style={{
-                transform: 'translateZ(150px)',
-                animation: 'cardBobbing 6s ease-in-out infinite -4s'
-              }}
-              className="absolute left-[8%] bottom-[6%] w-[66%] rounded-2xl border border-white/10 bg-[#121316]/95 p-4 font-mono text-xs text-[#D8FFB0] shadow-2xl backdrop-blur-xl"
-            >
-              <div className="text-[10px] text-white/50 pb-1.5 border-b border-white/10 flex items-center justify-between">
-                <span>solution.js</span>
-                <span className="text-[#EDFF72]">✓ Verified AST</span>
-              </div>
-              <pre className="mt-2 text-[11px] leading-relaxed text-[#D8FFB0] overflow-hidden">
-                <code>
-                  <span className="text-[#EDFF72] font-semibold">function</span> solve(input) &#123;<br />
-                  &nbsp;&nbsp;<span className="text-[#EDFF72]">return</span> input.length &gt; 0;<br />
-                  &#125;
-                </code>
-              </pre>
-            </div>
-
-            {/* 3D Rotating 6-Face CSS Cube (Z: 120px) */}
-            <div className="cube-wrapper absolute right-[2%] bottom-[6%] size-[80px] [transform-style:preserve-3d]">
-              <div className="cube relative size-full [transform-style:preserve-3d]">
-                <i className="face front">T</i>
-                <i className="face back">F</i>
-                <i className="face right">✓</i>
-                <i className="face left">A+</i>
-                <i className="face top">✦</i>
-                <i className="face bottom">#</i>
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={onNavigateTeacherLogin}
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/10 bg-[#191A1D] text-sm font-semibold text-[#CFD1CC] hover:text-white hover:border-[#EDFF72]/40 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <Shield className="size-4 text-[#EDFF72]" />
+            <span>Teacher Login</span>
+          </button>
         </div>
       </div>
 
@@ -356,67 +285,6 @@ export const HeroSection = ({
         <span>Scroll to explore</span>
         <span>↓</span>
       </button>
-
-      {/* Keyframe Styles for Bobbing and Cube */}
-      <style>{`
-        @keyframes cardBobbing {
-          0%, 100% { transform: translateZ(var(--tz, 30px)) translateY(0); }
-          50% { transform: translateZ(var(--tz, 30px)) translateY(-14px); }
-        }
-        .cube-wrapper {
-          animation: cubeWrapperSpin 18s linear infinite;
-        }
-        @keyframes cubeWrapperSpin {
-          from {
-            transform: translateZ(120px) rotateX(20deg) rotateY(0deg);
-          }
-          to {
-            transform: translateZ(120px) rotateX(380deg) rotateY(360deg);
-          }
-        }
-        .cube .face {
-          position: absolute;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          font-family: Inter, sans-serif;
-          font-weight: 800;
-          font-size: 20px;
-          border-radius: 12px;
-          border: 1px solid rgba(0, 0, 0, 0.25);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-        .cube .front {
-          background: #EDFF72;
-          color: #111;
-          transform: translateZ(40px);
-        }
-        .cube .back {
-          background: #FFFFFF;
-          color: #111;
-          transform: rotateY(180deg) translateZ(40px);
-        }
-        .cube .right {
-          background: #EDFF72;
-          color: #111;
-          transform: rotateY(90deg) translateZ(40px);
-        }
-        .cube .left {
-          background: #FFFFFF;
-          color: #111;
-          transform: rotateY(-90deg) translateZ(40px);
-        }
-        .cube .top {
-          background: #EDFF72;
-          color: #111;
-          transform: rotateX(90deg) translateZ(40px);
-        }
-        .cube .bottom {
-          background: #FFFFFF;
-          color: #111;
-          transform: rotateX(-90deg) translateZ(40px);
-        }
-      `}</style>
     </header>
   );
 };
