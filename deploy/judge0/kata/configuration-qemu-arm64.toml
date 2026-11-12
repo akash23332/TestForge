@@ -1,0 +1,44 @@
+# ==============================================================================
+# TestForge Architecture Blueprint: Kata Containers 3.x QEMU Configuration (ARM64)
+# Purpose: Defines MicroVM hypervisor parameters, guest kernel, and virtiofs
+# Safety:  STATIC BLUEPRINT ONLY. Non-functional on Azure ARM64 without /dev/kvm.
+# ==============================================================================
+
+[hypervisor.qemu]
+path = "/usr/bin/qemu-system-aarch64"
+kernel = "/usr/share/kata-containers/vmlinux.container"
+initrd = "/usr/share/kata-containers/kata-containers-initrd.img"
+machine_type = "virt"
+
+# vCPU and Memory allocation for the Judge0 worker microVM
+default_vcpus = 2
+default_memory = 3072
+
+# Enable hardware virtualization (KVM) acceleration
+# WARNING: If /dev/kvm is missing (as on Azure ARM64 VMs), Kata will fail closed.
+# Software emulation (TCG) is strictly disabled to prevent performance collapse.
+accel = "kvm"
+
+# Filesystem virtualization: virtio-fs daemon provides high-performance shared files
+shared_fs = "virtio-fs"
+virtio_fs_daemon = "/usr/libexec/virtiofsd"
+virtio_fs_cache = "auto"
+virtio_fs_extra_args = ["--thread-pool-size=4"]
+
+# Network virtualization: virtio-net tap device
+disable_vhost_net = false
+
+# Block driver: virtio-scsi / virtio-blk
+block_device_driver = "virtio-blk"
+
+# Entropy source
+enable_iommu = false
+
+[runtime]
+# Use private cgroup namespace in guest
+internetworking_model = "tcfilter"
+disable_guest_seccomp = true
+sandbox_cgroup_only = false
+
+# Trace and debug logs (disabled by default in production)
+enable_debug = false

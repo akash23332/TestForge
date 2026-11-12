@@ -1,7 +1,7 @@
 # SECURITY RISK REGISTER: TESTFORGE
 
 **Document ID:** DOC-ENG-005  
-**Version:** 1.3.0  
+**Version:** 1.5.0  
 **Status:** Active Security Risk Registry  
 **Date:** November 12, 2026  
 **Primary Architect:** Antigravity Engineering Agent  
@@ -25,11 +25,12 @@ This register catalogs known architectural, implementation, and operational risk
   * Implemented `isolate-wrapper.sh` allowlist and diverted `/usr/local/bin/isolate` to intercept all Judge0 calls.
   * Hardened Ruby caller to use `Open3.capture3(*cmd)` with array arguments, preventing shell injection.
   * Restrained Rails worker to unprivileged user `judge0` (UID 1000) with `0440` scoped sudoers.
-* **Milestone G Architecture Resolution Analysis:**
+* **Milestone G, G2 & G2.1 Architecture Resolution Analysis:**
   * Completed comparative architecture analysis across Kata Containers (Option A), Firecracker (Option B), and Rootless Docker (Option C) in [`docs/engineering/reports/MILESTONE_G_ISOLATION_ARCHITECTURE.md`](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G_ISOLATION_ARCHITECTURE.md).
-  * **Option A (Kata Containers on `Standard_D2ps_v5`)** was selected as the production recommendation. Kata encapsulates `judge0-workers` inside a hardware KVM microVM with its own dedicated guest kernel, eliminating host kernel sharing and physical block device exposure (`/dev/sda1`) with zero modification to Judge0 Rails code or Isolate.
-  * Option B (Firecracker) was rejected due to lack of OCI runtime compatibility and requiring a complete rewrite of Judge0's worker daemon. Option C (Rootless Docker) was rejected because IOI Isolate v1 is fundamentally incompatible with cgroups v2 and rootless user namespaces.
-* **Status:** **CRITICAL and UNRESOLVED**. Mitigated for Phase C Staging via dedicated disposable single-tenant VM and hardened wrapper jail. Finding SEC-001 remains **CRITICAL and UNRESOLVED** until hardware microVMs (Kata) are deployed on a virtualization-capable host (e.g. `Standard_D2ps_v5`) in production. Active hostile-code container escape tests remain strictly prohibited on the current staging host.
+  * In Milestone G2 ([`docs/engineering/reports/MILESTONE_G2_KATA_FEASIBILITY.md`](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_KATA_FEASIBILITY.md)), verified official Microsoft Learn specifications: **Azure does NOT support nested virtualization on ANY ARM-based VM series** (`Bps_v2`, `Dps_v5`, `Epsv5`).
+  * In Milestone G2.1 ([`docs/engineering/reports/MILESTONE_G2_1_MSHV_FEASIBILITY.md`](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_1_MSHV_FEASIBILITY.md)), audited the Microsoft Hypervisor (MSHV) interface. Proved that `/dev/mshv` is restricted to Hyper-V Root Partitions (hosts) and is completely blocked in Azure IaaS guest VMs (child partitions). AKS also explicitly marks ARM64 as unsupported for Kata MSHV sandboxing.
+  * Therefore, hardware microVM isolation on Azure requires migrating to an x86_64 VM with nested virtualization (`Standard_D2as_v5` with AMD EPYC, ~$40–$63/mo) or bare-metal ARM64 hosting.
+* **Status:** **CRITICAL and UNRESOLVED**. Mitigated for Phase C Staging via dedicated disposable single-tenant VM and Option C hardened wrapper jail. Finding SEC-001 remains **CRITICAL and UNRESOLVED** until hardware microVMs (Kata) are deployed on a virtualization-capable host in production. Active hostile-code container escape tests remain strictly prohibited on the current staging host.
 
 ---
 

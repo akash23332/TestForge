@@ -1,0 +1,30 @@
+# ==============================================================================
+# TestForge Architecture Blueprint: Kata Containers OCI Runtime Daemon Configuration
+# Purpose: Registers Kata Containers 3.x OCI runtime shims with Docker Engine
+# Safety: This is a static architectural template. DO NOT overwrite /etc/docker/daemon.json
+#         without a verified nested virtualization KVM host (/dev/kvm present).
+# ==============================================================================
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "3"
+  },
+  "default-cgroupns-mode": "private",
+  "runtimes": {
+    "kata-qemu": {
+      "path": "/usr/bin/containerd-shim-kata-v2",
+      "runtimeArgs": [
+        "--kata-config",
+        "/etc/kata-containers/configuration-qemu.toml"
+      ]
+    },
+    "kata-clh": {
+      "path": "/usr/bin/containerd-shim-kata-v2",
+      "runtimeArgs": [
+        "--kata-config",
+        "/etc/kata-containers/configuration-clh.toml"
+      ]
+    }
+  }
+}

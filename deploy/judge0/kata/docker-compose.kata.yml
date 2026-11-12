@@ -1,0 +1,40 @@
+# ==============================================================================
+# TestForge Architecture Blueprint: Compose Kata Containers Override
+# Purpose: Isolates judge0-workers inside a Kata MicroVM while preserving
+#          standard runc containers for DB, Redis, and Server.
+# Safety:  NON-EXECUTABLE ON AZURE ARM64 VMs (B2ps_v2 / D2ps_v5) due to lack
+#          of hardware nested virtualization (/dev/kvm).
+#          Requires an x86_64 virtualization host (e.g. Standard_D2as_v5) or
+#          bare-metal ARM64 host.
+# ==============================================================================
+version: "3.8"
+
+services:
+  judge0-workers:
+    # Kata Containers OCI runtime shim
+    # Encapsulates the container in a hardware KVM MicroVM with its own guest kernel.
+    runtime: kata-qemu
+    
+    # privileged: true is retained INSIDE the guest VM kernel ONLY.
+    # The guest kernel isolates device nodes, mounts, and cgroups from the host.
+    privileged: true
+    
+    # MicroVM guest memory and CPU limits
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 3072M
+        reservations:
+          cpus: "1.0"
+          memory: 1536M
+
+  # Redis, Database, and Web API remain on default runc (zero overhead)
+  judge0-server:
+    runtime: runc
+
+  judge0-db:
+    runtime: runc
+
+  judge0-redis:
+    runtime: runc

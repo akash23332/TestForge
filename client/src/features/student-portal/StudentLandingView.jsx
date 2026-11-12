@@ -18,7 +18,8 @@ import {
 export const StudentLandingView = ({
   onEnterPortal,
   onJoinWithCode,
-  onSignIn
+  onSignIn,
+  onNavigateHome
 }) => {
   const containerRef = useRef(null);
   const heroRef = useRef(null);
@@ -80,14 +81,25 @@ export const StudentLandingView = ({
 
         {/* Top Navigation */}
         <header className="relative z-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[#EDFF72] font-black text-[#191A1D] shadow-[0_4px_16px_rgba(237,255,114,0.35)]">
+          <div
+            onClick={onNavigateHome}
+            className="flex items-center gap-3 cursor-pointer select-none group"
+          >
+            <div className="flex size-10 items-center justify-center rounded-xl bg-[#EDFF72] font-black text-[#191A1D] shadow-[0_4px_16px_rgba(237,255,114,0.35)] group-hover:scale-105 transition-transform">
               TF
             </div>
             <span className="text-xl font-bold tracking-tight text-white">TestForge</span>
           </div>
 
           <nav className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-xl">
+            {onNavigateHome && (
+              <button
+                onClick={onNavigateHome}
+                className="rounded-full px-4 py-2 text-xs font-medium text-white/70 transition-colors hover:text-white"
+              >
+                ← Main Site
+              </button>
+            )}
             <button
               onClick={() => {
                 const el = document.getElementById('features-section');

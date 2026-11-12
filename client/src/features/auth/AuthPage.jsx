@@ -10,9 +10,15 @@ import {
   Loader2
 } from 'lucide-react';
 
-export const AuthPage = ({ onSuccess, onNavigateLanding }) => {
+export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher' }) => {
   // Role: 'teacher' | 'student'
-  const [role, setRole] = useState('teacher');
+  const [role, setRole] = useState(initialRole);
+
+  useEffect(() => {
+    if (initialRole) {
+      setRole(initialRole);
+    }
+  }, [initialRole]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

@@ -385,7 +385,7 @@ class Solution {
       ).rejects.toThrow(/Runner infrastructure error/);
     });
 
-    test('9. Candidate test generation ignores mutants that fail due to internal_error infrastructure faults', async () => {
+    test('9. Candidate test generation rejects when mutant execution suffers internal_error infrastructure fault', async () => {
       let callCount = 0;
       const mockProvider = {
         name: 'mock_provider',
@@ -409,16 +409,15 @@ class Solution {
         mutatedFullCode: 'function test(x) { return x >= 0 ? 1 : 0; }'
       };
 
-      const candidates = await synthesizeCandidateTests({
-        referenceCode: 'function test(x) { return x > 0 ? 1 : 0; }',
-        survivingMutants: [survivingMutant],
-        testCases: [{ input: '5', expectedOutput: '1' }],
-        questionContext: { language: 'javascript' },
-        provider: mockProvider
-      });
-
-      // Infrastructure failure must NOT be mistaken for a killed mutant, so 0 candidates emitted
-      expect(candidates).toEqual([]);
+      await expect(
+        synthesizeCandidateTests({
+          referenceCode: 'function test(x) { return x > 0 ? 1 : 0; }',
+          survivingMutants: [survivingMutant],
+          testCases: [{ input: '5', expectedOutput: '1' }],
+          questionContext: { language: 'javascript' },
+          provider: mockProvider
+        })
+      ).rejects.toThrow(/Runner infrastructure error/);
     });
   });
 

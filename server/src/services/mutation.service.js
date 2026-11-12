@@ -661,9 +661,9 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
         provider
       });
 
-      // Infrastructure failures do not count as valid behavioral differences
+      // Infrastructure failures must reject candidate synthesis and never be mistaken for behavioral differences
       if (mutRes.status === 'internal_error') {
-        continue;
+        throw new Error(`[MutationService] Runner infrastructure error during mutant candidate synthesis: ${mutRes.error || 'runner failed'}`);
       }
 
       const refOutputStr = typeof refRes.output === 'object' ? JSON.stringify(refRes.output) : String(refRes.output);

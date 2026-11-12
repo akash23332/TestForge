@@ -13,6 +13,7 @@ import { ProfileSettingsModal } from './features/profile/ProfileSettingsModal';
 import { StudentPortalContainer } from './features/student-portal/StudentPortalContainer';
 import { StudentDashboardView } from './features/student-portal/StudentDashboardView';
 import { StudentLandingView } from './features/student-portal/StudentLandingView';
+import { MainLandingPage } from './features/landing/MainLandingPage';
 import { TeacherExamsView } from './features/exam-management/TeacherExamsView';
 import { StudentsView } from './features/students/StudentsView';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
@@ -38,13 +39,6 @@ import {
 } from 'lucide-react';
 
 export const App = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [questions, setQuestions] = useState([]);
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const [editingQuestion, setEditingQuestion] = useState(null);
-  const [candidateExamCode, setCandidateExamCode] = useState('');
-  const [guestExamCode, setGuestExamCode] = useState(null);
-  const [health, setHealth] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('testforge_user');
@@ -53,6 +47,26 @@ export const App = () => {
       return null;
     }
   });
+
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('testforge_user');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u.role?.toLowerCase() === 'student') return 'student-dashboard';
+        return 'dashboard';
+      }
+    } catch {}
+    return 'landing';
+  });
+
+  const [authRole, setAuthRole] = useState('teacher');
+  const [questions, setQuestions] = useState([]);
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [candidateExamCode, setCandidateExamCode] = useState('');
+  const [guestExamCode, setGuestExamCode] = useState(null);
+  const [health, setHealth] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -86,7 +100,7 @@ export const App = () => {
     setQuestions([]);
     setEditingQuestion(null);
     setIsProfileOpen(false);
-    setActiveTab('login');
+    setActiveTab('landing');
   };
 
   const fetchQuestions = async () => {
@@ -149,57 +163,85 @@ export const App = () => {
   ];
 
   // 0. Direct guest candidate exam execution
-  if (guestExamCode) {
+  if (guestExamCode || activeTab === 'join-test') {
     return (
       <StudentPortalContainer
-        initialExamCode={guestExamCode}
+        initialExamCode={guestExamCode || ''}
         currentUser={currentUser}
-        onExit={() => setGuestExamCode(null)}
+        onExit={() => {
+          setGuestExamCode(null);
+          setActiveTab('landing');
+        }}
       />
     );
   }
 
-  // 1. Public Student Landing Page
+  // 1. Universal Main Landing Page (Public entry point for everyone)
+  if (
+    activeTab === 'landing' ||
+    (!currentUser && activeTab !== 'login' && activeTab !== 'student-landing')
+  ) {
+    return (
+      <MainLandingPage
+        onJoinTestWithCode={(code) => {
+          setGuestExamCode(code);
+        }}
+        onNavigateStudentPortal={() => {
+          setActiveTab('student-landing');
+        }}
+        onNavigateTeacherLogin={() => {
+          setAuthRole('teacher');
+          setActiveTab('login');
+        }}
+        onNavigateStudentLogin={() => {
+          setAuthRole('student');
+          setActiveTab('login');
+        }}
+      />
+    );
+  }
+
+  // 2. Public Student Landing Page (Preserved 3D Experience & Dedicated Student Entry)
   if (activeTab === 'student-landing') {
     return (
       <StudentLandingView
         onEnterPortal={() => {
           if (currentUser) {
-            if (currentUser.role === 'student' || currentUser.role === 'Student') {
+            if (currentUser.role?.toLowerCase() === 'student') {
               setActiveTab('student-dashboard');
             } else {
               setActiveTab('dashboard');
             }
           } else {
+            setAuthRole('student');
             setActiveTab('login');
           }
         }}
-        onJoinWithCode={() => {
-          const code = window.prompt('Enter your assessment access code (e.g. TF-DSA01):');
-          if (code && code.trim()) {
+        onJoinWithCode={(code) => {
+          if (code && typeof code === 'string' && code.trim()) {
             setGuestExamCode(code.trim().toUpperCase());
+          } else {
+            const promptCode = window.prompt('Enter your assessment access code (e.g. TF-DSA01):');
+            if (promptCode && promptCode.trim()) {
+              setGuestExamCode(promptCode.trim().toUpperCase());
+            }
           }
         }}
-        onSignIn={() => setActiveTab('login')}
+        onSignIn={() => {
+          setAuthRole('student');
+          setActiveTab('login');
+        }}
+        onNavigateHome={() => setActiveTab('landing')}
       />
     );
   }
 
-  // 2. If authenticated as a Student, render dedicated Student Examination Portal
-  if (currentUser && (currentUser.role?.toLowerCase() === 'student')) {
-    return (
-      <StudentDashboardView
-        currentUser={currentUser}
-        onSignOut={handleLogout}
-      />
-    );
-  }
-
-  // 3. If no user is logged in or user explicitly on login screen, render dedicated AuthPage
-  if (!currentUser || activeTab === 'login') {
+  // 3. Dedicated AuthPage (Teacher / Student Login)
+  if (activeTab === 'login') {
     return (
       <div className="h-[100svh] w-full overflow-hidden bg-[#0a0b0c]">
         <AuthPage
+          initialRole={authRole}
           onSuccess={(user) => {
             setCurrentUser(user);
             setSelectedQuestion(null);
@@ -212,16 +254,20 @@ export const App = () => {
               fetchQuestions();
             }
           }}
-          onNavigateLanding={() => setActiveTab('student-landing')}
-          onNavigateHome={() => {
-            if (!currentUser) {
-              setActiveTab('login');
-            } else {
-              setActiveTab('dashboard');
-            }
-          }}
+          onNavigateLanding={() => setActiveTab('landing')}
+          onNavigateHome={() => setActiveTab('landing')}
         />
       </div>
+    );
+  }
+
+  // 4. Authenticated Student Portal / Dashboard
+  if (currentUser && currentUser.role?.toLowerCase() === 'student') {
+    return (
+      <StudentDashboardView
+        currentUser={currentUser}
+        onSignOut={handleLogout}
+      />
     );
   }
 
