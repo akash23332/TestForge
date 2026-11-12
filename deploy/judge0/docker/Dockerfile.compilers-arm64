@@ -57,12 +57,15 @@ RUN mkdir -p /etc/apt/keyrings && \
     rm -rf /var/lib/apt/lists/*
 
 # 4. Compile and Install IOI Isolate Sandbox (Pinned to v1.10.1 for cgroups v1 stability)
+# Build specific program targets to avoid documentation generation (asciidoc/a2x) dependencies
 WORKDIR /tmp/isolate-build
 RUN git clone --depth 1 --branch v1.10.1 https://github.com/ioi/isolate.git . && \
-    make -j$(nproc) && \
+    make -j$(nproc) isolate isolate-check-environment && \
     make install && \
     chmod 4755 /usr/local/bin/isolate && \
     echo "dir /usr/local" >> /usr/local/etc/isolate && \
+    test -x /usr/local/bin/isolate && \
+    test -f /usr/local/etc/isolate && \
     cd / && rm -rf /tmp/isolate-build
 
 # 5. Compile OpenSSL 1.1.1 and Ruby 2.7.8 (Native ARM64 for Judge0 Rails Backend)

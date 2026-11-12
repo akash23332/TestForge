@@ -1,7 +1,10 @@
+import { config } from '../config/env.js';
+import { providerRegistry } from './execution/providerRegistry.js';
 import {
   runCodeIsolated,
   runJavaIsolated,
   runPythonIsolated,
+  runCppIsolated,
   detectLanguage,
   compareOutputs,
   parseInputArguments
@@ -9,13 +12,64 @@ import {
 
 /**
  * Executes code in an isolated runner based on language.
+ * Routes execution through the configured ExecutionProvider (Judge0 / RenderSandboxProvider)
+ * and strictly fails closed in production if no isolated provider is available.
  */
-export const executeIsolated = async ({ code, inputArgs, language = 'javascript', timeoutMs = 2500, questionContext = {} }) => {
+export const executeIsolated = async ({
+  code,
+  inputArgs,
+  language = 'javascript',
+  timeoutMs = 2500,
+  questionContext = {},
+  provider = null,
+  signal = null
+}) => {
   const lang = (language || detectLanguage(code, questionContext)).toLowerCase();
+  const isProd = config.env === 'production' || process.env.NODE_ENV === 'production';
+  const activeProvider = provider || providerRegistry.getProvider();
+
+  // FAIL-CLOSED PRODUCTION GATE:
+  // In production, direct host execution is strictly forbidden.
+  // Must use configured isolated execution provider (RenderSandboxProvider / Judge0).
+  if (isProd) {
+    if (!activeProvider || activeProvider.name === 'local' || activeProvider.name === 'mock') {
+      return {
+        status: 'internal_error',
+        output: null,
+        error: '[MutationService FAIL-CLOSED] No hardened execution provider available. Direct host execution is forbidden in production.',
+        runtimeMs: 0
+      };
+    }
+    return await activeProvider.executeCode({
+      language: lang,
+      code,
+      inputArgs,
+      timeoutMs,
+      questionContext,
+      signal
+    });
+  }
+
+  // In non-production (development / test):
+  // If an explicit provider is passed, use it.
+  if (provider) {
+    return await provider.executeCode({
+      language: lang,
+      code,
+      inputArgs,
+      timeoutMs,
+      questionContext,
+      signal
+    });
+  }
+
+  // Non-production local execution fallback for testing mutant evaluation
   if (lang === 'java') {
     return await runJavaIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
   } else if (lang === 'python') {
     return await runPythonIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 3000) });
+  } else if (lang === 'cpp') {
+    return await runCppIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
   } else {
     return await runCodeIsolated({ code, inputArgs, timeoutMs: Math.min(timeoutMs, 2000) });
   }
@@ -422,7 +476,7 @@ export const generateMutants = (code, language = 'javascript') => {
 /**
  * Runs all mutants against test cases and finds surviving mutants.
  */
-export const evaluateMutants = async ({ referenceCode, testCases = [], questionContext = {}, customMutants = null }) => {
+export const evaluateMutants = async ({ referenceCode, testCases = [], questionContext = {}, customMutants = null, provider = null }) => {
   const lang = detectLanguage(referenceCode, questionContext);
   const generated = customMutants && Array.isArray(customMutants) ? customMutants : generateMutants(referenceCode, lang);
   const mutantResults = [];
@@ -447,7 +501,8 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
         inputArgs: parsedArgs,
         language: lang,
         timeoutMs: 2500,
-        questionContext
+        questionContext,
+        provider
       });
 
       execDuration += res.runtimeMs || 0;
@@ -457,6 +512,11 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
         isCompilationError = true;
         compilationErrorMessage = res.error || 'Compilation or syntax error occurred';
         break;
+      }
+
+      // Infrastructure errors from runner must fail evaluation and never be counted as killed mutants
+      if (res.status === 'internal_error') {
+        throw new Error(`[MutationService] Runner infrastructure error during mutant execution: ${res.error || 'Internal error'}`);
       }
 
       // Mutant is killed if it threw a runtime exception or timed out on valid compiled code
@@ -526,7 +586,7 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
  * Synthesizes candidate test cases to kill surviving mutants.
  * Each candidate is strictly executed against both reference solution and mutant before being recommended.
  */
-export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants = [], testCases = [], questionContext = {} }) => {
+export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants = [], testCases = [], questionContext = {}, provider = null }) => {
   if (!survivingMutants || survivingMutants.length === 0) return [];
 
   const lang = detectLanguage(referenceCode, questionContext);
@@ -583,7 +643,8 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
         inputArgs: parsedArgs,
         language: lang,
         timeoutMs: 2500,
-        questionContext
+        questionContext,
+        provider
       });
 
       if (refRes.status !== 'success' || refRes.output === null || refRes.output === undefined) {
@@ -596,13 +657,20 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
         inputArgs: parsedArgs,
         language: lang,
         timeoutMs: 2500,
-        questionContext
+        questionContext,
+        provider
       });
+
+      // Infrastructure failures do not count as valid behavioral differences
+      if (mutRes.status === 'internal_error') {
+        continue;
+      }
 
       const refOutputStr = typeof refRes.output === 'object' ? JSON.stringify(refRes.output) : String(refRes.output);
 
-      // Candidate successfully kills the mutant if mutant fails/times out or produces a different result
-      const mutantDiffers = mutRes.status !== 'success' || !compareOutputs(mutRes.output, refOutputStr, questionContext);
+      // Candidate successfully kills the mutant if mutant throws runtime error, times out, or produces a different result
+      const mutantFails = mutRes.status === 'timeout' || mutRes.status === 'runtime_error';
+      const mutantDiffers = mutantFails || (mutRes.status === 'success' && !compareOutputs(mutRes.output, refOutputStr, questionContext));
 
       if (mutantDiffers) {
         candidateTests.push({

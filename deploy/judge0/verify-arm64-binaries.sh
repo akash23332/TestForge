@@ -57,18 +57,35 @@ BINARIES=(
 
 # Use empty entrypoint override (--entrypoint "") to bypass Rails/app startup logic (B-05)
 for bin in "${BINARIES[@]}"; do
-  if ! docker run --rm --entrypoint "" "$IMAGE_NAME" test -x "$bin" 2>/dev/null; then
-    fail "$bin is missing or not executable inside container"
+  target_bin="$bin"
+  u_flag=()
+  if [ "$bin" = "/usr/local/bin/isolate" ]; then
+    # With Option C binary diversion, /usr/local/bin/isolate is the root-owned wrapper script,
+    # and /usr/local/bin/isolate-bin is the 0700 root:root real ELF binary.
+    if docker run --rm -u 0 --entrypoint "" "$IMAGE_NAME" test -f "/usr/local/bin/isolate-bin" 2>/dev/null; then
+      target_bin="/usr/local/bin/isolate-bin"
+      u_flag=(-u 0)
+      # Verify unprivileged user cannot directly read or execute isolate-bin (Option C verification)
+      if docker run --rm --entrypoint "" "$IMAGE_NAME" test -x "/usr/local/bin/isolate-bin" 2>/dev/null; then
+        fail "CRITICAL: /usr/local/bin/isolate-bin is executable by unprivileged user (Option C bypass!)"
+      else
+        pass "/usr/local/bin/isolate-bin is restricted from unprivileged execution (Option C enforced)"
+      fi
+    fi
+  fi
+
+  if ! docker run --rm "${u_flag[@]}" --entrypoint "" "$IMAGE_NAME" test -x "$target_bin" 2>/dev/null; then
+    fail "$target_bin is missing or not executable inside container"
     continue
   fi
 
-  FILE_INFO=$(docker run --rm --entrypoint "" "$IMAGE_NAME" file -L "$bin" 2>/dev/null || echo "ERROR")
+  FILE_INFO=$(docker run --rm "${u_flag[@]}" --entrypoint "" "$IMAGE_NAME" file -L "$target_bin" 2>/dev/null || echo "ERROR")
   if [ "$FILE_INFO" = "ERROR" ] || [ -z "$FILE_INFO" ]; then
-    fail "Failed to read ELF header for $bin (command exited with error)"
+    fail "Failed to read ELF header for $target_bin (command exited with error)"
   elif echo "$FILE_INFO" | grep -qiE "aarch64|ARM aarch64"; then
-    pass "$bin is native 64-bit ARM ($FILE_INFO)"
+    pass "$target_bin is native 64-bit ARM ($FILE_INFO)"
   else
-    fail "$bin is NOT native ARM64: $FILE_INFO"
+    fail "$target_bin is NOT native ARM64: $FILE_INFO"
   fi
 done
 
@@ -135,9 +152,11 @@ for sym in "${SYMLINKS[@]}"; do
   fi
 done
 
-# 5. Verify In-Container Native Compilation & Execution for Supported Languages
+# 5. Direct Docker Container Compiler Sanity Tests (NOT Isolate Sandbox Tests)
 echo ""
-echo "── 5. In-Container Compiler & Interpreter Execution Sanity Tests ──"
+echo "── 5. Direct Docker Container Compiler Sanity Tests (NOT Isolate Sandbox Tests) ──"
+echo "  [Note: Verifies compiler toolchain functionality inside the container;"
+echo "   Isolate kernel sandbox isolation boundaries are tested separately by verify-cgroups-isolate.sh]"
 
 # C++ (ID 54)
 CPP_TEST=$(docker run --rm --entrypoint /bin/bash "$IMAGE_NAME" -c '

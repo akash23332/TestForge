@@ -40,7 +40,8 @@ export const validateLogin = (req, res, next) => {
     }),
     password: Joi.string().required().messages({
       'any.required': 'Password is required.'
-    })
+    }),
+    role: Joi.string().trim().lowercase().valid('teacher', 'student', 'faculty', 'candidate', 'admin').optional()
   });
 
   const { error, value } = schema.validate(req.body, { abortEarly: false });

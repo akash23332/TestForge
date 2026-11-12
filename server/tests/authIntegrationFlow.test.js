@@ -315,4 +315,40 @@ describe('Part B: Critical Authentication Flow Tests', () => {
     expect(res.body.data.user.role).toBe('student');
     expect(res.body.data.user.email).toBe('student@testforge.edu');
   });
+
+  // ── Scenario 14: Student account logging in with role 'teacher' rejected ──
+  test('14. Student account attempting login with role=teacher returns 403 Forbidden', async () => {
+    jest.spyOn(User, 'findOne').mockResolvedValue(studentMockDoc);
+
+    const req = { body: { email: 'student@testforge.edu', password: 'Student@123', role: 'teacher' } };
+    const res = createMockRes();
+    const next = jest.fn();
+
+    await login(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 403,
+        message: 'This account is not registered as faculty.'
+      })
+    );
+  });
+
+  // ── Scenario 15: Teacher account logging in with role=student rejected ────
+  test('15. Teacher account attempting login with role=student returns 403 Forbidden', async () => {
+    jest.spyOn(User, 'findOne').mockResolvedValue(teacherMockDoc);
+
+    const req = { body: { email: 'teacher@testforge.edu', password: 'Teacher@123', role: 'student' } };
+    const res = createMockRes();
+    const next = jest.fn();
+
+    await login(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 403,
+        message: 'This account is not registered as a student.'
+      })
+    );
+  });
 });

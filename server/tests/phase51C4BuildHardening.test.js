@@ -56,7 +56,7 @@ describe('Phase 5.1C-4: ARM64 Build Pipeline Hardening Suite', () => {
 
     test('inspects Buildx configuration for native linux/arm64 builder support', () => {
       expect(buildArm64Content).toMatch(/docker buildx inspect/);
-      expect(buildArm64Content).toMatch(/Current Docker Buildx builder does not support linux\/arm64 natively/);
+      expect(buildArm64Content).toMatch(/Current Docker Buildx builder does not (support|list native) linux\/arm64/);
     });
   });
 
@@ -85,8 +85,8 @@ describe('Phase 5.1C-4: ARM64 Build Pipeline Hardening Suite', () => {
       expect(envExampleContent).toMatch(new RegExp(`# JUDGE0_IMAGE=${JUDGE0_ARM64_IMAGE.replace(/\./g, '\\.')}`));
     });
 
-    test('docker-compose.yml uses ${JUDGE0_IMAGE:-judge0/judge0:v1.13.1} override pattern', () => {
-      expect(dockerComposeContent).toMatch(/image:\s*\$\{JUDGE0_IMAGE:-judge0\/judge0:v1\.13\.1\}/);
+    test('docker-compose.yml enforces fail-closed required JUDGE0_IMAGE variable pattern', () => {
+      expect(dockerComposeContent).toMatch(/image:\s*["']?\$\{JUDGE0_IMAGE:\?FATAL: JUDGE0_IMAGE must be set in \.env/);
     });
   });
 
@@ -125,9 +125,9 @@ describe('Phase 5.1C-4: ARM64 Build Pipeline Hardening Suite', () => {
   });
 
   describe('B-06: Restrict Privilege Escalation in Dockerfile.judge0-arm64', () => {
-    test('replaces unrestricted NOPASSWD: ALL with narrow sudoers rules', () => {
+    test('replaces unrestricted NOPASSWD: ALL with narrow sudoers rules and service wrapper', () => {
       expect(judge0DockerfileContent).not.toMatch(/judge0 ALL=\(ALL\) NOPASSWD: ALL/);
-      expect(judge0DockerfileContent).toMatch(/judge0 ALL=\(ALL\) NOPASSWD: \/usr\/sbin\/service, \/etc\/init\.d\/cron, \/usr\/sbin\/cron, \/usr\/local\/bin\/isolate/);
+      expect(judge0DockerfileContent).toMatch(/judge0 ALL=\(ALL\) NOPASSWD: \/usr\/local\/bin\/start-cron-daemon, \/usr\/local\/bin\/isolate-wrapper(, \/usr\/local\/bin\/isolate)?, \/usr\/sbin\/service cron start, \/etc\/init\.d\/cron start/);
     });
 
     test('enforces strict permissions (0440) on /etc/sudoers.d/judge0', () => {
@@ -164,8 +164,9 @@ describe('Phase 5.1C-4: ARM64 Build Pipeline Hardening Suite', () => {
     });
 
     test('removes || true from isolate cleanup verification in verify-cgroups-isolate.sh', () => {
-      expect(verifyCgroupsContent).toMatch(/if docker compose exec -T judge0-workers isolate --cleanup --box-id=\$BOX_ID &>\/dev\/null; then/);
-      expect(verifyCgroupsContent).not.toMatch(/isolate --cleanup --box-id=\$BOX_ID &>\/dev\/null \|\| true\s+pass "isolate --cleanup succeeded"/);
+      expect(verifyCgroupsContent).toMatch(/CLEAN_OUT=\$\(docker compose exec -T judge0-workers isolate --cleanup --box-id=\$BOX_ID --cg 2>&1\)/);
+      expect(verifyCgroupsContent).toMatch(/CLEAN_EXIT=\$\?/);
+      expect(verifyCgroupsContent).not.toMatch(/isolate --cleanup --box-id=\$BOX_ID.*\|\|\s*true/);
     });
   });
 

@@ -1,0 +1,77 @@
+# ==============================================================================
+# TestForge Dedicated Execution Runner - Hardened Judge0 CE v1.13.1 Configuration
+# Verified against official Judge0 v1.13.1 source code
+# (ALL SENSITIVE TOKENS & PASSWORDS REDACTED FOR AUDIT COMPLIANCE)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. API Authentication & Authorization
+# Ref: config/initializers/authentication.rb, app/controllers/application_controller.rb
+# ------------------------------------------------------------------------------
+# Public submissions require X-Auth-Token header or query parameter
+AUTHN_HEADER=X-Auth-Token
+AUTHN_TOKEN=[REDACTED_AUTHN_TOKEN_MIN_32_CHARS]
+
+# Administrative endpoints (/system_info, /config, /workers) require X-Auth-User
+AUTHZ_HEADER=X-Auth-User
+AUTHZ_TOKEN=[REDACTED_AUTHZ_TOKEN_MIN_32_CHARS]
+
+# Telemetry Correlation Key (Keyed HMAC for opaque submission token hashing - Phase 5.1C-11)
+# MANDATORY: Must be explicitly defined and at least 32 characters (256 bits).
+# Fail-closed: No fallback to Rails secret_key_base permitted. File permissions should be 0600 or 0640.
+CORRELATION_KEY=[REDACTED_CORRELATION_KEY_MIN_32_CHARS]
+
+# ------------------------------------------------------------------------------
+# 2. Network Isolation (Zero Egress Policy)
+# Ref: app/models/submission.rb (isolate --share-net)
+# ------------------------------------------------------------------------------
+# Default network access for submissions: false (unshares network namespace)
+ENABLE_NETWORK=false
+
+# MANDATORY SECURITY GUARD: Prevent submission payloads from overriding network isolation
+ALLOW_ENABLE_NETWORK=false
+
+# ------------------------------------------------------------------------------
+# 3. Default Submission Resource Constraints
+# Ref: app/models/submission.rb, app/jobs/isolate_job.rb
+# ------------------------------------------------------------------------------
+CPU_TIME_LIMIT=3.0
+CPU_EXTRA_TIME=0.5
+WALL_TIME_LIMIT=5.0
+MEMORY_LIMIT=256000
+STACK_LIMIT=64000
+MAX_PROCESSES_AND_OR_THREADS=60
+MAX_FILE_SIZE=10240
+
+# Aggregate cgroup accounting enforcement (requires cgroups v1)
+# When set to false, CPU and memory limits apply to the entire cgroup process tree
+ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=false
+ALLOW_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=false
+
+ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=false
+ALLOW_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=false
+
+# ------------------------------------------------------------------------------
+# 4. Absolute Maximum Ceilings (Clamps or rejects client-side override requests)
+# ------------------------------------------------------------------------------
+MAX_CPU_TIME_LIMIT=10.0
+MAX_CPU_EXTRA_TIME=1.0
+MAX_WALL_TIME_LIMIT=15.0
+MAX_MEMORY_LIMIT=512000
+MAX_STACK_LIMIT=128000
+MAX_MAX_PROCESSES_AND_OR_THREADS=128
+MAX_MAX_FILE_SIZE=20480
+
+# ------------------------------------------------------------------------------
+# 5. Database & Cache Credentials
+# ------------------------------------------------------------------------------
+REDIS_PASSWORD=[REDACTED_REDIS_PASSWORD]
+POSTGRES_PASSWORD=[REDACTED_POSTGRES_PASSWORD]
+
+# ------------------------------------------------------------------------------
+# 6. Submission Execution Behavior
+# ------------------------------------------------------------------------------
+NUMBER_OF_RUNS=1
+REDIRECT_STDERR_TO_STDOUT=false
+SUBMISSION_CACHE_DURATION=0
+RESUBMIT_OUT_OF_MEMORY=false

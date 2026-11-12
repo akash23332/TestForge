@@ -58,7 +58,7 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
     const user = await User.findOne({ email: cleanEmail });
@@ -69,6 +69,25 @@ export const login = async (req, res, next) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       throw ApiError.unauthorized('Invalid email or password.');
+    }
+
+    // Role verification: ensure user account matches the expected portal tab
+    if (role) {
+      const expectedRole = String(role).trim().toLowerCase();
+      const userRole = String(user.role || '').toLowerCase();
+
+      if ((expectedRole === 'teacher' || expectedRole === 'faculty') && userRole !== 'teacher' && userRole !== 'admin') {
+        throw ApiError.forbidden('This account is not registered as faculty.');
+      }
+
+      if ((expectedRole === 'student' || expectedRole === 'candidate') && userRole !== 'student') {
+        throw ApiError.forbidden('This account is not registered as a student.');
+      }
+    }
+
+    // Check account status if configured
+    if (user.isActive === false || user.status === 'disabled') {
+      throw ApiError.forbidden('Your account has not been approved or has been disabled.');
     }
 
     const token = generateToken(user);

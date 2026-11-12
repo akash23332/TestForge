@@ -91,7 +91,8 @@ describe('Phase 4: RenderSandboxProvider Protocol & Resilience Tests', () => {
       });
 
       const provider = new RenderSandboxProvider({
-        endpoint: 'https://sandbox.testforge.internal'
+        endpoint: 'https://sandbox.testforge.internal',
+        providerType: 'testforge_sandbox'
       });
 
       const res = await provider.executeCode({
@@ -111,7 +112,8 @@ describe('Phase 4: RenderSandboxProvider Protocol & Resilience Tests', () => {
       global.fetch = jest.fn().mockRejectedValue(timeoutError);
 
       const provider = new RenderSandboxProvider({
-        endpoint: 'https://sandbox.testforge.internal'
+        endpoint: 'https://sandbox.testforge.internal',
+        providerType: 'testforge_sandbox'
       });
 
       const res = await provider.executeCode({

@@ -1,0 +1,81 @@
+diff --git a/app/jobs/isolate_job.rb b/app/jobs/isolate_job.rb
+index 52db05e..6d52dfa 100644
+--- a/app/jobs/isolate_job.rb
++++ b/app/jobs/isolate_job.rb
+@@ -53,12 +53,41 @@ class IsolateJob < ApplicationJob
+   private
+ 
+   def initialize_workdir
++    # Validate CORRELATION_KEY before invoking Isolate (Phase 5.1C-13 / Finding C13-02)
++    correlation_key = ENV["CORRELATION_KEY"].to_s
++    if correlation_key.blank? || correlation_key.bytesize < 32
++      raise "CORRELATION_KEY environment variable is required and must be at least 32 bytes"
++    end
++    token_hash = OpenSSL::HMAC.hexdigest("SHA256", correlation_key, submission.token.to_s)
++    @run_idx = (@run_idx ? @run_idx + 1 : 1)
++    @execution_id = "#{token_hash}-run#{@run_idx}-#{Time.now.to_i}-#{SecureRandom.hex(8)}"
++
+     @box_id = submission.id%2147483647
+     @cgroups = (!submission.enable_per_process_and_thread_time_limit || !submission.enable_per_process_and_thread_memory_limit) ? "--cg" : ""
+-    @workdir = `isolate #{cgroups} -b #{box_id} --init`.chomp
+-    @boxdir = workdir + "/box"
+-    @tmpdir = workdir + "/tmp"
+-    @source_file = boxdir + "/" + submission.language.source_file.to_s
++    cmd = ["isolate"]
++    cmd << "--cg" if defined?(cgroups) && cgroups.present?
++    cmd += ["-b", box_id.to_s, "--init"]
++    stdout_str, stderr_str, status = Open3.capture3(*cmd)
++    init_output = stdout_str.chomp
++    init_status = status.exitstatus
++    if init_status != 0 || init_output.blank? || !Dir.exist?(init_output)
++      Rails.logger.error("[CORRELATION_INIT_FAILED] box_id=#{box_id} exitstatus=#{init_status} output=#{init_output.inspect} stderr=#{stderr_str.inspect}")
++      raise "Failed to initialize sandbox #{box_id}: exitstatus=#{init_status}"
++    end
++    @workdir = init_output
++    Rails.logger.info("[CORRELATION] token_hash=#{token_hash} execution_id=#{@execution_id} box_id=#{box_id} run_idx=#{@run_idx} timestamp=#{Time.now.to_i}")
++    begin
++      @boxdir = workdir + "/box"
++      @tmpdir = workdir + "/tmp"
++      @source_file = boxdir + "/" + submission.language.source_file.to_s
++    rescue => e
++      begin
++        cleanup(false)
++      rescue => ce
++        Rails.logger.error("[CORRELATION_CLEANUP_FAILED] box_id=#{box_id} error=#{ce.message}")
++      end
++      raise e
++    end
+     @stdin_file = workdir + "/" + STDIN_FILE_NAME
+     @stdout_file = workdir + "/" + STDOUT_FILE_NAME
+     @stderr_file = workdir + "/" + STDERR_FILE_NAME
+@@ -273,13 +302,28 @@ class IsolateJob < ApplicationJob
+   end
+ 
+   def cleanup(raise_exception = true)
++    return unless defined?(@box_id) && @box_id
+     fix_permissions
+     `sudo rm -rf #{boxdir}/* #{tmpdir}/*`
+     [stdin_file, stdout_file, stderr_file, metadata_file].each do |f|
+       `sudo rm -rf #{f}`
+     end
+-    `isolate #{cgroups} -b #{box_id} --cleanup`
+-    raise "Cleanup of sandbox #{box_id} failed." if raise_exception && Dir.exists?(workdir)
++    cmd = ["isolate"]
++    cmd << "--cg" if defined?(cgroups) && cgroups.present?
++    cmd += ["-b", box_id.to_s, "--cleanup"]
++    stdout_str, stderr_str, status = Open3.capture3(*cmd)
++    cleanup_status = status.exitstatus
++    workdir_exists = Dir.exist?(workdir)
++    if cleanup_status == 0 && !workdir_exists
++      if defined?(@execution_id) && @execution_id
++        Rails.logger.info("[CORRELATION_CLEANUP] status=SUCCESS execution_id=#{@execution_id} box_id=#{box_id} timestamp=#{Time.now.to_i}")
++      end
++    else
++      if defined?(@execution_id) && @execution_id
++        Rails.logger.error("[CORRELATION_CLEANUP] status=FAILED exitstatus=#{cleanup_status} stderr=#{stderr_str.inspect} workdir_exists=#{workdir_exists} execution_id=#{@execution_id} box_id=#{box_id} timestamp=#{Time.now.to_i}")
++      end
++      raise "Cleanup of sandbox #{box_id} failed." if raise_exception && workdir_exists
++    end
+   end
+ 
+   def reset_metadata_file

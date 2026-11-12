@@ -48,20 +48,22 @@ if [ "$DOCKER_SERVER_ARCH" != "aarch64" ] && [ "$DOCKER_SERVER_ARCH" != "arm64" 
   exit 1
 fi
 
-# Verify Buildx configuration does not silently use emulation
+# 3. Verify Buildx and Emulation Subsystems
+echo "Verifying Docker engine and Buildx native architecture..."
 if docker buildx version &>/dev/null; then
   CURRENT_BUILDER=$(docker buildx inspect 2>/dev/null || echo "")
   if echo "$CURRENT_BUILDER" | grep -qi "Platforms:" && ! echo "$CURRENT_BUILDER" | grep -qi "linux/arm64"; then
-    echo "[FATAL] Current Docker Buildx builder does not support linux/arm64 natively."
+    echo "[FATAL] Current Docker Buildx builder does not list native linux/arm64 in supported platforms."
     exit 1
   fi
+  echo "✔ Buildx builder supports native linux/arm64."
 fi
 
-# Assert binfmt_misc emulation is not intercepting native execution
+# Inspect binfmt_misc to ensure QEMU user emulation is not intercepting native binaries
 if [ -f "/proc/sys/fs/binfmt_misc/qemu-aarch64" ]; then
   if grep -q "enabled" "/proc/sys/fs/binfmt_misc/qemu-aarch64" 2>/dev/null; then
-    echo "[WARNING] qemu-aarch64 binfmt handler is registered on host."
-    echo "Verifying that container execution is native..."
+    echo "[NOTICE] Host kernel has registered qemu-aarch64 in binfmt_misc."
+    echo "Verifying that native container execution bypasses emulation..."
   fi
 fi
 
@@ -74,7 +76,7 @@ docker build \
   --platform "$TARGET_PLATFORM" \
   -t "testforge/compilers:v1.4.0-arm64" \
   -f "$DOCKER_DIR/Dockerfile.compilers-arm64" \
-  "$DOCKER_DIR"
+  "$SCRIPT_DIR"
 
 echo "  ✔ testforge/compilers:v1.4.0-arm64 built successfully."
 
@@ -85,7 +87,7 @@ docker build \
   --platform "$TARGET_PLATFORM" \
   -t "testforge/judge0:v1.13.1-arm64" \
   -f "$DOCKER_DIR/Dockerfile.judge0-arm64" \
-  "$DOCKER_DIR"
+  "$SCRIPT_DIR"
 
 echo "  ✔ testforge/judge0:v1.13.1-arm64 built successfully."
 

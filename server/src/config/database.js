@@ -23,10 +23,11 @@ export const connectDatabase = async (uri = config.mongodb.uri) => {
     console.warn('\x1b[33m[MongoDB] Connection disconnected.\x1b[0m');
   });
 
+  const isTest = process.env.NODE_ENV === 'test' || config.env === 'test';
   try {
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 20000
+      serverSelectionTimeoutMS: isTest ? 1000 : 15000,
+      connectTimeoutMS: isTest ? 1500 : 20000
     });
     isConnected = true;
     return conn;

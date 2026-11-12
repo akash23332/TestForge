@@ -180,7 +180,16 @@ docker compose pull judge0-db judge0-redis
 # Verify Judge0 image availability strictly adhering to host architecture policy
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
   if docker image inspect "$TARGET_JUDGE0_IMAGE" &>/dev/null; then
-    echo "Verified native ARM64 Judge0 image present in Docker cache: $TARGET_JUDGE0_IMAGE"
+    # Validate the architecture of the local image (fails closed if non-ARM64)
+    RESOLVED_IMG_ARCH=$(docker image inspect "$TARGET_JUDGE0_IMAGE" --format '{{.Architecture}}' 2>/dev/null || echo "UNKNOWN")
+    if [ "$RESOLVED_IMG_ARCH" != "arm64" ] && [ "$RESOLVED_IMG_ARCH" != "aarch64" ]; then
+      echo "----------------------------------------------------------------------"
+      echo "[FATAL] Image '$TARGET_JUDGE0_IMAGE' architecture is '$RESOLVED_IMG_ARCH', expected 'arm64' or 'aarch64'."
+      echo "Refusing to deploy non-ARM64 image on an ARM64 host. Emulation is prohibited."
+      echo "----------------------------------------------------------------------"
+      exit 1
+    fi
+    echo "Verified native ARM64 Judge0 image present in Docker cache: $TARGET_JUDGE0_IMAGE ($RESOLVED_IMG_ARCH)"
   else
     echo "----------------------------------------------------------------------"
     echo "[FATAL] Required ARM64 Judge0 image '$TARGET_JUDGE0_IMAGE' not found in local Docker cache."
@@ -193,7 +202,8 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
   fi
 else
   if docker image inspect "$TARGET_JUDGE0_IMAGE" &>/dev/null; then
-    echo "Verified Judge0 image in local Docker cache: $TARGET_JUDGE0_IMAGE"
+    RESOLVED_IMG_ARCH=$(docker image inspect "$TARGET_JUDGE0_IMAGE" --format '{{.Architecture}}' 2>/dev/null || echo "UNKNOWN")
+    echo "Verified Judge0 image in local Docker cache: $TARGET_JUDGE0_IMAGE ($RESOLVED_IMG_ARCH)"
   else
     echo "Image '$TARGET_JUDGE0_IMAGE' not found locally. Pulling from registry..."
     docker compose pull judge0-server judge0-workers

@@ -198,7 +198,7 @@ export const App = () => {
   // 3. If no user is logged in or user explicitly on login screen, render dedicated AuthPage
   if (!currentUser || activeTab === 'login') {
     return (
-      <div className="min-h-screen bg-[#F2F3F0]">
+      <div className="h-[100svh] w-full overflow-hidden bg-[#0a0b0c]">
         <AuthPage
           onSuccess={(user) => {
             setCurrentUser(user);

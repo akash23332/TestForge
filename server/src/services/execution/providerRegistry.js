@@ -19,8 +19,9 @@ class ExecutionProviderRegistry {
       this.register('local', new LocalExecutionProvider({ allowLocalExecution: true }));
     }
 
-    // Select initial provider from configuration (defaults to mock in Phase 3)
-    const configuredProvider = config.execution?.provider || 'mock';
+    // Select initial provider from configuration (defaults to render_sandbox in production, mock in dev/test)
+    const isProd = config.env === 'production' || process.env.NODE_ENV === 'production';
+    const configuredProvider = config.execution?.provider || (isProd ? 'render_sandbox' : 'mock');
     this.setActiveProvider(configuredProvider);
   }
 
@@ -66,6 +67,7 @@ class ExecutionProviderRegistry {
 
   /**
    * Returns the currently active execution provider, or a named provider.
+   * In production, never falls back to mock or local.
    * @param {string} [name]
    * @returns {import('./ExecutionProvider.interface.js').ExecutionProvider}
    */
@@ -78,7 +80,16 @@ class ExecutionProviderRegistry {
       return p;
     }
     if (!this.activeProviderInstance) {
-      this.activeProviderInstance = this.providers.get('mock');
+      const isProd = config.env === 'production' || process.env.NODE_ENV === 'production';
+      if (isProd) {
+        const prodProvider = this.providers.get('render_sandbox');
+        if (!prodProvider) {
+          throw new Error('[ExecutionRegistry FAIL-CLOSED] No hardened execution provider registered in production. Fallback to mock or local is strictly prohibited.');
+        }
+        this.activeProviderInstance = prodProvider;
+      } else {
+        this.activeProviderInstance = this.providers.get('mock');
+      }
     }
     return this.activeProviderInstance;
   }

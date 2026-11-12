@@ -1,0 +1,2488 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 3959 >>
+stream
+q 0.05 0.12 0.28 rg 0 0 595 842 re f Q
+q 0.12 0.35 0.65 rg 40 700 515 90 re f Q
+BT /F4 20 Tf 1 1 1 rg 60 745 Td (TESTFORGE VERIFICATION ARTIFACTS) Tj ET
+BT /F4 13 Tf 0.85 0.92 1 rg 60 720 Td (Phase 5.1C-12: Final Source-Level Verification Corrections) Tj ET
+BT /F4 11 Tf 1 1 1 rg 60 660 Td (OFFICIAL SOURCE FILES & CODE ARTIFACTS) Tj ET
+BT /F3 10 Tf 0.85 0.85 0.85 rg 60 642 Td (Date: November 12, 2026 | Environment: ARM64 Ubuntu 22.04 LTS / cgroups v1) Tj ET
+BT /F3 10 Tf 0.85 0.85 0.85 rg 60 626 Td (Repository-Only Implementation | All Secrets Redacted) Tj ET
+q 1 1 1 RG 0.5 w 60 610 m 535 610 l S Q
+BT /F4 12 Tf 0.95 0.95 0.95 rg 60 580 Td (INCLUDED SOURCE FILES:) Tj ET
+BT /F4 10 Tf 0.3 0.8 1 rg 60 550 Td (1. [SHELL SCRIPT \\)BASH\)]) Tj ET
+BT /F4 10 Tf 1 1 1 rg 240 550 Td (Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 9 Tf 0.8 0.8 0.8 rg 75 536 Td (Path: deploy/judge0/verify-resource-accounting.sh) Tj ET
+BT /F3 8.5 Tf 0.7 0.7 0.7 rg 75 524 Td (Pre-dispatch key & permissions checks, strict execution ID regex, single exact attempt binding, no || true on docker logs, and UNKNOWN/FAIL cleanup handling.) Tj ET
+BT /F4 10 Tf 0.3 0.8 1 rg 60 504 Td (2. [SECURITY WRAPPER \\)BASH\)]) Tj ET
+BT /F4 10 Tf 1 1 1 rg 240 504 Td (Constrained Root-Owned Isolate Invocation Wrapper) Tj ET
+BT /F3 9 Tf 0.8 0.8 0.8 rg 75 490 Td (Path: deploy/judge0/docker/isolate-wrapper.sh) Tj ET
+BT /F3 8.5 Tf 0.7 0.7 0.7 rg 75 478 Td (Root-owned argument sanitizing wrapper restricting non-root worker to --init, --cleanup, and bounded --run, strictly preventing dangerous mounts or network sharing.) Tj ET
+BT /F4 10 Tf 0.3 0.8 1 rg 60 458 Td (3. [CONTAINER BUILD SCRIPT]) Tj ET
+BT /F4 10 Tf 1 1 1 rg 240 458 Td (Judge0 ARM64 Custom Dockerfile \\)40-char SHA Pinned\)) Tj ET
+BT /F3 9 Tf 0.8 0.8 0.8 rg 75 444 Td (Path: deploy/judge0/docker/Dockerfile.judge0-arm64) Tj ET
+BT /F3 8.5 Tf 0.7 0.7 0.7 rg 75 432 Td (Exact 40-character commit SHA pinned \\)ffd7a48cc6da86d6ac155ef10dbd67d02736070b\), isolate-wrapper copied with root:root 0755, and privileged mode host-risk disclosure.) Tj ET
+BT /F4 10 Tf 0.3 0.8 1 rg 60 412 Td (4. [SOURCE PATCH \\)GIT DIFF\)]) Tj ET
+BT /F4 10 Tf 1 1 1 rg 240 412 Td (Judge0 IsolateJob Correlation Patch \\)Harden v2\)) Tj ET
+BT /F3 9 Tf 0.8 0.8 0.8 rg 75 398 Td (Path: deploy/judge0/docker/patches/isolate_job_correlation.patch) Tj ET
+BT /F3 8.5 Tf 0.7 0.7 0.7 rg 75 386 Td (Validated patch checking init exit status, directory presence, 32-byte key requirement, 64-hex HMAC, run index, and accurate cleanup status.) Tj ET
+BT /F4 10 Tf 0.3 0.8 1 rg 60 366 Td (5. [JAVASCRIPT \\)JEST ESM\)]) Tj ET
+BT /F4 10 Tf 1 1 1 rg 240 366 Td (Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 9 Tf 0.8 0.8 0.8 rg 75 352 Td (Path: server/tests/phase51C12Corrections.test.js) Tj ET
+BT /F3 8.5 Tf 0.7 0.7 0.7 rg 75 340 Td (30 comprehensive behavioral tests covering multiple attempts, malformed IDs, missing/conflicting cleanup, Docker errors, pre-dispatch key validation, file modes, and wrapper bounds.) Tj ET
+q 0.15 0.22 0.38 rg 40 190 515 80 re f Q
+BT /F4 10 Tf 1 0.85 0.2 rg 55 248 Td (SECURITY IMPLEMENTATION STATUS:) Tj ET
+BT /F3 8.5 Tf 1 1 1 rg 55 232 Td (- Exact Correlation: Strict regex schema without permissive alternatives; rejects ambiguous multi-attempt retries) Tj ET
+BT /F3 8.5 Tf 1 1 1 rg 55 220 Td (- Fail-Closed Cleanup: Zero || true fallbacks on docker logs; missing cleanup telemetry marked UNKNOWN/FAIL) Tj ET
+BT /F3 8.5 Tf 1 1 1 rg 55 208 Td (- Commit Pinning: Pinned exact 40-character SHA ffd7a48cc6da86d6ac155ef10dbd67d02736070b with git rev-parse validation) Tj ET
+BT /F3 8.5 Tf 1 1 1 rg 55 196 Td (- Isolate Wrapper & Risk: Restricts non-root worker CLI flags; Docker privileged mode retained as unresolved host risk) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 1 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 5310 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 1/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 765 Td (#!/usr/bin/env bash) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 752 Td (# ==============================================================================) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 739 Td (# TestForge Dedicated Execution Runner - Resource & Cgroup Accounting Probe) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 726 Td (# Target: Native ARM64 Linux VM with cgroups v1) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 713 Td (# Measures:) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 700 Td (#   1. Worker container cgroup memory usage \\)Docker slice\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 687 Td (#   2. Host-level Isolate box cgroup memory usage \\)/sys/fs/cgroup/memory/isolate\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 674 Td (#   3. Total host memory & unallocated headroom \\)distinguishing limits vs RSS\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (#   4. Explicitly determines whether Isolate child processes are nested or root sibli) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  ngs) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 635 Td (#      \\)never classifies arbitrary/malformed paths as siblings\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 622 Td (#   5. Strictly fails closed if telemetry is missing, dmesg is unreadable, host OOM o) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  ccurs,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 596 Td (#      submission correlation fails, sampling window misses execution, or orphan proc) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (  esses linger) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 570 Td (# ==============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (set -euo pipefail) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (ENDPOINT="${1:-http://127.0.0.1:2358}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (TOKEN="${2:-$\\)grep -E '^AUTHN_TOKEN=' /opt/testforge-judge0/judge0.conf 2>/dev/null |) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (   cut -d'=' -f2 || grep -E '^AUTHN_TOKEN=' ./judge0.conf 2>/dev/null | cut -d'=' -f2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (   || echo ''\)}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (HEADERS=\\)-H "Content-Type: application/json"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (if [ -n "$TOKEN" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  HEADERS+=\\)-H "X-Auth-Token: $TOKEN"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (FAILED=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (fail\\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  echo "  [FAIL] $1" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  FAILED=1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (}) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 297 Td (# ==============================================================================) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 284 Td (# Telemetry Read & Validation Helpers \\)Finding C9-03\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 271 Td (# Explicit classifications: VALID_VALUE | MISSING | UNREADABLE | MALFORMED | QUERY_FA) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  ILED | UNKNOWN) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 245 Td (# Never converts errors into zero or empty values) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 232 Td (# ==============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (read_cgroup_metric\\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  local target_file="$1") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  READ_STATUS="UNKNOWN") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  READ_VALUE="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (  if [ ! -e "$target_file" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (    READ_STATUS="MISSING") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (  if [ ! -r "$target_file" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (    READ_STATUS="UNREADABLE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 2 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 4512 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 2/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  local content="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  if ! content=$\\)cat "$target_file" 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (    READ_STATUS="UNREADABLE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  content=$\\)echo "$content" | tr -d '[:space:]'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  if [[ "$content" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    READ_STATUS="VALID_VALUE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (    READ_VALUE="$content") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    return 0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (    READ_STATUS="MALFORMED") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (}) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (read_cgroup_procs\\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  local target_file="$1") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  PROCS_STATUS="UNKNOWN") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  PROCS_LIST=\\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  if [ ! -e "$target_file" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (    PROCS_STATUS="MISSING") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  if [ ! -r "$target_file" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    PROCS_STATUS="UNREADABLE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (  local content="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  if ! content=$\\)cat "$target_file" 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (    PROCS_STATUS="UNREADABLE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  local is_valid=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  local line) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  while IFS= read -r line; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (    local clean_line) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    clean_line=$\\)echo "$line" | tr -d '[:space:]'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (    if [ -n "$clean_line" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      if [[ "$clean_line" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (        PROCS_LIST+=\\)"$clean_line"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (      else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (        is_valid=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (        break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  done <<< "$content") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (  if [ "$is_valid" = true ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (    PROCS_STATUS="VALID_VALUE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (    return 0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  else) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 3 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 5131 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 3/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (    PROCS_STATUS="MALFORMED") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (    return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (}) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 700 Td (# ==============================================================================) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 687 Td (# Monotonic Time Source \\)Finding C9-04\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 674 Td (# Replaces wall-clock date +%s with genuine monotonic clock in milliseconds) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (# ==============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (get_monotonic_ms\\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  local mono_ms="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  if command -v python3 &>/dev/null; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (    mono_ms=$\\)python3 -c 'import time; print\\)int\\)time.monotonic\\)\) * 1000\)\)' 2>/dev/nu) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  ll || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    if [[ "$mono_ms" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      echo "$mono_ms") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      return 0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  if [ -r /proc/uptime ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (    mono_ms=$\\)awk '{printf "%d", $1 * 1000}' /proc/uptime 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (    if [[ "$mono_ms" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      echo "$mono_ms") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      return 0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  echo "CLOCK_ERROR") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (  return 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (}) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (echo "========================================================") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (echo " TestForge Cgroup Memory Accounting & Headroom Probe   ") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (echo " Date:         $\\)date -u\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (echo " Endpoint:     $ENDPOINT") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (echo "========================================================") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (if ! command -v docker &>/dev/null; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  echo "[FATAL] Docker CLI not found. Run this on the Linux runner VM." >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (WORKER_CID=$\\)docker compose ps -q judge0-workers 2>/dev/null || docker ps -q --filter) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (   "name=testforge-judge0-workers" 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (if [ -z "$WORKER_CID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  echo "[FATAL] judge0-workers container is not running. Start stack with 'docker com) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  pose up -d' first." >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (echo "Worker Container ID: $WORKER_CID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 89 Td (# 1. Inspect Host Physical Memory \\)Baseline\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (echo "── 1. Host Physical Memory Snapshot \\)Pre-Execution Baseline\) ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (if [ ! -r /proc/meminfo ]; then) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 4 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 5306 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 4/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  echo "[FATAL] /proc/meminfo is unreadable." >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (TOTAL_RAM_KB=$\\)grep MemTotal /proc/meminfo | awk '{print $2}'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (AVAIL_RAM_KB_BEFORE=$\\)grep MemAvailable /proc/meminfo | awk '{print $2}'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (TOTAL_RAM_MB=$\\)\\)TOTAL_RAM_KB / 1024\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (AVAIL_RAM_MB_BEFORE=$\\)\\)AVAIL_RAM_KB_BEFORE / 1024\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (echo "  Total Host RAM:              ${TOTAL_RAM_MB} MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (echo "  Available Host RAM \\)Before\): ${AVAIL_RAM_MB_BEFORE} MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 622 Td (# 2. Locate Docker Worker Container Cgroup Path) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (echo "── 2. Docker Worker Cgroup Path ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (DOCKER_CG_PATH="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (POSSIBLE_PATHS=\\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  "/sys/fs/cgroup/memory/docker/$WORKER_CID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  "/sys/fs/cgroup/memory/system.slice/docker-$WORKER_CID.scope") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  "/sys/fs/cgroup/memory/docker.slice/docker-$WORKER_CID.scope") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (for p in "${POSSIBLE_PATHS[@]}"; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  if [ -d "$p" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (    DOCKER_CG_PATH="$p") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (DOCKER_BASELINE_USAGE=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (DOCKER_CG_LIMIT=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (if [ -n "$DOCKER_CG_PATH" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (  echo "  Worker Cgroup Found: $DOCKER_CG_PATH") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  if read_cgroup_metric "$DOCKER_CG_PATH/memory.usage_in_bytes"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (    DOCKER_BASELINE_USAGE=$READ_VALUE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (    fail "Worker container memory.usage_in_bytes is $READ_STATUS at $DOCKER_CG_PATH/m) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  emory.usage_in_bytes") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  if read_cgroup_metric "$DOCKER_CG_PATH/memory.limit_in_bytes"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    DOCKER_CG_LIMIT=$READ_VALUE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    fail "Worker container memory.limit_in_bytes is $READ_STATUS at $DOCKER_CG_PATH/m) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  emory.limit_in_bytes") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  echo "  Baseline Worker Memory Usage: $\\)\\)DOCKER_BASELINE_USAGE / 1024 / 1024\)\) MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  echo "  Configured Worker Limit:      $\\)\\)DOCKER_CG_LIMIT / 1024 / 1024\)\) MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (  fail "Worker container memory cgroup path not found or unreadable under /sys/fs/cgr) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  oup/memory") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 102 Td (# 3. Locate Host Isolate Cgroup Path & Hierarchy Settings) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (echo "── 3. Host Isolate Cgroup Path & Hierarchy Settings ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (ISOLATE_CG_BASE="/sys/fs/cgroup/memory/isolate") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (HOST_ROOT_CG="/sys/fs/cgroup/memory") Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 5 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 5714 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 5/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (if [ -f "$HOST_ROOT_CG/memory.use_hierarchy" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  ROOT_HIERARCHY=$\\)cat "$HOST_ROOT_CG/memory.use_hierarchy"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (  echo "  Host Root memory.use_hierarchy: $ROOT_HIERARCHY") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  fail "Host root memory.use_hierarchy unreadable") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (# Snapshot pre-existing boxes to detect stale cgroups from previous runs) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (PRE_EXISTING_BOXES=\\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (if [ -d "$ISOLATE_CG_BASE" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  echo "  Host Isolate Cgroup Base: $ISOLATE_CG_BASE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  if [ -f "$ISOLATE_CG_BASE/memory.use_hierarchy" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (    ISO_HIERARCHY=$\\)cat "$ISOLATE_CG_BASE/memory.use_hierarchy"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    echo "  Isolate Base memory.use_hierarchy: $ISO_HIERARCHY") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  while IFS= read -r bpath; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (    if [ -n "$bpath" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (      bname=$\\)basename "$bpath"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      PRE_EXISTING_BOXES+=\\)"$bname"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  done < <\\)find "$ISOLATE_CG_BASE" -mindepth 1 -maxdepth 1 -type d -name "box-*" 2>/d) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  ev/null || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  if [ ${#PRE_EXISTING_BOXES[@]} -gt 0 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    echo "  [NOTICE] Pre-existing stale Isolate box directories detected: ${PRE_EXIST) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  ING_BOXES[*]}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  echo "  [NOTICE] $ISOLATE_CG_BASE does not exist yet \\)will be initialized on first ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  submission\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 349 Td (# 4. Security Prerequisites & Pre-Dispatch Validation \\)Findings C12-04 & C12-05\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (echo "── 4. Security Prerequisites & Pre-Dispatch Validation ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 297 Td (# Check configuration file permissions and ownership before dispatch \\)C12-05\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (for conf in /opt/testforge-judge0/judge0.conf ./judge0.conf; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  if [ -f "$conf" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    CONF_PERMS=$\\)stat -c "%a" "$conf" 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (    if [ -n "$CONF_PERMS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 232 Td (      # Normalize 3-digit octal \\)e.g. 600, 640\) to 4-digit \\)0600, 0640\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (      NORM_PERMS=$\\)printf "%04d" "$CONF_PERMS" 2>/dev/null || echo "$CONF_PERMS"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      if [ "$NORM_PERMS" != "0600" ] && [ "$NORM_PERMS" != "0640" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (        fail "Insecure configuration file permissions on $conf: $CONF_PERMS \\)$NORM_PE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  RMS\). Authorized modes are strictly 0600 or 0640. Rejecting unauthorized access.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (        exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 115 Td (    # Validate file ownership where appropriate \\)must be owned by current user or roo) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (  t\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (    CONF_UID=$\\)stat -c "%u" "$conf" 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (    CURRENT_UID=$\\)id -u 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (    if [ -n "$CONF_UID" ] && [ -n "$CURRENT_UID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (      if [ "$CONF_UID" -ne 0 ] && [ "$CONF_UID" -ne "$CURRENT_UID" ]; then) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 6 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 5470 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 6/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (        fail "Insecure configuration file ownership on $conf: UID $CONF_UID does not ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  match current user \\)$CURRENT_UID\) or root \\)0\). Rejecting unauthorized file.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (        exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (    echo "  Configuration file $conf validated: permissions $CONF_PERMS, UID ${CONF_U) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  ID:-0} \\)Approved\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 635 Td (# Validate Explicit CORRELATION_KEY before dispatching submission \\)Findings C11-02 & ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  C12-04\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 609 Td (# Strictly require explicit key; no fallback to secret_key_base; validate minimum len) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  gth 32 chars; never print key.) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (CORRELATION_KEY="${CORRELATION_KEY:-$\\)grep -E '^CORRELATION_KEY=' /opt/testforge-judg) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  e0/judge0.conf 2>/dev/null | cut -d'=' -f2 || grep -E '^CORRELATION_KEY=' ./judge0.) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  conf 2>/dev/null | cut -d'=' -f2 || echo ''\)}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (if [ -z "$CORRELATION_KEY" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  fail "Missing mandatory CORRELATION_KEY in environment or configuration file. Fail-) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  closed.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (elif [ "${#CORRELATION_KEY}" -lt 32 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  fail "Insecure CORRELATION_KEY: length ${#CORRELATION_KEY} is less than required mi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  nimum 32 characters.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (echo "  Mandatory CORRELATION_KEY validated: explicit key present \\)length ${#CORRELAT) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  ION_KEY} >= 32 bytes, secret redacted\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 375 Td (# 4.1 Dispatch Memory Test Payload \\)150 MB Allocation\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (echo "── 4.1 Dispatching Memory Accounting Test \\)150 MB Allocation\) ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (TEST_CODE=') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (import time) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 310 Td (# Allocate 150MB of memory and hold for 3 seconds) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (chunks = [b"M" * \\)10 * 1024 * 1024\) for _ in range\\)15\)]) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (time.sleep\\)3\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (print\\)"ALLOCATION_HOLD_COMPLETE"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (PAYLOAD=$\\)jq -n \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  --arg code "$TEST_CODE" \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  '{source_code: $code, language_id: 71, cpu_time_limit: 5.0, wall_time_limit: 8.0, m) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  emory_limit: 256000, enable_network: false}'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (DISPATCH_TIMESTAMP=$\\)date +%s\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (RESPONSE=$\\)curl -s -X POST "${HEADERS[@]}" -d "$PAYLOAD" "$ENDPOINT/submissions" || e) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  cho "{}"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (SUB_TOKEN=$\\)echo "$RESPONSE" | jq -r '.token // empty'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (if [ -z "$SUB_TOKEN" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (  echo "[FATAL] Failed to queue submission: $RESPONSE" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (echo "  Submission Queued. Token: ${SUB_TOKEN:0:8}... \\)Raw token withheld\)") Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 7 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Length 5334 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 7/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 752 Td (# Compute Full 64-hex SHA-256 HMAC for Opaque Log Correlation \\)Finding C11-03\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 739 Td (# Pass key and token via environment variables without shell command-string interpola) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (  tion) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (TOKEN_HASH="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (if [ -n "$CORRELATION_KEY" ] && [ "${#CORRELATION_KEY}" -ge 32 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  if command -v python3 &>/dev/null; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (    TOKEN_HASH=$\\)CORR_KEY="$CORRELATION_KEY" SUB_TOK="$SUB_TOKEN" python3 -c ') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (import os, hmac, hashlib) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (k = os.environ.get\\)"CORR_KEY", ""\).encode\\)"utf-8"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (t = os.environ.get\\)"SUB_TOK", ""\).encode\\)"utf-8"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (print\\)hmac.new\\)k, t, hashlib.sha256\).hexdigest\\)\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (' 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  elif command -v openssl &>/dev/null; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    TOKEN_HASH=$\\)printf "%s" "$SUB_TOKEN" | openssl dgst -sha256 -hmac "$CORRELATION_) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  KEY" 2>/dev/null | awk '{print $NF}' || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (if [ -n "$TOKEN_HASH" ] && [ "${#TOKEN_HASH}" -eq 64 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  echo "  Opaque Correlation Token Hash: ${TOKEN_HASH:0:16}... \\)Full 64-hex SHA-256 H) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  MAC verified\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  fail "Failed to compute 64-hex HMAC-SHA256 correlation token hash \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 414 Td (# 5. Continuous Sampling Loop Until Terminal State \\)Unified Sampling & Polling\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (echo "── 5. Continuous Telemetry Sampling & Terminal Polling ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (echo "  Actively sampling cgroup telemetry and tracking correlated kernel PIDs...") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (PEAK_DOCKER_USAGE=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (PEAK_ISOLATE_USAGE=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (CHILD_CGROUP_AFFINITY="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (DISCOVERED_BOX_PATH="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (DISCOVERED_PID="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (CORRELATED_BOX_ID="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (CORRELATED_EXEC_ID="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (FAILCNT_VALUE=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 232 Td (# Timing variables strictly initialized before loop entry) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 219 Td (# Monotonic time in milliseconds used for all loop controls \\)Finding C9-04\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (SAMPLING_START=$\\)date +%s\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (SAMPLING_START_MS=$\\)get_monotonic_ms\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (if [ "$SAMPLING_START_MS" = "CLOCK_ERROR" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  fail "Monotonic clock unavailable or failed to initialize \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (NOW=$SAMPLING_START) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (NOW_MS=$SAMPLING_START_MS) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (ELAPSED=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (ELAPSED_MS=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (ELAPSED_MONO_SECS=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (SAMPLES_TAKEN=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (TERMINAL_REACHED=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (POLL_TIMEOUT=30) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 8 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 19 0 R >>
+endobj
+21 0 obj
+<< /Length 5556 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 8/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (STATUS_ID=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (STATUS_DESC="Unknown") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (RESULT_BODY="{}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (EXECUTION_CAPTURED=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (POLL_FAILED=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 687 Td (# Loop continuously while submission is executing) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (while true; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  SAMPLES_TAKEN=$\\)\\)SAMPLES_TAKEN + 1\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  NOW_MS=$\\)get_monotonic_ms || echo "CLOCK_ERROR"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  if [ "$NOW_MS" = "CLOCK_ERROR" ] || [ "$NOW_MS" -lt "$SAMPLING_START_MS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    fail "Monotonic clock failure: non-increasing or failed clock read \\)$NOW_MS\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (    break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (  ELAPSED_MS=$\\)\\)NOW_MS - SAMPLING_START_MS\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  ELAPSED_MONO_SECS=$\\)\\)ELAPSED_MS / 1000\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  NOW=$\\)date +%s\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  ELAPSED=$\\)\\)NOW - SAMPLING_START\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 518 Td (  # 5.1 Sample Docker container cgroup usage \\)Strict read validation: no || echo 0\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  if [ -n "$DOCKER_CG_PATH" ] && [ -e "$DOCKER_CG_PATH/memory.usage_in_bytes" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (    if read_cgroup_metric "$DOCKER_CG_PATH/memory.usage_in_bytes"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      CURR_DOCKER=$READ_VALUE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      if [ "$CURR_DOCKER" -gt "$PEAK_DOCKER_USAGE" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (        PEAK_DOCKER_USAGE=$CURR_DOCKER) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (    else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      fail "Failed to read Docker cgroup memory.usage_in_bytes: status=$READ_STATUS \\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 349 Td (  # 5.2 Attempt submission-to-box correlation \\)Phase 5.1C-11 Hardened\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 336 Td (  # Require unique, exact association between 64-hex token hash and Isolate box ID fr) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  om worker logs) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (  if [ -z "$CORRELATED_BOX_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (    LOG_MATCH="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    if ! LOG_MATCH=$\\)docker compose logs --tail=100 judge0-workers 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (      fail "Docker log query failed while retrieving worker correlation logs: $LOG_MA) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  TCH \\)QUERY_FAILED\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (      LOG_MATCH="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (    if [ -n "$LOG_MATCH" ] && [ -n "$TOKEN_HASH" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 193 Td (      # Check if initialization failed for this submission) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (      INIT_FAIL_MATCH=$\\)echo "$LOG_MATCH" | grep -E "\\[CORRELATION_INIT_FAILED\\]" || ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (      if [ -n "$INIT_FAIL_MATCH" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (        fail "Isolate sandbox initialization failure recorded in worker logs: $INIT_F) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  AIL_MATCH") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 89 Td (      # Structured Opaque Correlation Check: [CORRELATION] token_hash=<64-hex> execut) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  ion_id=<ID> box_id=<BOX_ID> run_idx=<N> timestamp=<TS>) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      CORR_MATCH=$\\)echo "$LOG_MATCH" | grep -E "\\[CORRELATION\\][[:space:]]+token_hash) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  =$TOKEN_HASH[[:space:]]+" || true\)) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 9 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 21 0 R >>
+endobj
+23 0 obj
+<< /Length 6393 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 9/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (      if [ -n "$CORR_MATCH" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 752 Td (        # Bounded temporal replay protection: timestamp must be >= DISPATCH_TIMESTAMP) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (   and within 120 seconds) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (        VALID_RECS="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (        while IFS= read -r rec_line; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (          [ -z "$rec_line" ] && continue) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 687 Td (          # Validate full record tuple structure together:) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 674 Td (          # Must match: [CORRELATION] token_hash=<64hex> execution_id=<id> box_id=<di) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  gits> run_idx=<digits> timestamp=<digits>) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (          if echo "$rec_line" | grep -qE "\\[CORRELATION\\][[:space:]]+token_hash=${TOK) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  EN_HASH}[[:space:]]+execution_id=${TOKEN_HASH}-run[0-9]+-[0-9]+-[a-f0-9]{16}[[:spac) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  e:]]+box_id=[0-9]+[[:space:]]+run_idx=[0-9]+[[:space:]]+timestamp=[0-9]+"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (            rec_ts=$\\)echo "$rec_line" | grep -oE "timestamp=[0-9]+" | cut -d'=' -f2 |) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  | echo 0\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (            if [ "$rec_ts" -ge "$DISPATCH_TIMESTAMP" ] && [ "$rec_ts" -le "$\\)\\)DISPATC) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  H_TIMESTAMP + 120\)\)" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (              VALID_RECS+="$rec_line"$'\\n') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (            else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (              echo "  [WARN] Rejected out-of-window or stale correlation record: $rec) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  _line \\)timestamp $rec_ts vs dispatch $DISPATCH_TIMESTAMP\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (            fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (          else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (            echo "  [WARN] Rejected malformed correlation record tuple: $rec_line") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (          fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (        done <<< "$CORR_MATCH") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (        VALID_RECS=$\\)echo "$VALID_RECS" | sed '/^$/d'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (        if [ -n "$VALID_RECS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 401 Td (          # Extract all execution_ids and box_ids from valid records) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (          EXEC_CANDIDATES=$\\)echo "$VALID_RECS" | grep -oE "execution_id=[^[:space:]]+) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  " | cut -d'=' -f2 | sort -u || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (          EXEC_COUNT=$\\)echo "$EXEC_CANDIDATES" | grep -c . || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (          BOX_CANDIDATES=$\\)echo "$VALID_RECS" | grep -oE "box_id=[0-9]+" | cut -d'=' ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  -f2 | sort -u || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (          CANDIDATE_COUNT=$\\)echo "$BOX_CANDIDATES" | grep -c . || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (          if [ "$EXEC_COUNT" -gt 1 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (            fail "Ambiguous correlation: Multiple distinct execution attempts \\)$EXEC_) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  COUNT attempts: $EXEC_CANDIDATES\) detected for token hash $TOKEN_HASH. Refusing to ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  guess.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (          elif [ "$CANDIDATE_COUNT" -gt 1 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (            fail "Ambiguous correlation: Multiple conflicting box IDs \\)$BOX_CANDIDATE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  S\) associated with token hash $TOKEN_HASH in worker logs.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (          elif [ "$EXEC_COUNT" -eq 1 ] && [ "$CANDIDATE_COUNT" -eq 1 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (            CANDIDATE_EXEC_ID="$EXEC_CANDIDATES") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (            CANDIDATE_BOX_ID="$BOX_CANDIDATES") Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 154 Td (            # Strict execution ID format check: MUST be exactly ^${TOKEN_HASH}-run[0-) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  9]+-[0-9]+-[a-f0-9]{16}$ \\)NO permissive fallbacks\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (            if [[ "$CANDIDATE_EXEC_ID" =~ ^${TOKEN_HASH}-run[0-9]+-[0-9]+-[a-f0-9]{16) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  }$ ]] && [[ "$CANDIDATE_BOX_ID" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (              CORRELATED_EXEC_ID="$CANDIDATE_EXEC_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (              CORRELATED_BOX_ID="$CANDIDATE_BOX_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (              DISCOVERED_BOX_PATH="$ISOLATE_CG_BASE/box-$CORRELATED_BOX_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (              echo "  ✔ Structured Correlation Verified: Exact attempt $CORRELATED_EX) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  EC_ID mapped to box-$CORRELATED_BOX_ID") Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 10 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+24 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 23 0 R >>
+endobj
+25 0 obj
+<< /Length 5408 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 10/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (            else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (              fail "Execution ID $CANDIDATE_EXEC_ID or box ID $CANDIDATE_BOX_ID faile) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  d strict schema validation") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (            fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (          fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (        fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 635 Td (  # 5.3 Sample Isolate box cgroup ONLY if unambiguously correlated \\)Strict read valid) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  ation\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  if [ -n "$DISCOVERED_BOX_PATH" ] && [ -d "$DISCOVERED_BOX_PATH" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 596 Td (    # Read memory usage) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    if [ -e "$DISCOVERED_BOX_PATH/memory.usage_in_bytes" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      if read_cgroup_metric "$DISCOVERED_BOX_PATH/memory.usage_in_bytes"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (        CURR_ISO=$READ_VALUE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (        if [ "$CURR_ISO" -gt "$PEAK_ISOLATE_USAGE" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (          PEAK_ISOLATE_USAGE=$CURR_ISO) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (        fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (        fail "Isolate box memory.usage_in_bytes is $READ_STATUS at $DISCOVERED_BOX_PA) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  TH/memory.usage_in_bytes \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 427 Td (    # Read failcnt) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    if [ -e "$DISCOVERED_BOX_PATH/memory.failcnt" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (      if read_cgroup_metric "$DISCOVERED_BOX_PATH/memory.failcnt"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (        FAILCNT_VALUE=$READ_VALUE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (      else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (        fail "Isolate box memory.failcnt is $READ_STATUS at $DISCOVERED_BOX_PATH/memo) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  ry.failcnt \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 297 Td (    # Track exact kernel PID from cgroup.procs and validate cgroup membership) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    if [ -e "$DISCOVERED_BOX_PATH/cgroup.procs" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (      if read_cgroup_procs "$DISCOVERED_BOX_PATH/cgroup.procs"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (        for pid in "${PROCS_LIST[@]}"; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (          if [ -r "/proc/$pid/cgroup" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (            AFFINITY_SAMPLE=$\\)grep "memory:" "/proc/$pid/cgroup" 2>/dev/null || echo ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  ""\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 206 Td (            # Verify that the discovered PID actually belongs to this correlated box ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  cgroup) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (            if echo "$AFFINITY_SAMPLE" | grep -q "box-$CORRELATED_BOX_ID"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (              DISCOVERED_PID="$pid") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (              CHILD_CGROUP_AFFINITY="$AFFINITY_SAMPLE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (              EXECUTION_CAPTURED=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (              break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (            fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (          fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (        done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (      else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (        fail "Isolate box cgroup.procs read error: status=$PROCS_STATUS at $DISCOVERE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  D_BOX_PATH/cgroup.procs \\)UNKNOWN/FAIL\)") Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 11 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+26 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 25 0 R >>
+endobj
+27 0 obj
+<< /Length 5234 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 11/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 713 Td (  # 5.4 Poll submission status \\)Strict HTTP & JSON check; poll failure is never termi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  nal\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  if ! RESULT_BODY=$\\)curl -s -f "$ENDPOINT/submissions/$SUB_TOKEN?base64_encoded=fals) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  e" 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    POLL_FAILED=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    STATUS_ID=$\\)echo "$RESULT_BODY" | jq -r '.status.id // 0' 2>/dev/null || echo 0\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    STATUS_DESC=$\\)echo "$RESULT_BODY" | jq -r '.status.description // "Unknown"' 2>/d) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  ev/null || echo "Unknown"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 583 Td (    # Terminal states in Judge0: status.id >= 3 \\)3=Accepted, 4=Wrong Answer, 5=TLE, 6) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  =Compilation Error, etc.\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (    if [ "$STATUS_ID" -ge 3 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (      TERMINAL_REACHED=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (      NOW_MS=$\\)get_monotonic_ms || echo "$NOW_MS"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      ELAPSED_MS=$\\)\\)NOW_MS - SAMPLING_START_MS\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      ELAPSED_MONO_SECS=$\\)\\)ELAPSED_MS / 1000\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      NOW=$\\)date +%s\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      ELAPSED=$\\)\\)NOW - SAMPLING_START\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 414 Td (  # 5.5 Check timeout via monotonic clock) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  if [ "$ELAPSED_MONO_SECS" -ge "$POLL_TIMEOUT" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    break) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  sleep 0.1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (if [ "$TERMINAL_REACHED" = false ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  if [ "$POLL_FAILED" = true ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    fail "Submission polling failed during execution: could not query terminal state ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  reliably") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (    fail "Submission ${SUB_TOKEN:0:8}... timed out after ${POLL_TIMEOUT}s without rea) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (  ching terminal state \\)last status: $STATUS_ID - $STATUS_DESC\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  echo "  Submission Resolved: Status $STATUS_ID \\)$STATUS_DESC\) in ${ELAPSED}s \\)$SAMP) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  LES_TAKEN telemetry samples taken\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 141 Td (# 6. Evaluate Telemetry Validity & Submission Correlation) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (echo "── 6. Telemetry & Accounting Verification ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 89 Td (# Check submission-to-Isolate correlation \\)no heuristic fallbacks\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (if [ -z "$CORRELATED_BOX_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (  echo "  [CORRELATION_BLOCKED] Upstream Judge0 worker logs do not emit structured su) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  bmission-to-box correlation metadata." >&2) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 12 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+28 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 27 0 R >>
+endobj
+29 0 obj
+<< /Length 5840 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 12/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  echo "  Cannot unambiguously determine Isolate box ID for token ${SUB_TOKEN:0:8}...) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (   Refusing to infer or guess box attribution." >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  echo "  Minimum upstream change: Log [CORRELATION] with token_hash=<64hex> or apply) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (   patch docker/patches/isolate_job_correlation.patch." >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  fail "Submission-to-Isolate correlation failure: Could not unambiguously identify I) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  solate box for token ${SUB_TOKEN:0:8}... Unrelated or ambient box PIDs cannot be at) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  tributed to this execution.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  echo "  Correlated Isolate Box ID:     $CORRELATED_BOX_ID \\)$DISCOVERED_BOX_PATH\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  if [ -n "$CORRELATED_EXEC_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    echo "  Execution ID:                  $CORRELATED_EXEC_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  if [ -d "/var/local/lib/isolate/$CORRELATED_BOX_ID" ] || [ -d "$DISCOVERED_BOX_PATH) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  " ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    echo "  Correlated Sandbox Path:       /var/local/lib/isolate/$CORRELATED_BOX_ID ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  and $DISCOVERED_BOX_PATH") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 518 Td (# Check whether measurement window caught the execution) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (if [ "$PEAK_ISOLATE_USAGE" -eq 0 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  fail "Missing Isolate cgroup telemetry: peak usage was 0 bytes across execution win) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  dow. Measurement window missed execution or cgroup failed to mount.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  echo "  Peak Isolate Box Memory Usage: $\\)\\)PEAK_ISOLATE_USAGE / 1024 / 1024\)\) MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 414 Td (# Check PID correlation) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (if [ -z "$CHILD_CGROUP_AFFINITY" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  fail "Failed to verify child process cgroup affinity: no kernel PID detected in iso) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  late cgroup.procs for correlated box $CORRELATED_BOX_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  echo "  Discovered Kernel PID:         $DISCOVERED_PID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  echo "  Child Memory Cgroup Path:      $CHILD_CGROUP_AFFINITY") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (if [ -n "$DISCOVERED_BOX_PATH" ] && [ -f "$DISCOVERED_BOX_PATH/memory.oom_control" ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (   then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  echo "  Box OOM Control Settings:") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  sed 's/^/    /' "$DISCOVERED_BOX_PATH/memory.oom_control") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (echo "  Box memory.failcnt:            $FAILCNT_VALUE") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 206 Td (# 7. Host OOM Telemetry & Stability Audit \\)Strict Error Check on dmesg\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (echo "── 7. Host OOM Killer & Stability Audit ──") Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 167 Td (# Inspect dmesg for host-level oom-killer invocations) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (DMESG_OUTPUT="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (if ! DMESG_OUTPUT=$\\)dmesg 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  fail "Host kernel ring buffer \\)dmesg\) is unreadable or restricted \\)kernel.dmesg_res) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  trict=1\). Host OOM telemetry is UNAVAILABLE/UNKNOWN.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (else) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 89 Td (  # Preserve explicit distinction: sandbox cgroup OOM vs host kernel OOM) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  HOST_OOM_COUNT=$\\)echo "$DMESG_OUTPUT" | grep -iE 'oom-killer|out of memory|killed p) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (  rocess' | wc -l\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  if [ "$HOST_OOM_COUNT" -gt 0 ]; then) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 13 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+30 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 29 0 R >>
+endobj
+31 0 obj
+<< /Length 5924 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 13/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (    fail "Host kernel OOM events detected in dmesg \\)$HOST_OOM_COUNT events\)! Potentia) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  l host-level OOM invocation.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (    echo "  Host-level OOM killer invocations: 0 \\)No host kernel OOM events detected\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  .") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (# 8. Post-Execution Memory & Residual Process Audit) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (echo "── 8. Post-Execution Cgroup Cleanup Verification ──") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (AVAIL_RAM_KB_AFTER=$\\)grep MemAvailable /proc/meminfo | awk '{print $2}'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (AVAIL_RAM_MB_AFTER=$\\)\\)AVAIL_RAM_KB_AFTER / 1024\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (echo "  Available Host RAM \\)After\):  ${AVAIL_RAM_MB_AFTER} MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (CLEANUP_OK=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 544 Td (# 8.1 Correlate cleanup with the exact Isolate box ID & verify lifecycle telemetry \\)C) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  12-02\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (if [ -n "$CORRELATED_BOX_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  if [ -n "$CORRELATED_EXEC_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (    CLEANUP_LOGS="") Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 479 Td (    # Remove || true fallback: strictly catch Docker log query failures) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (    if ! CLEANUP_LOGS=$\\)docker compose logs --tail=100 judge0-workers 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (      fail "Docker log query failed during post-execution cleanup verification: $CLEA) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  NUP_LOGS \\)QUERY_FAILED\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    if [ -n "$CLEANUP_LOGS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 375 Td (      # Extract cleanup records for this exact execution ID) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (      CLEANUP_RECORDS=$\\)echo "$CLEANUP_LOGS" | grep -E "\\[CORRELATION_CLEANUP\\]" | gr) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  ep "execution_id=$CORRELATED_EXEC_ID" || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (      if [ -z "$CLEANUP_RECORDS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 323 Td (        # Missing cleanup telemetry must be UNKNOWN/FAIL, not a warning) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (        fail "Missing [CORRELATION_CLEANUP] lifecycle telemetry for execution $CORREL) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  ATED_EXEC_ID \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (        CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (      else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (        CLEANUP_RECORD_COUNT=$\\)echo "$CLEANUP_RECORDS" | grep -c . || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (        CLEANUP_STATUSES=$\\)echo "$CLEANUP_RECORDS" | grep -oE "status=[A-Z]+" | cut -) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (  d'=' -f2 | sort -u || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (        CLEANUP_STATUS_COUNT=$\\)echo "$CLEANUP_STATUSES" | grep -c . || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (        CLEANUP_BOXES=$\\)echo "$CLEANUP_RECORDS" | grep -oE "box_id=[0-9]+" | cut -d'=) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  ' -f2 | sort -u || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (        CLEANUP_BOX_COUNT=$\\)echo "$CLEANUP_BOXES" | grep -c . || true\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (        if [ "$CLEANUP_STATUS_COUNT" -gt 1 ] || [ "$CLEANUP_BOX_COUNT" -gt 1 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (          fail "Conflicting [CORRELATION_CLEANUP] records detected for execution $COR) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  RELATED_EXEC_ID: multiple statuses \\)$CLEANUP_STATUSES\) or boxes \\)$CLEANUP_BOXES\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (          CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (        elif [ "$CLEANUP_RECORD_COUNT" -gt 1 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (          fail "Duplicate [CORRELATION_CLEANUP] records detected for execution $CORRE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  LATED_EXEC_ID \\)$CLEANUP_RECORD_COUNT records\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (          CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (        else) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 14 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+32 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 31 0 R >>
+endobj
+33 0 obj
+<< /Length 5651 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 14/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 765 Td (          # Single unambiguous cleanup record: must match box_id and status=SUCCESS) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (          if echo "$CLEANUP_RECORDS" | grep -q "status=FAILED"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (            fail "Worker recorded explicit cleanup failure in lifecycle telemetry for) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (   execution $CORRELATED_EXEC_ID: $CLEANUP_RECORDS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (            CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (          elif echo "$CLEANUP_RECORDS" | grep -q "status=SUCCESS" && echo "$CLEANUP_R) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  ECORDS" | grep -q "box_id=$CORRELATED_BOX_ID"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (            echo "  Lifecycle Cleanup Telemetry: status=SUCCESS for execution $CORREL) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  ATED_EXEC_ID \\)box $CORRELATED_BOX_ID verified\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (          else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (            fail "Invalid or mismatched cleanup record for execution $CORRELATED_EXEC) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  _ID \\)expected box_id=$CORRELATED_BOX_ID, status=SUCCESS\): $CLEANUP_RECORDS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (            CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (          fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (        fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  TARGET_BOX_DIR="/var/local/lib/isolate/$CORRELATED_BOX_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  TARGET_CG_DIR="$ISOLATE_CG_BASE/box-$CORRELATED_BOX_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 479 Td (  # Query sandbox directory state inside worker container) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  DIR_QUERY_EXIT=0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  DIR_STATUS=$\\)docker compose exec -T judge0-workers bash -c ') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (    if [ ! -e "'"$TARGET_BOX_DIR"'" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      echo "DELETED") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    elif [ -d "'"$TARGET_BOX_DIR"'/box" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (      echo "LEAKED_BOX_SUBDIR") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    elif [ -n "$\\)ls -A "'"$TARGET_BOX_DIR"'" 2>/dev/null\)" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (      echo "LEAKED_FILES") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (    else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (      echo "EMPTY_DIR_RETAINED") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  ' 2>&1\) || DIR_QUERY_EXIT=$?) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  if [ "$DIR_QUERY_EXIT" -ne 0 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    fail "Docker execution failure while verifying sandbox directory cleanup: $DIR_ST) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  ATUS \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  elif [ "$DIR_STATUS" = "LEAKED_BOX_SUBDIR" ] || [ "$DIR_STATUS" = "LEAKED_FILES" ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (   then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (    fail "Sandbox directory $TARGET_BOX_DIR was not cleaned up! Residual content dete) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  cted: $DIR_STATUS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (    CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  elif [ "$DIR_STATUS" = "DELETED" ] || [ "$DIR_STATUS" = "EMPTY_DIR_RETAINED" ]; the) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  n) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (    echo "  Sandbox directory status for box $CORRELATED_BOX_ID: $DIR_STATUS \\)Clean\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    fail "Unrecognized sandbox directory status: $DIR_STATUS \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (    CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 76 Td (  # Check cgroup removal and processes inside correlated box cgroup.procs) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 63 Td (  # Do not convert unreadable cgroup.procs into empty list) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  if [ -d "$TARGET_CG_DIR" ]; then) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 15 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+34 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 33 0 R >>
+endobj
+35 0 obj
+<< /Length 5494 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 15/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (    if [ -f "$TARGET_CG_DIR/cgroup.procs" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (      TARGET_PROCS="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (      if ! TARGET_PROCS=$\\)cat "$TARGET_CG_DIR/cgroup.procs" 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (        fail "Unable to read $TARGET_CG_DIR/cgroup.procs: $TARGET_PROCS. Cannot verif) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  y process termination \\)UNKNOWN/FAIL\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (        CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      elif [ -n "$TARGET_PROCS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (        fail "Lingering active kernel processes found in $TARGET_CG_DIR cgroup.procs:) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (   $TARGET_PROCS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (        CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (      fail "Missing $TARGET_CG_DIR/cgroup.procs while cgroup directory exists. Cleanu) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  p status: UNKNOWN/FAIL.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 518 Td (# 8.2 Verify no lingering processes across all active box dirs in isolate cgroup hier) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  archy) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (if [ -d "$ISOLATE_CG_BASE" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  ACTIVE_BOX_DIRS=$\\)find "$ISOLATE_CG_BASE" -mindepth 1 -maxdepth 1 -type d -name "bo) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  x-*" 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  if [ -n "$ACTIVE_BOX_DIRS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (    for bdir in $ACTIVE_BOX_DIRS; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      if [ -f "$bdir/cgroup.procs" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (        ALL_PROCS="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (        if ! ALL_PROCS=$\\)cat "$bdir/cgroup.procs" 2>&1\); then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (          fail "Unable to read $bdir/cgroup.procs: $ALL_PROCS \\)UNKNOWN/FAIL\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (          CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (        elif [ -n "$ALL_PROCS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (          fail "Lingering active kernel processes found in $bdir cgroup.procs: $ALL_P) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  ROCS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (          CLEANUP_OK=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (        fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 232 Td (# Verify no orphaned python3 or isolate execution processes linger) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (ORPHAN_PROCS=$\\)pgrep -f "ALLOCATION_HOLD_COMPLETE" 2>/dev/null || echo ""\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (if [ -n "$ORPHAN_PROCS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  fail "Orphaned test payload processes detected on host: $ORPHAN_PROCS") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (if [ "$CLEANUP_OK" = true ] && [ -z "$ORPHAN_PROCS" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  echo "  Cgroup Cleanup: PASS \\)No orphan or zombie processes in isolate cgroups\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 102 Td (# 9. Architectural Accounting Analysis & Honest Headroom Calculation) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (echo "── 9. Cgroup Hierarchy & Realistic Memory Headroom Analysis ──") Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 63 Td (# Strict hierarchy detection: recognize ONLY explicitly expected nested Docker paths) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 50 Td (# or explicitly expected Isolate sibling paths. Empty, malformed, or arbitrary paths ) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 16 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+36 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 35 0 R >>
+endobj
+37 0 obj
+<< /Length 6183 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 16/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  fail.) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (NESTED_PATTERN='^\\)[0-9]+:memory:.*\\)docker|system\\.slice/docker-|docker\\.slice/docker-) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  \)|/sys/fs/cgroup/memory/docker\)') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (SIBLING_PATTERN='^\\)[0-9]+:memory:\\)/isolate/box-[0-9]+|/sys/fs/cgroup/memory/isolate/b) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  ox-[0-9]+\)|/sys/fs/cgroup/memory/isolate/box-[0-9]+\)') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (if [ -z "$CHILD_CGROUP_AFFINITY" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  fail "Hierarchy Detection Failure: Child cgroup affinity is empty or unreadable. Ca) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (  nnot determine hierarchy \\)UNKNOWN/FAIL\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (elif echo "$CHILD_CGROUP_AFFINITY" | grep -qE "$NESTED_PATTERN"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  echo "  [NESTED ACCOUNTING PROVEN]") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  echo "  Isolate processes run inside the Docker container cgroup slice.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  echo "  Docker 'mem_limit: 3072m' strictly bounds both worker and sandbox processes) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  .") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (elif echo "$CHILD_CGROUP_AFFINITY" | grep -qE "$SIBLING_PATTERN"; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  echo "  [ROOT SIBLING ACCOUNTING PROVEN]") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  echo "  Isolate processes run directly under host root /sys/fs/cgroup/memory/isolat) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  e/box-<id>.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  echo "  CRITICAL ARCHITECTURAL REALITY:") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  echo "  - Docker container 'mem_limit: 3072m' DOES NOT constrain Isolate child proc) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  esses.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  echo "  - Sandbox memory is bounded exclusively by Isolate's internal --cg-mem limi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  t \\)256000 KB\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  echo "  - Sibling cgroups draw directly from host physical RAM alongside Docker con) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  tainers.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  echo "  - Concurrency is hardcoded to COUNT=1 in staging \\)max 250 MB sandbox load\).) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  ") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  fail "Hierarchy Classification Unknown/Fail: Unexpected or malformed cgroup path '$) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  CHILD_CGROUP_AFFINITY'. Never classify arbitrary non-Docker path as root sibling.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (echo "  Host Memory Budget Verification \\)8192 MB Physical RAM\):") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (echo "  - Host OS & Kernel Baseline: ~1100 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (echo "  - judge0-workers:            3072 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (echo "  - judge0-server:             1024 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (echo "  - judge0-db:                  512 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (echo "  - judge0-redis:               384 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (echo "  --------------------------------------------------------") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (echo "  - Total Container Allocation: 4992 MB \\)Reduced from 6528 MB by 1536 MB\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (echo "  - Unallocated Host Headroom:  ~2100 MB buffer") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (echo "  - Isolate Per-Box Cap:         250 MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (echo "  - Active Concurrency:            1 \\)COUNT=1 enforced\)") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (echo "  --------------------------------------------------------") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (echo "  IMPORTANT RISK NOTICE \\)No absolute guarantee\):") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (echo "  - Mathematical difference \\)8192 - 4992 = 3200 MB, with ~2100 MB buffer\) is a ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (  static calculation, NOT guaranteed safety.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (echo "  - Actual host safety depends on real container RSS, Linux kernel slab/pagecac) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  he, and active concurrency.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (echo "  - Current Available Host RAM: ${AVAIL_RAM_MB_AFTER} MB") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (echo "  - If worker concurrency is raised or sibling cgroups balloon, host OOM killer) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (   can be triggered.") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (echo "") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (echo "========================================================") Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 17 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+38 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 37 0 R >>
+endobj
+39 0 obj
+<< /Length 1253 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (1. Resource & Cgroup Accounting Probe \\)Fail-Closed\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/verify-resource-accounting.sh  [SHELL SCRIPT (BASH)] - Part 17/17) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (if [ "$FAILED" -eq 0 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  echo " PROBE RESULT: PASS \\)Resource accounting verified; telemetry valid\).") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  exit 0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (else) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  echo " PROBE RESULT: FAIL \\)Missing telemetry, cgroup failure, or orphan processes\).) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  ") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 18 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+40 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 39 0 R >>
+endobj
+41 0 obj
+<< /Length 5422 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (2. Constrained Root-Owned Isolate Invocation Wrapper) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/isolate-wrapper.sh  [SECURITY WRAPPER (BASH)] - Part 1/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 765 Td (#!/usr/bin/env bash) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 752 Td (# ==============================================================================) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 739 Td (# TestForge Dedicated Execution Runner - Constrained Root-Owned Isolate Wrapper) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 726 Td (# Target Path in Container: /usr/local/bin/isolate-wrapper) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 713 Td (# Owner: root:root, File Mode: 0755) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 700 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 687 Td (# PURPOSE & SECURITY SCOPE:) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 674 Td (#   Constrains non-root 'judge0' user invocations of /usr/local/bin/isolate.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (#   Validates argument structure to prevent arbitrary privileged flag injection,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 648 Td (#   unauthorized directory bind mounts, and command execution outside the sandbox.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 635 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 622 Td (# CRITICAL ARCHITECTURAL SECURITY NOTICE \\)Phase 5.1C-12 Audit Finding C12-06\):) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 609 Td (#   Even with strict CLI argument validation implemented by this root-owned wrapper,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 596 Td (#   the Judge0 worker container itself is currently executed with Docker 'privileged:) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (   true') Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 570 Td (#   in order to mount cgroups, create child namespaces \\)CLONE_NEWNS, CLONE_NEWPID, CL) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  ONE_NEWNET\),) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 544 Td (#   and manipulate /sys/fs/cgroup.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 531 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 518 Td (#   IN A PRIVILEGED CONTAINER, ANY ESCAPE OR ROOT CODE EXECUTION ENABLES DIRECT ACCES) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  S) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 492 Td (#   TO HOST BLOCK DEVICES, HOST NAMESPACES, AND SIBLING CGROUPS.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 479 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 466 Td (#   THEREFORE: Privileged execution mode remains an UNRESOLVED ARCHITECTURAL HOST RIS) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  K) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 440 Td (#   until native cgroups v2 rootless execution or an unprivileged user namespace runt) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  ime) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 414 Td (#   \\)e.g., Sysbox or Kata Containers\) is deployed and independently verified.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 401 Td (#   Binary-level argument whitelisting mitigates unconstrained argument invocation by) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (   the) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 375 Td (#   worker user, but DOES NOT eliminate the underlying container escape surface.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 362 Td (# ==============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (set -euo pipefail) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (REAL_ISOLATE="/usr/local/bin/isolate") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (if [ ! -x "$REAL_ISOLATE" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  echo "[FATAL isolate-wrapper] Real isolate binary $REAL_ISOLATE not found or not ex) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  ecutable" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (if [ $# -eq 0 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  echo "[SECURITY ERROR isolate-wrapper] No arguments provided to isolate-wrapper" >&) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (ACTION="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (BOX_ID="") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (CGROUPS_FLAG=false) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 76 Td (# Inspect passed arguments) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (args=\\)"$@"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (for \\)\\)i=0; i<${#args[@]}; i++\)\); do) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 19 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+42 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 41 0 R >>
+endobj
+43 0 obj
+<< /Length 4797 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (2. Constrained Root-Owned Isolate Invocation Wrapper) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/isolate-wrapper.sh  [SECURITY WRAPPER (BASH)] - Part 2/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  arg="${args[i]}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  case "$arg" in) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (    --init\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (      ACTION="init") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (    --cleanup\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      ACTION="cleanup") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    --run\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (      ACTION="run") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    --cg\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (      CGROUPS_FLAG=true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    -b|--box-id\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      next_idx=$\\)\\)i + 1\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      if [ "$next_idx" -lt "${#args[@]}" ] && [[ "${args[next_idx]}" =~ ^[0-9]+$ ]]; ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (        BOX_ID="${args[next_idx]}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (    -b*|--box-id=*\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      val="${arg#*=}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      val="${val#-b}") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (      if [[ "$val" =~ ^[0-9]+$ ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (        BOX_ID="$val") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      ;;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  esac) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (if [ -z "$ACTION" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  echo "[SECURITY ERROR isolate-wrapper] Missing mandatory action flag \\)--init, --cle) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  anup, or --run\)" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (if [ -z "$BOX_ID" ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  echo "[SECURITY ERROR isolate-wrapper] Missing or malformed box ID parameter" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 219 Td (# Box ID range enforcement: 0 to 2147483647) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (if [ "$BOX_ID" -lt 0 ] || [ "$BOX_ID" -gt 2147483647 ]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  echo "[SECURITY ERROR isolate-wrapper] Box ID $BOX_ID outside authorized range [0, ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  2147483647]" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 128 Td (# Disallow dangerous arguments that could mount arbitrary host paths or bypass contai) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  nment) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (for arg in "$@"; do) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (  if [[ "$arg" =~ --dir=/etc || "$arg" =~ --dir=/root || "$arg" =~ --dir=/sys || "$ar) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  g" =~ --dir=/proc || "$arg" =~ --dir=/dev || "$arg" =~ --dir=/var/run ]]; then) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (    echo "[SECURITY ERROR isolate-wrapper] Forbidden directory mount detected: $arg" ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  >&2) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 20 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+44 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 43 0 R >>
+endobj
+45 0 obj
+<< /Length 1550 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (2. Constrained Root-Owned Isolate Invocation Wrapper) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/isolate-wrapper.sh  [SECURITY WRAPPER (BASH)] - Part 3/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (    exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  if [[ "$arg" == "--share-net" ]]; then) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 726 Td (    # Network sharing is strictly forbidden under Zero Egress Policy) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (    echo "[SECURITY ERROR isolate-wrapper] Forbidden flag --share-net detected under ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  Zero Egress Policy" >&2) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    exit 1) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (done) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 635 Td (# Execute real isolate with validated arguments) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (exec "$REAL_ISOLATE" "$@") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 21 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+46 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 45 0 R >>
+endobj
+47 0 obj
+<< /Length 6003 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (3. Judge0 ARM64 Custom Dockerfile \\)40-char SHA Pinned\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/Dockerfile.judge0-arm64  [CONTAINER BUILD SCRIPT] - Part 1/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 765 Td (# ==============================================================================) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 752 Td (# TestForge Dedicated Execution Runner - Custom Native ARM64 Judge0 v1.13.1 Image) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 739 Td (# Target Platform: linux/arm64 \\)OCI Ampere A1, AWS Graviton, Apple Silicon\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 726 Td (# Base Image: testforge/compilers:v1.4.0-arm64) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 713 Td (# Preserves: Judge0 CE v1.13.1 behavior, Rails 6 API, ActiveJob worker, and Isolate) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 700 Td (# ==============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (FROM testforge/compilers:v1.4.0-arm64 AS production) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (ENV JUDGE0_HOMEPAGE="https://judge0.com") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (LABEL homepage=$JUDGE0_HOMEPAGE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (ENV JUDGE0_SOURCE_CODE="https://github.com/judge0/judge0") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (LABEL source_code=$JUDGE0_SOURCE_CODE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (ENV JUDGE0_MAINTAINER="TestForge DevSecOps Team <security@testforge.internal>") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (LABEL maintainer=$JUDGE0_MAINTAINER) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (ENV PATH="/usr/local/ruby-2.7.0/bin:/opt/.gem/bin:$PATH") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (ENV GEM_HOME="/opt/.gem/") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (ENV RAILS_ENV=production) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 479 Td (# 1. Environment & Directories) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 466 Td (# Note: Aglio documentation generator is omitted to prevent build failures on Node 20) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (   / ARM64 \\)B-07\).) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (EXPOSE 2358) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (WORKDIR /api) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 401 Td (# 2. Acquire Judge0 CE v1.13.1 Source Code at Verified Release Tag & Full 40-char Com) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  mit SHA \\)C12-03\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 375 Td (# Verified upstream release: v1.13.1 \\)exact full 40-character commit SHA: ffd7a48cc6d) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (  a86d6ac155ef10dbd67d02736070b\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (ARG JUDGE0_TAG="v1.13.1") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (ARG JUDGE0_COMMIT_SHA="ffd7a48cc6da86d6ac155ef10dbd67d02736070b") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (RUN git clone --depth 1 --branch "$JUDGE0_TAG" https://github.com/judge0/judge0.git /) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (  tmp/judge0-src && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (    cd /tmp/judge0-src && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    CLONED_COMMIT=$\\)git rev-parse HEAD\) && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (    if [ "$CLONED_COMMIT" != "$JUDGE0_COMMIT_SHA" ]; then \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (      echo "[FATAL] Upstream commit mismatch: expected $JUDGE0_COMMIT_SHA, got $CLONE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  D_COMMIT" >&2 && exit 1; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    fi && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (    cp -a /tmp/judge0-src/. /api/ && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (    rm -rf /tmp/judge0-src) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 180 Td (# 2.1 Apply Structured Execution Correlation Telemetry Patch \\)Phase 5.1C-11\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 167 Td (# Strictly fails the build if patch context or source file is missing/mismatched) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (COPY docker/patches/isolate_job_correlation.patch /tmp/patches/) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (RUN test -f /tmp/patches/isolate_job_correlation.patch && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    test -f /api/app/jobs/isolate_job.rb && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (    \\)patch -p1 -d /api < /tmp/patches/isolate_job_correlation.patch || \\)cd /api && gi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (  t apply /tmp/patches/isolate_job_correlation.patch\)\) && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (    grep -q "\\[CORRELATION\\] token_hash=" /api/app/jobs/isolate_job.rb && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (    grep -q "\\[CORRELATION_CLEANUP\\]" /api/app/jobs/isolate_job.rb && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (    grep -q "\\[CORRELATION_INIT_FAILED\\]" /api/app/jobs/isolate_job.rb || \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (    \\)echo "[FATAL] Patch verification failed: app/jobs/isolate_job.rb lacks structure) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 22 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+48 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 47 0 R >>
+endobj
+49 0 obj
+<< /Length 5926 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (3. Judge0 ARM64 Custom Dockerfile \\)40-char SHA Pinned\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/Dockerfile.judge0-arm64  [CONTAINER BUILD SCRIPT] - Part 2/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (  d correlation telemetry signatures" && exit 1\) && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (    rm -rf /tmp/patches) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 726 Td (# 3. Install Ruby Gems for Rails 6.0 in Production) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (RUN bundle config set --local deployment 'true' && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (    bundle config set --local without 'development test' && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    bundle install --jobs=$\\)nproc\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 661 Td (# 4. Configure & Validate System Cron for Periodic Maintenance \\)C11-08\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 648 Td (# System crontabs in /etc/cron.d must have 0644 root:root permissions and a trailing ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  newline.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 622 Td (# Removed silent error suppression: copies explicitly and validates without 2>/dev/nu) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  ll || true) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (RUN if [ -d "/api/cron" ] && [ -n "$\\)ls -A /api/cron 2>/dev/null\)" ]; then \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      cp /api/cron/* /etc/cron.d/ && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      chown -R root:root /etc/cron.d/ && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      chmod 0644 /etc/cron.d/* && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (      for f in /etc/cron.d/*; do \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (        [ -f "$f" ] || continue; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (        sed -i -e '$a\\' "$f"; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (        echo "Validated system crontab format for $f"; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      done; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (    fi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 453 Td (# 5. Create Root-Owned Service Wrapper & Scoped Sudoers Configuration) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 440 Td (# Creates dedicated wrappers to prevent granting unconstrained execution permissions.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 427 Td (# ------------------------------------------------------------------------------) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 414 Td (# SECURITY AUDIT NOTE: Sudo Access for Isolate Binary & Privileged Invocation \\)Phase ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  5.1C-12 Audit C12-06\)) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 388 Td (# The non-root 'judge0' user invokes Isolate to manage kernel namespaces \\)CLONE_NEWNS) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  ,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 362 Td (# CLONE_NEWPID, CLONE_NEWNET\), chroot mounts, and cgroups \\)/sys/fs/cgroup/memory/isol) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  ate\).) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 336 Td (# On Linux kernels, these operations require CAP_SYS_ADMIN / root permissions.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 323 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 310 Td (# MITIGATION:) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 297 Td (# 1. Constrained root-owned wrapper \\)/usr/local/bin/isolate-wrapper\) with strict CLI ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  argument) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 271 Td (#    whitelisting prevents unauthorized flags, directory mounts, or privilege elevati) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  on.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 245 Td (# 2. Both /usr/local/bin/isolate and /usr/local/bin/isolate-wrapper are owned by root) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (  :root \\)0755\).) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 219 Td (# 3. Sudoers permissions \\)/etc/sudoers.d/judge0\) are locked to mode 0440.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 206 Td (#) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 193 Td (# UNRESOLVED ARCHITECTURAL HOST SECURITY RISK DISCLOSURE:) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 180 Td (# While /usr/local/bin/isolate-wrapper constrains argument injection from the worker ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  user,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 154 Td (# the Judge0 worker container itself runs under Docker 'privileged: true'. In privile) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (  ged mode,) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 128 Td (# container isolation boundaries are fundamentally porous: any process reaching conta) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  iner root) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 102 Td (# can access host block devices and kernel subsystems.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 89 Td (# THIS RISK REMAINS CLASSIFIED AS AN UNRESOLVED HOST RISK until rootless cgroups v2 o) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  r) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 63 Td (# unprivileged user namespaces are deployed.) Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 50 Td (# ------------------------------------------------------------------------------) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 23 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+50 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 49 0 R >>
+endobj
+51 0 obj
+<< /Length 3273 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (3. Judge0 ARM64 Custom Dockerfile \\)40-char SHA Pinned\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/Dockerfile.judge0-arm64  [CONTAINER BUILD SCRIPT] - Part 3/3) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (COPY docker/isolate-wrapper.sh /usr/local/bin/isolate-wrapper) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (RUN chmod 0755 /usr/local/bin/isolate-wrapper && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (    chown root:root /usr/local/bin/isolate-wrapper && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (    printf '#!/bin/sh\\nset -eu\\nif command -v service >/dev/null 2>&1; then\\n  servic) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  e cron start\\nelse\\n  /etc/init.d/cron start\\nfi\\n' > /usr/local/bin/start-cron-dae) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  mon && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    chmod 0755 /usr/local/bin/start-cron-daemon && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (    chown root:root /usr/local/bin/start-cron-daemon && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    if ! id -u judge0 >/dev/null 2>&1; then \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (      useradd -u 1000 -m -r judge0; \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    fi && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    echo "judge0 ALL=\\)ALL\) NOPASSWD: /usr/local/bin/start-cron-daemon, /usr/local/bin) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  /isolate-wrapper, /usr/local/bin/isolate, /usr/sbin/service cron start, /etc/init.d) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  /cron start" > /etc/sudoers.d/judge0 && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    chmod 0440 /etc/sudoers.d/judge0 && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (    mkdir -p /api/tmp/pids /api/tmp/sockets /api/log && \\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (    chown -R judge0:judge0 /api/tmp/ /api/log/) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (USER judge0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (ENV JUDGE0_VERSION="1.13.1-arm64") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (LABEL version=$JUDGE0_VERSION) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (ENTRYPOINT ["/api/docker-entrypoint.sh"]) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (CMD ["/api/scripts/server"]) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td () Tj ET
+BT /F2 8.5 Tf 0.1 0.25 0.55 rg 48 427 Td (# Development stage for interactive debugging) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (FROM production AS development) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (CMD ["sleep", "infinity"]) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 24 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+52 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 51 0 R >>
+endobj
+53 0 obj
+<< /Length 5943 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (4. Judge0 IsolateJob Correlation Patch \\)Harden v2\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/patches/isolate_job_correlation.patch  [SOURCE PATCH (GIT DIFF)] - Part 1/2) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (--- a/app/jobs/isolate_job.rb) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (+++ b/app/jobs/isolate_job.rb) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (@@ -106,7 +106,23 @@ class IsolateJob < ApplicationJob) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (   def initialize_workdir) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (     @box_id = submission.id % 2147483647) Tj ET
+BT /F1 8.5 Tf 0.7 0.1 0.1 rg 48 700 Td (-    @workdir = `isolate #{cgroups} -b #{box_id} --init`.chomp) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 687 Td (+    init_output = `isolate #{cgroups} -b #{box_id} --init`.chomp) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 674 Td (+    init_status = $?.exitstatus) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 661 Td (+    if init_status != 0 || init_output.blank? || !Dir.exist?\\)init_output\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 648 Td (+      Rails.logger.error\\)"[CORRELATION_INIT_FAILED] box_id=#{box_id} exitstatus=#{in) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  it_status} output=#{init_output.inspect}"\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 622 Td (+      raise "Failed to initialize sandbox #{box_id}: exitstatus=#{init_status}") Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 609 Td (+    end) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 596 Td (+    @workdir = init_output) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 583 Td (+) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 570 Td (+    # Structured execution correlation telemetry \\)Finding C9-02 / Phase 5.1C-11\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 557 Td (+    correlation_key = ENV["CORRELATION_KEY"].to_s) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 544 Td (+    if correlation_key.blank? || correlation_key.bytesize < 32) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 531 Td (+      raise "CORRELATION_KEY environment variable is required and must be at least 3) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  2 bytes") Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 505 Td (+    end) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 492 Td (+    token_hash = OpenSSL::HMAC.hexdigest\\)"SHA256", correlation_key, submission.token) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  .to_s\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 466 Td (+    @run_idx = \\)@run_idx ? @run_idx + 1 : 1\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 453 Td (+    @execution_id = "#{token_hash}-run#{@run_idx}-#{Time.now.to_i}-#{SecureRandom.he) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  x\\)8\)}") Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 427 Td (+    Rails.logger.info\\)"[CORRELATION] token_hash=#{token_hash} execution_id=#{@execut) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (  ion_id} box_id=#{box_id} run_idx=#{@run_idx} timestamp=#{Time.now.to_i}"\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (     @boxdir = workdir + "/box") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (     @tmpdir = workdir + "/tmp") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (     @source_file = boxdir + "/" + submission.language.source_file.to_s) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (@@ -128,8 +144,18 @@ class IsolateJob < ApplicationJob) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (   end) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (   def cleanup\\)raise_exception = true\)) Tj ET
+BT /F1 8.5 Tf 0.7 0.1 0.1 rg 48 310 Td (-    `isolate #{cgroups} -b #{box_id} --cleanup`) Tj ET
+BT /F1 8.5 Tf 0.7 0.1 0.1 rg 48 297 Td (-    raise "Cleanup of sandbox #{box_id} failed." if raise_exception && Dir.exists?\\)w) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  orkdir\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 271 Td (+    cleanup_output = `isolate #{cgroups} -b #{box_id} --cleanup`) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 258 Td (+    cleanup_status = $?.exitstatus) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 245 Td (+    workdir_exists = Dir.exist?\\)workdir\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 232 Td (+    if cleanup_status == 0 && !workdir_exists) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 219 Td (+      if defined?\\)@execution_id\) && @execution_id) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 206 Td (+        Rails.logger.info\\)"[CORRELATION_CLEANUP] status=SUCCESS execution_id=#{@exec) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  ution_id} box_id=#{box_id} timestamp=#{Time.now.to_i}"\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 180 Td (+      end) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 167 Td (+    else) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 154 Td (+      if defined?\\)@execution_id\) && @execution_id) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 141 Td (+        Rails.logger.error\\)"[CORRELATION_CLEANUP] status=FAILED exitstatus=#{cleanup) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  _status} workdir_exists=#{workdir_exists} execution_id=#{@execution_id} box_id=#{bo) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  x_id} timestamp=#{Time.now.to_i}"\)) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 102 Td (+      end) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 89 Td (+      raise "Cleanup of sandbox #{box_id} failed: exitstatus=#{cleanup_status} workd) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  ir_exists=#{workdir_exists}" if raise_exception) Tj ET
+BT /F1 8.5 Tf 0.05 0.5 0.1 rg 48 63 Td (+    end) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (   end) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 25 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+54 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 53 0 R >>
+endobj
+55 0 obj
+<< /Length 640 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (4. Judge0 IsolateJob Correlation Patch \\)Harden v2\)) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (deploy/judge0/docker/patches/isolate_job_correlation.patch  [SOURCE PATCH (GIT DIFF)] - Part 2/2) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 26 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+56 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 55 0 R >>
+endobj
+57 0 obj
+<< /Length 5764 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 1/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (/**) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td ( * TestForge Phase 5.1C-12: Final Source-Level Verification Corrections Suite) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td ( * Repository-Only Security Verification & Behavioral Parser Testing) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td ( */) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (import fs from 'fs';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (import path from 'path';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (import crypto from 'crypto';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (import { fileURLToPath } from 'url';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (const __filename = fileURLToPath\\)import.meta.url\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (const __dirname = path.dirname\\)__filename\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (const rootDir = path.resolve\\)__dirname, '../..'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (describe\\)'Phase 5.1C-12: Final Source-Level Verification Corrections Suite', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  const verifyAccountingPath = path.join\\)rootDir, 'deploy/judge0/verify-resource-acco) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (  unting.sh'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  const dockerfilePath = path.join\\)rootDir, 'deploy/judge0/docker/Dockerfile.judge0-a) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  rm64'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  const patchPath = path.join\\)rootDir, 'deploy/judge0/docker/patches/isolate_job_corr) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  elation.patch'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  const isolateWrapperPath = path.join\\)rootDir, 'deploy/judge0/docker/isolate-wrapper) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (  .sh'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  const judge0ConfPath = path.join\\)rootDir, 'deploy/judge0/judge0.conf'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  let verifyAccountingContent = '';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  let dockerfileContent = '';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (  let patchContent = '';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  let isolateWrapperContent = '';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  let judge0ConfContent = '';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (  const testKey = 'test_correlation_secret_key_32_bytes_long!!';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  const subToken = 'sub-uuid-token-550e8400-e29b-41d4-a716-446655440000';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  const computeHmacSha256 = \\)token, key\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (    return crypto.createHmac\\)'sha256', key\).update\\)token\).digest\\)'hex'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  beforeAll\\)\\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    verifyAccountingContent = fs.readFileSync\\)verifyAccountingPath, 'utf8'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (    dockerfileContent = fs.readFileSync\\)dockerfilePath, 'utf8'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    patchContent = fs.readFileSync\\)patchPath, 'utf8'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (    isolateWrapperContent = fs.readFileSync\\)isolateWrapperPath, 'utf8'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (    judge0ConfContent = fs.readFileSync\\)judge0ConfPath, 'utf8'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 167 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 154 Td (  // 1. Exact Execution-Attempt Correlation & Schema Parsing \\)Finding C12-01\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 141 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  describe\\)'Finding C12-01: Exact Execution-Attempt Correlation & Schema Parsing', \\)\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (   => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (    const tokenHash = computeHmacSha256\\)subToken, testKey\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (    test\\)'verifier enforces strict execution ID regex and removes permissive alternat) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (  ives', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 50 Td (      // Must enforce strict regex pattern without permissive prefix fallback) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 27 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+58 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 57 0 R >>
+endobj
+59 0 obj
+<< /Length 5918 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 2/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (      expect\\)verifyAccountingContent\).toMatch\\)/\\^\\)\\$\\{TOKEN_HASH\\}|\\$TOKEN_HASH\)-run\\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  [0-9\\]\\+-\\[0-9\\]\\+-\\[a-f0-9\\]\\{16\\}\\$/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (      expect\\)verifyAccountingContent\).not.toMatch\\)/\\|\\|\\s*\\[\\[ "\\$CORRELATED_EXEC_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (   =~ \\^\\$\\{TOKEN_HASH\\}- \\]\\]/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (      expect\\)verifyAccountingContent\).not.toMatch\\)/\\|\\|\\s*\\[\\[ "\\$CORRELATED_EXEC_ID") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (   =~ \\^\\$TOKEN_HASH- \\]\\]/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    test\\)'verifier validates token_hash, execution_id, run_idx, box_id, and timestamp) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (   together as a tuple', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (      expect\\)verifyAccountingContent\).toMatch\\)/token_hash=\\$\\{TOKEN_HASH\\}.*execution) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (  _id=\\$\\{TOKEN_HASH\\}-run\\[0-9\\]\\+-\\[0-9\\]\\+-\\[a-f0-9\\]\\{16\\}.*box_id=\\[0-9\\]\\+.*run) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  _idx=\\[0-9\\]\\+.*timestamp=\\[0-9\\]\\+/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 570 Td (    // Behavioral simulation of correlation log parser) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (    const parseCorrelationLogs = \\)logLines, dispatchTs, expectedTokenHash\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (      const strictExecIdRegex = new RegExp\\)`^${expectedTokenHash}-run\\\\d+-\\\\d+-[a-f0-) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  9]{16}$`\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      const validRecords = [];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      const warnings = [];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      for \\)const line of logLines\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (        if \\)!line.trim\\)\)\) continue;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (        const tupleMatch = line.match\\)/\\[CORRELATION\\]\\s+token_hash=\\)[a-f0-9]{64}\)\\s+) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  execution_id=\\)[^\\s]+\)\\s+box_id=\\)\\d+\)\\s+run_idx=\\)\\d+\)\\s+timestamp=\\)\\d+\)/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (        if \\)tupleMatch\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (          const [, h, execId, boxId, runIdx, tsStr] = tupleMatch;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (          const ts = parseInt\\)tsStr, 10\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (          if \\)h === expectedTokenHash\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (            if \\)ts >= dispatchTs && ts <= dispatchTs + 120\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (              if \\)strictExecIdRegex.test\\)execId\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (                validRecords.push\\){ execId, boxId, runIdx: parseInt\\)runIdx, 10\), ts }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  \);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (              } else {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (                warnings.push\\)`Malformed execution ID schema: ${execId}`\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (              }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (            } else {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (              warnings.push\\)`Out-of-window record: ts ${ts} vs dispatch ${dispatchTs}) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (  `\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (            }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (          }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (        } else {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (          warnings.push\\)`Rejected malformed tuple: ${line}`\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 154 Td (      // Check unique execution attempts and box candidates) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (      const execCandidates = [...new Set\\)validRecords.map\\)r => r.execId\)\)];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (      const boxCandidates = [...new Set\\)validRecords.map\\)r => r.boxId\)\)];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (      if \\)execCandidates.length > 1\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (        return { status: 'AMBIGUOUS_ATTEMPTS', execCandidates, boxCandidates, warning) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  s };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (      if \\)boxCandidates.length > 1\) {) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 28 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+60 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 59 0 R >>
+endobj
+61 0 obj
+<< /Length 5844 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 3/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (        return { status: 'AMBIGUOUS_BOXES', execCandidates, boxCandidates, warnings }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (  ;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (      if \\)execCandidates.length === 1 && boxCandidates.length === 1\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (        return { status: 'SUCCESS', execId: execCandidates[0], boxId: boxCandidates[0) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  ], warnings };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (      return { status: 'NO_VALID_RECORDS', warnings };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    test\\)'behavioral: correctly correlates single valid execution attempt', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (      const now = 1731400000;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (      const execId = `${tokenHash}-run1-${now}-0123456789abcdef`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (      const logs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (        `[CORRELATION] token_hash=${tokenHash} execution_id=${execId} box_id=7 run_id) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  x=1 timestamp=${now}`) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (      const result = parseCorrelationLogs\\)logs, now, tokenHash\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (      expect\\)result.status\).toBe\\)'SUCCESS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      expect\\)result.execId\).toBe\\)execId\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      expect\\)result.boxId\).toBe\\)'7'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (    test\\)'behavioral: rejects multiple attempts with same box ID \\)ActiveJob retry sce) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (  nario\)', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (      const now = 1731400000;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      const execId1 = `${tokenHash}-run1-${now}-0123456789abcdef`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      const execId2 = `${tokenHash}-run2-${now + 5}-fedcba9876543210`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (      const logs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (        `[CORRELATION] token_hash=${tokenHash} execution_id=${execId1} box_id=7 run_i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  dx=1 timestamp=${now}`,) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (        `[CORRELATION] token_hash=${tokenHash} execution_id=${execId2} box_id=7 run_i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  dx=2 timestamp=${now + 5}`) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (      ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (      const result = parseCorrelationLogs\\)logs, now, tokenHash\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (      expect\\)result.status\).toBe\\)'AMBIGUOUS_ATTEMPTS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (      expect\\)result.execCandidates\).toHaveLength\\)2\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (      expect\\)result.execCandidates\).toContain\\)execId1\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (      expect\\)result.execCandidates\).toContain\\)execId2\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    test\\)'behavioral: rejects malformed execution IDs \\)truncated nonce, missing run i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  ndex, special characters\)', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      const now = 1731400000;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (      const malformedCases = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (        `${tokenHash}-run1-${now}-short`, // Short nonce) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (        `${tokenHash}-${now}-0123456789abcdef`, // Missing run index) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (        `${tokenHash}-run1-${now}-0123456789abcdef!`, // Special character) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (        `${tokenHash}-arbitrary-payload`, // Loose prefix attempt) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (        `prefix-${tokenHash}-run1-${now}-0123456789abcdef` // Wrong prefix) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (      ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (      for \\)const badId of malformedCases\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (        const logs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (          `[CORRELATION] token_hash=${tokenHash} execution_id=${badId} box_id=7 run_i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  dx=1 timestamp=${now}`) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 29 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+62 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 61 0 R >>
+endobj
+63 0 obj
+<< /Length 5745 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 4/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (        ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (        const result = parseCorrelationLogs\\)logs, now, tokenHash\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (        expect\\)result.status\).toBe\\)'NO_VALID_RECORDS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    test\\)'behavioral: does not infer attempt from box ID alone when tuple is missing ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  or incomplete', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (      const now = 1731400000;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (      const incompleteLogs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (        `[NOTICE] Initializing isolate box-7 for worker`,) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (        `[INFO] Job dispatched to box 7`,) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (        `[CORRELATION] token_hash=${tokenHash} box_id=7` // Missing execution_id, run) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  _idx, timestamp) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      ];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      const result = parseCorrelationLogs\\)incompleteLogs, now, tokenHash\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      expect\\)result.status\).toBe\\)'NO_VALID_RECORDS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 505 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 492 Td (  // 2. Cleanup Verification Hardening \\)Finding C12-02\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 479 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  describe\\)'Finding C12-02: Cleanup Verification Hardening', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    test\\)'removes every docker compose logs || true fallback in verifier', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (      expect\\)verifyAccountingContent\).not.toMatch\\)/docker compose logs.*\\|\\|\\s*true/\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (  ;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    test\\)'verifier treats missing cleanup telemetry as UNKNOWN/FAIL, not a warning', ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (      expect\\)verifyAccountingContent\).toMatch\\)/fail "Missing \\[CORRELATION_CLEANUP\\] ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  lifecycle telemetry for execution \\$CORRELATED_EXEC_ID \\\\)UNKNOWN\\/FAIL\\\)"/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (      expect\\)verifyAccountingContent\).not.toMatch\\)/\\[WARN\\] No \\[CORRELATION_CLEANUP\\) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (  ] record found/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    test\\)'verifier requires matching execution_id, box_id, and status=SUCCESS', \\)\) =>) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (   {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (      expect\\)verifyAccountingContent\).toMatch\\)/status=SUCCESS.*box_id=\\$CORRELATED_BO) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  X_ID/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (      expect\\)verifyAccountingContent\).toMatch\\)/status=FAILED/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 193 Td (    // Behavioral simulation of cleanup log parser) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (    const parseCleanupLogs = \\)cleanupLogs, expectedExecId, expectedBoxId, dockerExitC) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  ode = 0\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (      if \\)dockerExitCode !== 0\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (        return { ok: false, error: 'QUERY_FAILED', message: 'Docker log query failed') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (   };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (      const lines = cleanupLogs.split\\)'\\n'\).filter\\)l => l.includes\\)'[CORRELATION_CLEA) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (  NUP]'\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      const matchingRecords = lines.filter\\)l => l.includes\\)`execution_id=${expectedEx) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (  ecId}`\)\);) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 30 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+64 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 63 0 R >>
+endobj
+65 0 obj
+<< /Length 5523 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 5/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (      if \\)matchingRecords.length === 0\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (        return { ok: false, error: 'UNKNOWN/FAIL', message: `Missing [CORRELATION_CLE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (  ANUP] lifecycle telemetry for execution ${expectedExecId}` };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      const statuses = [...new Set\\)matchingRecords.map\\)l => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (        const m = l.match\\)/status=\\)[A-Z]+\)/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (        return m ? m[1] : 'UNKNOWN';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (      }\)\)];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (      const boxes = [...new Set\\)matchingRecords.map\\)l => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (        const m = l.match\\)/box_id=\\)\\d+\)/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (        return m ? m[1] : 'UNKNOWN';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      }\)\)];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      if \\)statuses.length > 1 || boxes.length > 1\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (        return { ok: false, error: 'CONFLICTING_RECORDS', message: 'Conflicting clean) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  up records detected' };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      if \\)matchingRecords.length > 1\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (        return { ok: false, error: 'DUPLICATE_RECORDS', message: 'Duplicate cleanup r) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (  ecords detected' };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      const singleRecord = matchingRecords[0];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      if \\)singleRecord.includes\\)'status=FAILED'\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (        return { ok: false, error: 'CLEANUP_FAILED', message: 'Worker recorded explic) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (  it cleanup failure' };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (      if \\)singleRecord.includes\\)'status=SUCCESS'\) && singleRecord.includes\\)`box_id=${) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  expectedBoxId}`\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (        return { ok: true, status: 'SUCCESS', message: 'Cleanup verified' };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (      return { ok: false, error: 'MISMATCHED_RECORD', message: 'Invalid or mismatched) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (   cleanup record' };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    test\\)'behavioral: verifies successful cleanup with matching execution_id and box_) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  id', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (      const logs = `[CORRELATION_CLEANUP] status=SUCCESS execution_id=${execId} box_i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  d=7 timestamp=1731400005`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (      const result = parseCleanupLogs\\)logs, execId, '7', 0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (      expect\\)result.ok\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (      expect\\)result.status\).toBe\\)'SUCCESS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (    test\\)'behavioral: fails closed when cleanup telemetry is completely missing', \\)\) ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (  => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      const logs = `[INFO] Submission completed successfully`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (      const result = parseCleanupLogs\\)logs, execId, '7', 0\);) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 31 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+66 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 65 0 R >>
+endobj
+67 0 obj
+<< /Length 5889 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 6/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (      expect\\)result.ok\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (      expect\\)result.error\).toBe\\)'UNKNOWN/FAIL'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (    test\\)'behavioral: fails closed when Docker query returns non-zero exit code', \\)\) ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (  => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (      const result = parseCleanupLogs\\)'', execId, '7', 1\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (      expect\\)result.ok\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (      expect\\)result.error\).toBe\\)'QUERY_FAILED'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (    test\\)'behavioral: detects and rejects conflicting cleanup statuses \\)SUCCESS and F) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  AILED\)', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (      const logs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (        `[CORRELATION_CLEANUP] status=SUCCESS execution_id=${execId} box_id=7 timesta) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (  mp=1731400005`,) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (        `[CORRELATION_CLEANUP] status=FAILED exitstatus=1 workdir_exists=true executi) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (  on_id=${execId} box_id=7 timestamp=1731400006`) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      ].join\\)'\\n'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      const result = parseCleanupLogs\\)logs, execId, '7', 0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      expect\\)result.ok\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      expect\\)result.error\).toBe\\)'CONFLICTING_RECORDS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (    test\\)'behavioral: detects and rejects duplicate cleanup records', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (      const logs = [) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (        `[CORRELATION_CLEANUP] status=SUCCESS execution_id=${execId} box_id=7 timesta) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  mp=1731400005`,) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (        `[CORRELATION_CLEANUP] status=SUCCESS execution_id=${execId} box_id=7 timesta) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  mp=1731400005`) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (      ].join\\)'\\n'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (      const result = parseCleanupLogs\\)logs, execId, '7', 0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (      expect\\)result.ok\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (      expect\\)result.error\).toBe\\)'DUPLICATE_RECORDS'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    test\\)'behavioral: rejects cleanup record if box_id does not match correlated box') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  , \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (      const execId = 'hash-run1-1731400000-0123456789abcdef';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (      const logs = `[CORRELATION_CLEANUP] status=SUCCESS execution_id=${execId} box_i) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  d=9 timestamp=1731400005`;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (      const result = parseCleanupLogs\\)logs, execId, '7', 0\); // Expected box 7, got b) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (  ox 9) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (      expect\\)result.ok\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (      expect\\)result.error\).toBe\\)'MISMATCHED_RECORD'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 102 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 89 Td (  // 3. Full 40-Character Commit Pinning \\)Finding C12-03\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 76 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (  describe\\)'Finding C12-03: Full 40-Character Commit Pinning in Dockerfile', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (    const fullExpectedSha = 'ffd7a48cc6da86d6ac155ef10dbd67d02736070b';) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 32 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+68 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 67 0 R >>
+endobj
+69 0 obj
+<< /Length 6034 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 7/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (    test\\)'Dockerfile pins the exact 40-character SHA instead of a 7-character prefix') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (  , \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (      expect\\)dockerfileContent\).toMatch\\)new RegExp\\)`ARG JUDGE0_COMMIT_SHA="${fullExpe) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  ctedSha}"`\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (      expect\\)fullExpectedSha\).toHaveLength\\)40\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (    test\\)'Dockerfile validates git rev-parse HEAD against the full 40-character SHA',) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (   \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (      expect\\)dockerfileContent\).toMatch\\)/CLONED_COMMIT=\\$\\\\)git rev-parse HEAD\\\)/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (      expect\\)dockerfileContent\).toMatch\\)/if \\[ "\\$CLONED_COMMIT" != "\\$JUDGE0_COMMIT_) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  SHA" \\]; then/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (    test\\)'simulation: fails build on any commit hash mismatch', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      const simulateBuildVerification = \\)actualSha, expectedSha\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (        if \\)actualSha !== expectedSha\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (          throw new Error\\)`[FATAL] Upstream commit mismatch: expected ${expectedSha},) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (   got ${actualSha}`\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (        return true;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (      expect\\)\\)\) => simulateBuildVerification\\)'088fe2412de8ac8f52c582b573b52c366931d8a) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (  7', fullExpectedSha\)\).toThrow\\)/Upstream commit mismatch/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      expect\\)\\)\) => simulateBuildVerification\\)'ffd7a48', fullExpectedSha\)\).toThrow\\)/Up) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (  stream commit mismatch/\); // Short prefix fails) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (      expect\\)simulateBuildVerification\\)fullExpectedSha, fullExpectedSha\)\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 349 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 336 Td (  // 4. Pre-Dispatch Security Prerequisites & Correlation Key \\)Finding C12-04\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 323 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (  describe\\)'Finding C12-04: Pre-Dispatch Correlation Key Validation', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (    test\\)'verifier validates CORRELATION_KEY before dispatching submission payload', ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (      const lines = verifyAccountingContent.split\\)'\\n'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (      const keyValIdx = lines.findIndex\\)l => l.includes\\)'CORRELATION_KEY="${CORRELATI) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  ON_KEY:-'\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (      const dispatchIdx = lines.findIndex\\)l => l.includes\\)'$ENDPOINT/submissions'\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      expect\\)keyValIdx\).toBeGreaterThan\\)0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (      expect\\)dispatchIdx\).toBeGreaterThan\\)0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (      expect\\)keyValIdx\).toBeLessThan\\)dispatchIdx\); // Key validation strictly precede) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  s dispatch) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    test\\)'verifier exits immediately on missing or invalid CORRELATION_KEY without di) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (  spatching', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 102 Td (      // Must exit 1 inside the validation block) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (      const keyValidationBlock = verifyAccountingContent.substring\\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (        verifyAccountingContent.indexOf\\)'CORRELATION_KEY="${CORRELATION_KEY:-'\),) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (        verifyAccountingContent.indexOf\\)'Dispatching Memory Accounting Test'\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (      \);) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 33 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+70 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 69 0 R >>
+endobj
+71 0 obj
+<< /Length 6081 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 8/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (      expect\\)keyValidationBlock\).toMatch\\)/fail "Missing mandatory CORRELATION_KEY/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (      expect\\)keyValidationBlock\).toMatch\\)/exit 1/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (      expect\\)keyValidationBlock\).toMatch\\)/fail "Insecure CORRELATION_KEY/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 687 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 674 Td (  // 5. Configuration Permissions & Ownership Validation \\)Finding C12-05\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 661 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  describe\\)'Finding C12-05: Configuration Permissions & Ownership Validation', \\)\) => ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (  {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (    test\\)'verifier inspects config file permissions before dispatching submission', \\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  \) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (      const lines = verifyAccountingContent.split\\)'\\n'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (      const permCheckIdx = lines.findIndex\\)l => l.includes\\)'CONF_PERMS=$\\)stat -c "%a") Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (  '\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      const dispatchIdx = lines.findIndex\\)l => l.includes\\)'$ENDPOINT/submissions'\)\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (      expect\\)permCheckIdx\).toBeGreaterThan\\)0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      expect\\)dispatchIdx\).toBeGreaterThan\\)0\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (      expect\\)permCheckIdx\).toBeLessThan\\)dispatchIdx\); // Permission check strictly pr) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (  ecedes dispatch) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    const validatePermissions = \\)rawMode, fileUid, currentUid\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (      const normPerms = String\\)rawMode\).padStart\\)4, '0'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (      if \\)normPerms !== '0600' && normPerms !== '0640'\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (        return { valid: false, reason: `Insecure file permissions: ${rawMode} \\)${norm) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  Perms}\). Authorized: 0600 or 0640.` };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (      if \\)fileUid !== undefined && currentUid !== undefined\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (        if \\)fileUid !== 0 && fileUid !== currentUid\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (          return { valid: false, reason: `Insecure file ownership: UID ${fileUid} doe) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  s not match current user \\)${currentUid}\) or root \\)0\).` };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (      return { valid: true, mode: normPerms };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (    };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (    test\\)'behavioral: allows authorized file modes 0600 and 0640', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (      expect\\)validatePermissions\\)'600', 1000, 1000\).valid\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (      expect\\)validatePermissions\\)'0600', 1000, 1000\).valid\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (      expect\\)validatePermissions\\)'640', 1000, 1000\).valid\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (      expect\\)validatePermissions\\)'0640', 0, 1000\).valid\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (    test\\)'behavioral: strictly rejects 0644, 0664, 0666, 0777 and unauthorized modes') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (  , \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td (      const unauthorizedModes = ['644', '0644', '664', '0664', '666', '0666', '777', ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (  '0777', '755', '0755'];) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (      for \\)const mode of unauthorizedModes\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (        const result = validatePermissions\\)mode, 1000, 1000\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (        expect\\)result.valid\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td (        expect\\)result.reason\).toContain\\)'Insecure file permissions'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (    }\);) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 34 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+72 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 71 0 R >>
+endobj
+73 0 obj
+<< /Length 5967 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 9/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (    test\\)'behavioral: rejects unauthorized file owner UID', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (      const result = validatePermissions\\)'0600', 1001, 1000\); // Owned by 1001, curre) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (  nt user is 1000) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (      expect\\)result.valid\).toBe\\)false\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (      expect\\)result.reason\).toContain\\)'Insecure file ownership'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td () Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 648 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 635 Td (  // 6. Privileged Isolate Invocation & Wrapper Assessment \\)Finding C12-06\)) Tj ET
+BT /F1 8.5 Tf 0.4 0.4 0.4 rg 48 622 Td (  // ============================================================================) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (  describe\\)'Finding C12-06: Constrained Root-Owned Isolate Wrapper & Risk Classificat) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (  ion', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (    test\\)'isolate-wrapper exists with strict argument parsing and path whitelisting',) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (   \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      expect\\)fs.existsSync\\)isolateWrapperPath\)\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td (      expect\\)isolateWrapperContent\).toMatch\\)/REAL_ISOLATE="\\/usr\\/local\\/bin\\/isolate) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (  "/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      expect\\)isolateWrapperContent\).toMatch\\)/Missing mandatory action flag \\\\)--init, ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  --cleanup, or --run\\\)/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      expect\\)isolateWrapperContent\).toMatch\\)/Missing or malformed box ID parameter/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (      expect\\)isolateWrapperContent\).toMatch\\)/Forbidden directory mount detected/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td (      expect\\)isolateWrapperContent\).toMatch\\)/Forbidden flag --share-net detected/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td (    test\\)'isolate-wrapper validates box ID bounds [0, 2147483647]', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (      expect\\)isolateWrapperContent\).toMatch\\)/2147483647/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (    test\\)'Dockerfile copies isolate-wrapper and enforces root:root 0755 permissions',) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (   \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (      expect\\)dockerfileContent\).toMatch\\)/COPY docker\\/isolate-wrapper\\.sh \\/usr\\/loca) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (  l\\/bin\\/isolate-wrapper/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td (      expect\\)dockerfileContent\).toMatch\\)/chmod 0755 \\/usr\\/local\\/bin\\/isolate-wrappe) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (  r/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (      expect\\)dockerfileContent\).toMatch\\)/chown root:root \\/usr\\/local\\/bin\\/isolate-w) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (  rapper/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (    test\\)'Dockerfile documents Docker privileged: true as an unresolved host-security) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (   risk', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (      expect\\)dockerfileContent\).toMatch\\)/UNRESOLVED ARCHITECTURAL HOST SECURITY RISK ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (  DISCLOSURE/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td (      expect\\)dockerfileContent\).toMatch\\)/privileged: true/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 180 Td (      expect\\)dockerfileContent\).toMatch\\)/THIS RISK REMAINS CLASSIFIED AS AN UNRESOLVE) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 167 Td (  D HOST RISK/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 154 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 141 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 128 Td (    const simulateWrapper = \\)args\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 115 Td (      if \\)!args || args.length === 0\) throw new Error\\)'No arguments provided'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 102 Td (      let action = null;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 89 Td (      let boxId = null;) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 76 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 63 Td (      for \\)let i = 0; i < args.length; i++\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 50 Td (        const arg = args[i];) Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 35 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+74 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 73 0 R >>
+endobj
+75 0 obj
+<< /Length 4725 >>
+stream
+q 0.94 0.96 0.98 rg 40 790 515 32 re f Q
+q 0.2 0.4 0.7 RG 1 w 40 790 m 555 790 l S Q
+BT /F4 10 Tf 0.1 0.2 0.4 rg 45 806 Td (5. Phase 5.1C-12 Corrections Behavioral Test Suite) Tj ET
+BT /F3 8 Tf 0.4 0.4 0.4 rg 45 795 Td (server/tests/phase51C12Corrections.test.js  [JAVASCRIPT (JEST ESM)] - Part 10/10) Tj ET
+q 0.98 0.98 0.98 rg 40 45 515 735 re f Q
+q 0.85 0.85 0.85 RG 0.5 w 40 45 515 735 re S Q
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 765 Td (        if \\)arg === '--init'\) action = 'init';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 752 Td (        if \\)arg === '--cleanup'\) action = 'cleanup';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 739 Td (        if \\)arg === '--run'\) action = 'run';) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 726 Td (        if \\)arg === '-b' || arg === '--box-id'\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 713 Td (          if \\)i + 1 < args.length && /^\\d+$/.test\\)args[i + 1]\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 700 Td (            boxId = parseInt\\)args[i + 1], 10\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 687 Td (          }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 674 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 661 Td (        if \\)arg.startsWith\\)'--dir=/etc'\) || arg.startsWith\\)'--dir=/root'\) || arg.star) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 648 Td (  tsWith\\)'--dir=/sys'\)\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 635 Td (          throw new Error\\)`Forbidden directory mount detected: ${arg}`\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 622 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 609 Td (        if \\)arg === '--share-net'\) {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 596 Td (          throw new Error\\)'Forbidden flag --share-net detected under Zero Egress Poli) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 583 Td (  cy'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 570 Td (        }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 557 Td (      }) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 544 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 531 Td (      if \\)!action\) throw new Error\\)'Missing mandatory action flag'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 518 Td (      if \\)boxId === null || isNaN\\)boxId\)\) throw new Error\\)'Missing or malformed box I) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 505 Td (  D parameter'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 492 Td (      if \\)boxId < 0 || boxId > 2147483647\) throw new Error\\)'Box ID outside authorized) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 479 Td (   range'\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 466 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 453 Td (      return { action, boxId, passed: true };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 440 Td (    };) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 427 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 414 Td (    test\\)'behavioral: wrapper approves valid isolate --init, --cleanup, and --run com) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 401 Td (  mands', \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 388 Td (      expect\\)simulateWrapper\\)['--cg', '-b', '5', '--init']\).passed\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 375 Td (      expect\\)simulateWrapper\\)['--cg', '-b', '5', '--cleanup']\).passed\).toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 362 Td (      expect\\)simulateWrapper\\)['--cg', '-b', '5', '--run', '--', '/bin/bash']\).passed\)) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 349 Td (  .toBe\\)true\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 336 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 323 Td () Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 310 Td (    test\\)'behavioral: wrapper rejects arbitrary directory mounts and network sharing') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 297 Td (  , \\)\) => {) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 284 Td (      expect\\)\\)\) => simulateWrapper\\)['--cg', '-b', '5', '--run', '--dir=/etc', '--', ') Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 271 Td (  /bin/bash']\)\).toThrow\\)/Forbidden directory mount/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 258 Td (      expect\\)\\)\) => simulateWrapper\\)['--cg', '-b', '5', '--run', '--share-net', '--', ) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 245 Td (  '/bin/bash']\)\).toThrow\\)/Forbidden flag --share-net/\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 232 Td (    }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 219 Td (  }\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 206 Td (}\);) Tj ET
+BT /F1 8.5 Tf 0.15 0.15 0.15 rg 48 193 Td () Tj ET
+BT /F3 8 Tf 0.5 0.5 0.5 rg 40 22 Td (TestForge Phase 5.1C-12 Actual Implementation Files | Page 36 of 36) Tj ET
+BT /F4 8 Tf 0.1 0.4 0.8 rg 450 22 Td (SECURITY HARDENED) Tj ET
+endstream
+endobj
+76 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 75 0 R >>
+endobj
+77 0 obj
+<< /Type /Pages /Kids [ 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R 22 0 R 24 0 R 26 0 R 28 0 R 30 0 R 32 0 R 34 0 R 36 0 R 38 0 R 40 0 R 42 0 R 44 0 R 46 0 R 48 0 R 50 0 R 52 0 R 54 0 R 56 0 R 58 0 R 60 0 R 62 0 R 64 0 R 66 0 R 68 0 R 70 0 R 72 0 R 74 0 R 76 0 R ] /Count 36 >>
+endobj
+78 0 obj
+<< /Type /Catalog /Pages 5 0 R >>
+endobj
+xref
+0 79
+0000000000 65535 f 
+0000000009 00000 n 
+0000000077 00000 n 
+0000000150 00000 n 
+0000000220 00000 n 
+0000000295 00000 n 
+0000004306 00000 n 
+0000004462 00000 n 
+0000009824 00000 n 
+0000009980 00000 n 
+0000014544 00000 n 
+0000014701 00000 n 
+0000019885 00000 n 
+0000020043 00000 n 
+0000025402 00000 n 
+0000025560 00000 n 
+0000031327 00000 n 
+0000031485 00000 n 
+0000037008 00000 n 
+0000037166 00000 n 
+0000042553 00000 n 
+0000042711 00000 n 
+0000048320 00000 n 
+0000048478 00000 n 
+0000054924 00000 n 
+0000055082 00000 n 
+0000060543 00000 n 
+0000060701 00000 n 
+0000065988 00000 n 
+0000066146 00000 n 
+0000072039 00000 n 
+0000072197 00000 n 
+0000078174 00000 n 
+0000078332 00000 n 
+0000084036 00000 n 
+0000084194 00000 n 
+0000089741 00000 n 
+0000089899 00000 n 
+0000096135 00000 n 
+0000096293 00000 n 
+0000097599 00000 n 
+0000097757 00000 n 
+0000103232 00000 n 
+0000103390 00000 n 
+0000108240 00000 n 
+0000108398 00000 n 
+0000110001 00000 n 
+0000110159 00000 n 
+0000116215 00000 n 
+0000116373 00000 n 
+0000122352 00000 n 
+0000122510 00000 n 
+0000125836 00000 n 
+0000125994 00000 n 
+0000131990 00000 n 
+0000132148 00000 n 
+0000132840 00000 n 
+0000132998 00000 n 
+0000138815 00000 n 
+0000138973 00000 n 
+0000144944 00000 n 
+0000145102 00000 n 
+0000150999 00000 n 
+0000151157 00000 n 
+0000156955 00000 n 
+0000157113 00000 n 
+0000162689 00000 n 
+0000162847 00000 n 
+0000168789 00000 n 
+0000168947 00000 n 
+0000175034 00000 n 
+0000175192 00000 n 
+0000181326 00000 n 
+0000181484 00000 n 
+0000187504 00000 n 
+0000187662 00000 n 
+0000192440 00000 n 
+0000192598 00000 n 
+0000192903 00000 n 
+trailer
+<< /Size 79 /Root 78 0 R >>
+startxref
+192953
+%%EOF

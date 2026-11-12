@@ -25,29 +25,95 @@ ENV RAILS_ENV=production
 EXPOSE 2358
 WORKDIR /api
 
-# 2. Acquire Judge0 CE v1.13.1 Source Code at Verified Release Tag
-# Copy complete source tree including dotfiles cleanly without error suppression (B-07)
-RUN git clone --depth 1 --branch v1.13.1 https://github.com/judge0/judge0.git /tmp/judge0-src && \
+# 1.1 Support Shared MIME Database for mimemagic on Ubuntu 22.04 / ARM64
+ENV FREEDESKTOP_MIME_TYPES_PATH="/usr/share/mime/packages/freedesktop.org.xml"
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends shared-mime-info && \
+    rm -rf /var/lib/apt/lists/*
+
+# 2. Acquire Judge0 CE v1.13.1 Source Code at Verified Release Tag & Full 40-char Commit SHA (C12-03)
+# Verified upstream release: v1.13.1 (exact full 40-character commit SHA: ffd7a48cc6da86d6ac155ef10dbd67d02736070b)
+ARG JUDGE0_TAG="v1.13.1"
+ARG JUDGE0_COMMIT_SHA="ffd7a48cc6da86d6ac155ef10dbd67d02736070b"
+RUN git clone --depth 1 --branch "$JUDGE0_TAG" https://github.com/judge0/judge0.git /tmp/judge0-src && \
+    cd /tmp/judge0-src && \
+    CLONED_COMMIT=$(git rev-parse HEAD) && \
+    if [ "$CLONED_COMMIT" != "$JUDGE0_COMMIT_SHA" ]; then \
+      echo "[FATAL] Upstream commit mismatch: expected $JUDGE0_COMMIT_SHA, got $CLONED_COMMIT" >&2 && exit 1; \
+    fi && \
     cp -a /tmp/judge0-src/. /api/ && \
     rm -rf /tmp/judge0-src
 
-# 3. Install Ruby Gems for Rails 6.0 in Production
-RUN bundle config set --local deployment 'true' && \
+# 2.1 Apply Structured Execution Correlation Telemetry Patch (Phase 5.1C-11)
+# Strictly fails the build if patch context or source file is missing/mismatched
+COPY docker/patches/isolate_job_correlation.patch /tmp/patches/
+RUN test -f /tmp/patches/isolate_job_correlation.patch && \
+    test -f /api/app/jobs/isolate_job.rb && \
+    (patch -p1 -d /api < /tmp/patches/isolate_job_correlation.patch || (cd /api && git apply /tmp/patches/isolate_job_correlation.patch)) && \
+    grep -q "\[CORRELATION\] token_hash=" /api/app/jobs/isolate_job.rb && \
+    grep -q "\[CORRELATION_CLEANUP\]" /api/app/jobs/isolate_job.rb && \
+    grep -q "\[CORRELATION_INIT_FAILED\]" /api/app/jobs/isolate_job.rb || \
+    (echo "[FATAL] Patch verification failed: app/jobs/isolate_job.rb lacks structured correlation telemetry signatures" && exit 1) && \
+    rm -rf /tmp/patches
+
+# 3. Update Nokogiri for modern glibc 2.35 compatibility & Install Ruby Gems in Production
+RUN bundle update nokogiri && \
+    bundle config set --local deployment 'true' && \
     bundle config set --local without 'development test' && \
     bundle install --jobs=$(nproc)
 
-# 4. Configure Cron Jobs for System Maintenance
-RUN if [ -d "/api/cron" ]; then \
-      cp -r /api/cron /etc/cron.d && \
-      cat /etc/cron.d/* | crontab - ; \
+# 4. Configure & Validate System Cron for Periodic Maintenance (C11-08)
+# System crontabs in /etc/cron.d must have 0644 root:root permissions and a trailing newline.
+# Removed silent error suppression: copies explicitly and validates without 2>/dev/null || true
+RUN if [ -d "/api/cron" ] && [ -n "$(ls -A /api/cron 2>/dev/null)" ]; then \
+      cp /api/cron/* /etc/cron.d/ && \
+      chown -R root:root /etc/cron.d/ && \
+      chmod 0644 /etc/cron.d/* && \
+      for f in /etc/cron.d/*; do \
+        [ -f "$f" ] || continue; \
+        sed -i -e '$a\' "$f"; \
+        echo "Validated system crontab format for $f"; \
+      done; \
     fi
 
-# 5. Create Dedicated Non-Root judge0 User with Least-Privilege Sudoers Configuration
-# Unrestricted 'ALL=(ALL) NOPASSWD: ALL' is replaced with explicit binary allowances (B-06)
-RUN if ! id -u judge0 >/dev/null 2>&1; then \
+# 5. Create Root-Owned Service Wrapper & Scoped Sudoers Configuration
+# Creates dedicated wrappers to prevent granting unconstrained execution permissions.
+# ------------------------------------------------------------------------------
+# SECURITY AUDIT NOTE: Sudo Access for Isolate Binary & Privileged Invocation (Phase 5.1C-12 Audit C12-06)
+# The non-root 'judge0' user invokes Isolate to manage kernel namespaces (CLONE_NEWNS,
+# CLONE_NEWPID, CLONE_NEWNET), chroot mounts, and cgroups (/sys/fs/cgroup/memory/isolate).
+# On Linux kernels, these operations require CAP_SYS_ADMIN / root permissions.
+#
+# MITIGATION:
+# 1. Constrained root-owned wrapper (/usr/local/bin/isolate-wrapper) with strict CLI argument
+#    whitelisting prevents unauthorized flags, directory mounts, or privilege elevation.
+# 2. Both /usr/local/bin/isolate and /usr/local/bin/isolate-wrapper are owned by root:root (0755).
+# 3. Sudoers permissions (/etc/sudoers.d/judge0) are locked to mode 0440.
+#
+# UNRESOLVED ARCHITECTURAL HOST SECURITY RISK DISCLOSURE:
+# While /usr/local/bin/isolate-wrapper constrains argument injection from the worker user,
+# the Judge0 worker container itself runs under Docker 'privileged: true'. In privileged mode,
+# container isolation boundaries are fundamentally porous: any process reaching container root
+# can access host block devices and kernel subsystems.
+# THIS RISK REMAINS CLASSIFIED AS AN UNRESOLVED HOST RISK until rootless cgroups v2 or
+# unprivileged user namespaces are deployed.
+# ------------------------------------------------------------------------------
+COPY docker/isolate-wrapper.sh /usr/local/bin/isolate-wrapper
+RUN chmod 0755 /usr/local/bin/isolate-wrapper && \
+    chown root:root /usr/local/bin/isolate-wrapper && \
+    if [ -f /usr/local/bin/isolate ] && [ ! -L /usr/local/bin/isolate ] && [ ! -f /usr/local/bin/isolate-bin ]; then \
+      mv /usr/local/bin/isolate /usr/local/bin/isolate-bin; \
+    fi && \
+    chmod 0700 /usr/local/bin/isolate-bin && \
+    chown root:root /usr/local/bin/isolate-bin && \
+    ln -sf /usr/local/bin/isolate-wrapper /usr/local/bin/isolate && \
+    printf '#!/bin/sh\nset -eu\nif command -v service >/dev/null 2>&1; then\n  service cron start\nelse\n  /etc/init.d/cron start\nfi\n' > /usr/local/bin/start-cron-daemon && \
+    chmod 0755 /usr/local/bin/start-cron-daemon && \
+    chown root:root /usr/local/bin/start-cron-daemon && \
+    if ! id -u judge0 >/dev/null 2>&1; then \
       useradd -u 1000 -m -r judge0; \
     fi && \
-    echo "judge0 ALL=(ALL) NOPASSWD: /usr/sbin/service, /etc/init.d/cron, /usr/sbin/cron, /usr/local/bin/isolate" > /etc/sudoers.d/judge0 && \
+    echo "judge0 ALL=(ALL) NOPASSWD: /usr/local/bin/start-cron-daemon, /usr/local/bin/isolate-wrapper, /usr/sbin/service cron start, /etc/init.d/cron start" > /etc/sudoers.d/judge0 && \
     chmod 0440 /etc/sudoers.d/judge0 && \
     mkdir -p /api/tmp/pids /api/tmp/sockets /api/log && \
     chown -R judge0:judge0 /api/tmp/ /api/log/
