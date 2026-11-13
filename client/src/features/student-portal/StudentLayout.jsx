@@ -62,7 +62,7 @@ export const StudentLayout = ({
         {/* Left Floating Capsule Sidebar: FIXED IN SCREEN WHEN SCROLLED PAST HERO, HIDDEN ON HERO SECTION */}
         <div
           aria-hidden={!isPastHero}
-          className={`fixed left-3.5 top-1/2 -translate-y-1/2 z-50 hidden md:flex items-center transition-all duration-300 ease-out select-none ${
+          className={`fixed left-3.5 top-3.5 z-50 hidden md:flex items-center transition-all duration-300 ease-out select-none ${
             isPastHero
               ? 'opacity-100 translate-x-0 pointer-events-auto'
               : 'opacity-0 -translate-x-12 pointer-events-none'

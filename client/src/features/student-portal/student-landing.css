@@ -1,196 +1,1250 @@
-/* ════════════════════════════════════════════════════════════════════════════
-   Student Portal Landing Page Styles (Scoped to .tf-student-landing)
-   ════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   TestForge Student Portal – Full Landing Page Styles
+   Source of truth: TestForge – Student Portal.html
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.tf-student-landing {
-  --bg: #F1F1EE;
-  --ink: #121212;
+.tf-student-portal-page {
+  --bg: #F2F3F0;
+  --dk: #0b0c0e;
+  --dk2: #191A1D;
   --lime: #EDFF72;
-  --mut: #8A8A85;
+  --tx: #171819;
+  --t2: #777D78;
   --bd: #DDE1DA;
+  --s2: #E9ECE7;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
   box-sizing: border-box;
-  background-color: var(--ink);
-  color: var(--ink);
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: var(--dk);
+  color: var(--tx);
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
   overflow-x: hidden;
+  position: relative;
+  width: 100%;
 }
 
-.tf-student-landing *,
-.tf-student-landing *::before,
-.tf-student-landing *::after {
+.tf-student-portal-page *,
+.tf-student-portal-page *::before,
+.tf-student-portal-page *::after {
   box-sizing: inherit;
 }
 
-/* Site Shell Below Hero */
-.tf-student-landing .site-shell {
-  position: relative;
-  z-index: 10;
-  background-color: var(--bg);
-  border-radius: 36px 36px 0 0;
-  box-shadow: 0 -30px 80px rgba(0, 0, 0, 0.55);
-  padding: clamp(56px, 8vw, 100px) 0 40px;
-  overflow-x: clip;
+/* Scroll progress bar (3px lime bar fixed at top) */
+.tf-student-portal-page .pg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--lime);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  z-index: 90;
+  box-shadow: 0 0 10px rgba(237, 255, 114, 0.7);
+  pointer-events: none;
 }
 
-@media (min-width: 768px) and (max-width: 1400px) {
-  .tf-student-landing .w-shell {
-    padding-left: clamp(96px, 10vw, 120px);
-  }
+/* Top Nav */
+.tf-student-portal-page nav.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) clamp(16px, 4vw, 56px) 14px;
+  transition: background 0.3s, backdrop-filter 0.3s, border-color 0.3s;
 }
 
-.tf-student-landing .w-shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 56px);
+.tf-student-portal-page nav.top-nav.scrolled {
+  background: rgba(11, 12, 14, 0.74);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-/* Eyebrow label */
-.tf-student-landing .eb {
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--mut);
+.tf-student-portal-page .logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tf-student-portal-page .logo i {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--lime);
+  color: #111;
+  display: grid;
+  place-items: center;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.tf-student-portal-page .nl {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tf-student-portal-page .nl a,
+.tf-student-portal-page .nl button {
+  color: #cfd1cc;
+  font-size: 13px;
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  transition: 0.2s;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.tf-student-portal-page .nl a:hover,
+.tf-student-portal-page .nl button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.tf-student-portal-page .nl .g {
+  background: var(--lime) !important;
+  color: #111 !important;
+  font-weight: 600 !important;
+}
+
+/* Buttons */
+.tf-student-portal-page .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-
-.tf-student-landing .eb::before {
-  content: "";
-  width: 18px;
-  height: 2px;
-  background: var(--ink);
-  border-radius: 2px;
-}
-
-/* H2 Heading with animated underline */
-.tf-student-landing h2.stl-h2 {
-  margin: 12px 0 14px;
-  font-size: clamp(2rem, 5vw, 3.6rem);
-  letter-spacing: -0.045em;
-  line-height: 1.02;
+  padding: 14px 26px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
   font-weight: 600;
-  max-width: 18ch;
-  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  will-change: transform;
+  cursor: pointer;
 }
 
-.tf-student-landing h2.stl-h2 u {
+.tf-student-portal-page .btn:hover {
+  transform: translateY(-2px);
+}
+
+.tf-student-portal-page .bl {
+  background: var(--lime);
+  color: #111;
+  box-shadow: 0 10px 34px -8px rgba(237, 255, 114, 0.45);
+}
+
+.tf-student-portal-page .bl:hover {
+  box-shadow: 0 14px 40px -6px rgba(237, 255, 114, 0.6);
+}
+
+.tf-student-portal-page .bg-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tf-student-portal-page .bg-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tf-student-portal-page .bd {
+  background: var(--dk2);
+  color: #fff;
+}
+
+.tf-student-portal-page .sm {
+  padding: 10px 18px;
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HERO SECTION (Sticky, 100svh, Two Columns)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .hw {
+  height: 100svh;
+}
+
+.tf-student-portal-page .hero {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--dk);
+  color: #fff;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: 10px;
+  padding: 80px clamp(20px, 6vw, 90px) 50px;
+  isolation: isolate;
+  transform-origin: 50% 100%;
+}
+
+@media (min-width: 768px) {
+  .tf-student-portal-page .hero {
+    padding-left: clamp(100px, 12vw, 160px);
+  }
+}
+
+.tf-student-portal-page .fp {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.tf-student-portal-page .fp svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tf-student-portal-page .fp path {
+  fill: none;
+  stroke-dasharray: 0.3 1;
+  animation: fl var(--du, 24s) linear infinite;
+}
+
+.tf-student-portal-page #p1 path {
+  stroke: #fff;
+}
+
+.tf-student-portal-page #p2 path {
+  stroke: var(--lime);
+}
+
+@keyframes fl {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1.3;
+  }
+}
+
+.tf-student-portal-page .vg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 28% 50%, rgba(11, 12, 14, 0.86) 0, rgba(11, 12, 14, 0.3) 55%, transparent 75%),
+              radial-gradient(600px 420px at 78% 50%, rgba(237, 255, 114, 0.1), transparent 70%);
+}
+
+.tf-student-portal-page .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(237, 255, 114, 0.1);
+  border: 1px solid rgba(237, 255, 114, 0.28);
+  color: var(--lime);
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  margin-bottom: 22px;
+}
+
+.tf-student-portal-page .pill s {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lime);
+  display: inline-block;
+  animation: pl 2s infinite;
+}
+
+@keyframes pl {
+  0% {
+    box-shadow: 0 0 0 0 rgba(237, 255, 114, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(237, 255, 114, 0);
+  }
+}
+
+.tf-student-portal-page h1 {
+  margin: 0 0 20px;
+  font-size: clamp(2.6rem, 5.5vw, 5.2rem);
+  line-height: 1;
+  letter-spacing: -0.055em;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tf-student-portal-page .wd {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.tf-student-portal-page .lt {
+  display: inline-block;
+  animation: lt 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+  animation-delay: calc(var(--c) * 30ms + 0.25s);
+}
+
+@keyframes lt {
+  from {
+    transform: translateY(90%) rotate(6deg);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.tf-student-portal-page h1 em {
+  font-style: normal;
+  color: var(--lime);
+  display: inline-block;
+  text-shadow: 0 0 60px rgba(237, 255, 114, 0.3);
+  transition: opacity 0.35s, transform 0.35s;
+  min-width: 8ch;
+}
+
+.tf-student-portal-page .hp {
+  color: #a4a7a1;
+  max-width: 33rem;
+  line-height: 1.65;
+  margin: 0 0 30px;
+  font-size: clamp(15px, 1.4vw, 17px);
+}
+
+.tf-student-portal-page .row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tf-student-portal-page .tag {
+  margin-top: 26px;
+  font: 500 12px var(--mono);
+  color: #8f938d;
+}
+
+.tf-student-portal-page .tag b {
+  color: var(--lime);
+  font-weight: 500;
+}
+
+.tf-student-portal-page .in {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: up 0.85s ease forwards;
+  animation-delay: calc(var(--i) * 0.13s + 0.2s);
+}
+
+@keyframes up {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 3D Stage */
+.tf-student-portal-page .stage {
+  perspective: 1500px;
+  height: min(520px, 64vh);
+  position: relative;
+}
+
+.tf-student-portal-page .scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -14deg));
+  transition: transform 0.2s;
+}
+
+.tf-student-portal-page .iso {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 290px;
+  height: 190px;
+  margin: -95px 0 0 -145px;
+  transform-style: preserve-3d;
+  transform: rotateX(58deg) rotateZ(-32deg);
+}
+
+.tf-student-portal-page .ly {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(22, 24, 28, 0.9);
+  box-shadow: 0 30px 40px -10px rgba(0, 0, 0, 0.65);
+  transform: translateZ(calc(var(--k) * 58px));
+  animation: lb 6s ease-in-out infinite;
+  animation-delay: calc(var(--k) * -1.4s);
+  font: 500 9.5px var(--mono);
+  color: #8f938d;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes lb {
+  50% {
+    transform: translateZ(calc(var(--k) * 58px + 20px));
+  }
+}
+
+.tf-student-portal-page .ly i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  margin-top: 9px;
+}
+
+.tf-student-portal-page .ly i.a {
+  background: var(--lime);
+  width: 46%;
+}
+
+.tf-student-portal-page .ly.l0 {
+  background: rgba(237, 255, 114, 0.92);
+  color: #2b3100;
+  border-color: transparent;
+}
+
+.tf-student-portal-page .ly.l0 i {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.tf-student-portal-page .ly.l2 {
+  background: #fff;
+  color: #555;
+}
+
+.tf-student-portal-page .ly.l2 i {
+  background: #E9ECE7;
+}
+
+.tf-student-portal-page .ly.l2 i.a {
+  background: var(--lime);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.tf-student-portal-page .fl {
+  position: absolute;
+  background: #fff;
+  color: var(--tx);
+  border-radius: 18px;
+  padding: 13px 16px;
+  font-size: 12px;
+  box-shadow: 0 30px 50px -16px rgba(0, 0, 0, 0.7);
+  transform: translateZ(var(--z));
+  animation: fa 6s ease-in-out infinite;
+  animation-delay: var(--dl, 0s);
+}
+
+@keyframes fa {
+  50% {
+    transform: translateZ(var(--z)) translateY(-14px);
+  }
+}
+
+.tf-student-portal-page .fl b {
+  display: block;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+.tf-student-portal-page .fl small {
+  color: var(--t2);
+}
+
+.tf-student-portal-page .fl.d {
+  background: var(--dk2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.tf-student-portal-page .fl.d small {
+  color: #9a9d97;
+}
+
+.tf-student-portal-page .big {
+  font: 600 32px var(--mono);
+  color: var(--lime);
+  letter-spacing: -0.03em;
+}
+
+/* 70px Rotating Cube */
+.tf-student-portal-page .cube {
+  position: absolute;
+  left: 4%;
+  bottom: 8%;
+  width: 70px;
+  height: 70px;
+  transform-style: preserve-3d;
+  animation: cr 16s linear infinite;
+}
+
+.tf-student-portal-page .cube i {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  font-style: normal;
+  background: var(--lime);
+  color: #111;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.tf-student-portal-page .cube i:nth-child(even) {
+  background: #fff;
+}
+
+.tf-student-portal-page .cube i:nth-child(1) { transform: translateZ(35px); }
+.tf-student-portal-page .cube i:nth-child(2) { transform: rotateY(90deg) translateZ(35px); }
+.tf-student-portal-page .cube i:nth-child(3) { transform: rotateY(180deg) translateZ(35px); }
+.tf-student-portal-page .cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(35px); }
+.tf-student-portal-page .cube i:nth-child(5) { transform: rotateX(90deg) translateZ(35px); }
+.tf-student-portal-page .cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(35px); }
+
+@keyframes cr {
+  from {
+    transform: translateZ(110px) rotateX(20deg) rotateY(0);
+  }
+  to {
+    transform: translateZ(110px) rotateX(380deg) rotateY(360deg);
+  }
+}
+
+/* 440px Orbit Ring */
+.tf-student-portal-page .rg3 {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 440px;
+  height: 440px;
+  margin: -220px;
+  border-radius: 50%;
+  border: 1px dashed rgba(237, 255, 114, 0.3);
+  transform-style: preserve-3d;
+  transform: rotateX(72deg);
+  animation: rz 22s linear infinite;
+}
+
+.tf-student-portal-page .rg3 i {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 18px var(--lime);
+}
+
+@keyframes rz {
+  to {
+    transform: rotateX(72deg) rotateZ(360deg);
+  }
+}
+
+.tf-student-portal-page .cue {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  translate: -50% 0;
+  font: 500 10px var(--mono);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #6b6f69;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SITE SHELL (Sliding up over hero with 40px top radius)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .site {
+  position: relative;
+  z-index: 10;
+  background: var(--bg);
+  border-radius: 40px 40px 0 0;
+  box-shadow: 0 -30px 80px rgba(0, 0, 0, 0.55);
+  padding: clamp(56px, 8vw, 110px) clamp(14px, 4vw, 56px) 28px;
+}
+
+@media (min-width: 768px) {
+  .tf-student-portal-page .site {
+    padding-left: clamp(80px, 10vw, 140px);
+  }
+}
+
+.tf-student-portal-page .w {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.tf-student-portal-page .eb {
+  font: 600 11px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tf-student-portal-page .eb::before {
+  content: "";
+  width: 22px;
+  height: 2px;
+  background: var(--tx);
+}
+
+.tf-student-portal-page h2 {
+  font-size: clamp(1.9rem, 4.4vw, 3.3rem);
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+  margin: 12px 0 16px;
+  max-width: 19ch;
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.tf-student-portal-page h2 u {
   text-decoration: none;
-  padding: 0 0.15em;
+  padding: 0 0.12em;
   border-radius: 0.2em;
   background: linear-gradient(var(--lime), var(--lime)) 0 0/0% 100% no-repeat;
   transition: background-size 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.5s;
 }
 
-.tf-student-landing h2.stl-h2.on u,
-.tf-student-landing .rv.on h2.stl-h2 u,
-.tf-student-landing .section-visible u {
+.tf-student-portal-page h2.on u,
+.tf-student-portal-page .rv.on h2 u,
+.tf-student-portal-page .on u {
   background-size: 100% 100%;
 }
 
-.tf-student-landing .stl-lead {
-  max-width: 38rem;
-  color: #6B6B66;
-  line-height: 1.6;
-  margin: 0 0 40px;
-  font-size: clamp(14px, 1.2vw, 16px);
+.tf-student-portal-page .ld {
+  color: #666b66;
+  line-height: 1.7;
+  max-width: 40rem;
+  margin: 0 0 36px;
+  font-size: 16px;
 }
 
-/* Marquee Ticker Band - True Full Screen Width Edge-to-Edge */
-.tf-student-landing .stl-mq {
-  width: 100vw;
+.tf-student-portal-page .rv {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--d, 0) * 90ms);
+}
+
+.tf-student-portal-page .rv.on {
+  opacity: 1;
+  transform: none;
+}
+
+.tf-student-portal-page section {
+  margin-bottom: clamp(70px, 9vw, 120px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D MOCK (Student Workspace Showcase)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .stg {
   position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  margin-top: 60px;
-  margin-bottom: 0;
-  overflow: hidden;
-  padding: 28px 0;
-  background: var(--ink);
-  transform: none; /* Straight, no slant */
-  border-block: 2px solid rgba(237, 255, 114, 0.35);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  perspective: 1600px;
+  margin-top: 6px;
 }
 
-.tf-student-landing .stl-mq-inner {
+.tf-student-portal-page .mock {
   display: flex;
+  background: var(--s2);
+  border-radius: 30px;
+  padding: 14px;
+  box-shadow: 0 50px 100px -30px rgba(0, 0, 0, 0.35);
+  transform: rotateX(16deg) translateY(30px) scale(0.94);
+  transform-origin: 50% 0;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.tf-student-portal-page .sb {
+  width: 54px;
+  background: var(--dk2);
+  border-radius: 22px;
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 40px;
-  width: max-content;
-  animation: stlMarquee 28s linear infinite;
+  gap: 14px;
+  color: #8a8a85;
+  font-size: 15px;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: 0.9s cubic-bezier(0.2, 1.2, 0.3, 1) 0.3s;
+}
+
+.tf-student-portal-page .on .sb,
+.tf-student-portal-page .rv.on .sb {
+  transform: none;
+  opacity: 1;
+}
+
+.tf-student-portal-page .sb b {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.tf-student-portal-page .sb b.a {
+  background: var(--lime);
+  color: #111;
+}
+
+.tf-student-portal-page .mc {
+  flex: 1;
+  padding: 6px 6px 6px 18px;
+  min-width: 0;
+}
+
+.tf-student-portal-page .tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tf-student-portal-page .tabs span {
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  color: #333;
+}
+
+.tf-student-portal-page .tabs span:first-child {
+  background: var(--dk2);
   color: #fff;
-  font-size: clamp(20px, 2.2vw, 28px);
-  font-weight: 800;
-  letter-spacing: 0.04em;
+}
+
+.tf-student-portal-page .mt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tf-student-portal-page .mt h3 {
+  margin: 0;
+  font-size: clamp(18px, 3vw, 30px);
+  letter-spacing: -0.04em;
+  color: var(--tx);
+}
+
+.tf-student-portal-page .mt i {
+  font-style: normal;
+  background: var(--lime);
+  border-radius: 50%;
+  padding: 2px 7px;
+  font-size: 0.7em;
+}
+
+.tf-student-portal-page .mb {
+  background: var(--dk2);
+  color: #fff;
+  font-size: 11px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tf-student-portal-page .mg {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.15fr;
+  gap: 10px;
+}
+
+.tf-student-portal-page .mk {
+  background: #fff;
+  border-radius: 20px;
+  padding: 14px;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.tf-student-portal-page .mk.l {
+  background: var(--lime);
+}
+
+.tf-student-portal-page .mk.d {
+  background: var(--dk2);
+  color: #fff;
+}
+
+.tf-student-portal-page .mk .n {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.tf-student-portal-page .sl {
+  display: flex;
+  gap: 4px;
+}
+
+.tf-student-portal-page .sl s {
+  flex: 1;
+  height: 26px;
+  border-radius: 5px;
+  border: 1px dashed rgba(0, 0, 0, 0.25);
+  text-decoration: none;
+  display: block;
+}
+
+.tf-student-portal-page .sl s.f {
+  background: var(--dk2);
+  border: 0;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: 0.5s;
+}
+
+.tf-student-portal-page .on .sl s.f,
+.tf-student-portal-page .rv.on .sl s.f {
+  transform: none;
+  transition-delay: calc(var(--k) * 0.12s + 0.8s);
+}
+
+.tf-student-portal-page .orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--lime);
+  margin: 0 auto;
+  position: relative;
+  animation: sp 8s linear infinite;
+}
+
+.tf-student-portal-page .orb::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  border: 1px dashed rgba(237, 255, 114, 0.6);
+}
+
+.tf-student-portal-page .orb::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+
+@keyframes sp {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tf-student-portal-page .chart {
+  grid-column: span 3;
+  background: #fff;
+  border-radius: 20px;
+  padding: 14px;
+  font-size: 11px;
+  margin-top: 10px;
+}
+
+.tf-student-portal-page .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  height: 90px;
+  margin-top: 10px;
+}
+
+.tf-student-portal-page .bars i {
+  flex: 1;
+  background: linear-gradient(var(--lime), #c8e63a);
+  border-radius: 6px 6px 0 0;
+  height: 0;
+  transition: height 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: calc(var(--k) * 70ms + 0.9s);
+}
+
+.tf-student-portal-page .on .bars i,
+.tf-student-portal-page .rv.on .bars i {
+  height: var(--h);
+}
+
+.tf-student-portal-page .qa {
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 14px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tf-student-portal-page .qa div {
+  background: #F2F3F0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tf-student-portal-page .qa div:hover {
+  background: #e5e8e2;
+}
+
+.tf-student-portal-page .fc {
+  position: absolute;
+  background: #fff;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.3);
+  animation: fb 5s ease-in-out infinite;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 20;
+}
+
+.tf-student-portal-page .fc.d {
+  background: var(--dk2);
+  color: #fff;
+}
+
+.tf-student-portal-page .fc em {
+  font-style: normal;
+  background: var(--lime);
+  color: #111;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+}
+
+@keyframes fb {
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MARQUEE TICKER (Rotated -1.4deg, Full Screen Width, Electric Lime)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .mq {
+  width: 100vw;
+  margin: 90px 0 0 calc(50% - 50vw);
+  overflow: hidden;
+  background: var(--lime);
+  transform: rotate(-1.4deg);
+  padding: 16px 0;
+  border-block: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.tf-student-portal-page .mq > div {
+  display: flex;
+  gap: 36px;
+  width: max-content;
+  animation: mq 34s linear infinite;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(18px, 2.4vw, 28px);
+  letter-spacing: -0.03em;
+  color: #111;
   white-space: nowrap;
 }
 
-.tf-student-landing .stl-mq-inner span {
-  color: var(--lime);
-  font-size: 1.3em;
-  margin: 0 4px;
+.tf-student-portal-page .mq:hover > div {
+  animation-play-state: paused;
 }
 
-@keyframes stlMarquee {
+.tf-student-portal-page .mq i {
+  font-style: normal;
+  opacity: 0.45;
+}
+
+@keyframes mq {
   to {
     transform: translateX(-50%);
   }
 }
 
-/* Feature Grid */
-.tf-student-landing .stl-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 16px;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   JOIN TEST (Interactive Preview with Dark Panel)
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.tf-student-landing .stl-card {
-  grid-column: span 4;
-  background: #fff;
-  border-radius: 28px;
-  padding: 26px;
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+.tf-student-portal-page .dk {
+  background: var(--dk);
+  color: #fff;
+  border-radius: 44px;
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.35s;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: clamp(36px, 6vw, 72px) clamp(18px, 4vw, 56px);
 }
 
-.tf-student-landing .stl-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 30px 60px -25px rgba(0, 0, 0, 0.25);
+.tf-student-portal-page .dk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(700px 420px at 15% 0, rgba(237, 255, 114, 0.13), transparent 70%),
+              linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0/56px 56px,
+              linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0/56px 56px;
+  -webkit-mask: radial-gradient(ellipse at 50% 45%, #000 30%, transparent 90%);
+  mask: radial-gradient(ellipse at 50% 45%, #000 30%, transparent 90%);
 }
 
-.tf-student-landing .stl-card.w8 {
+.tf-student-portal-page .dk .eb {
+  color: #9a9e98;
+}
+
+.tf-student-portal-page .dk .eb::before {
+  background: var(--lime);
+}
+
+.tf-student-portal-page .dk h2 {
+  color: #fff;
+}
+
+.tf-student-portal-page .dk .ld {
+  color: #a4a7a1;
+}
+
+.tf-student-portal-page .jn {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(24px, 5vw, 60px);
+  align-items: center;
+  margin-top: 30px;
+}
+
+.tf-student-portal-page .jf {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tf-student-portal-page .jf input {
+  flex: 1;
+  min-width: 170px;
+  font: 600 clamp(20px, 3vw, 28px) var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--lime);
+  border-radius: 18px;
+  padding: 16px 20px;
+  outline: none;
+  transition: 0.25s;
+}
+
+.tf-student-portal-page .jf input:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 4px rgba(237, 255, 114, 0.15);
+}
+
+.tf-student-portal-page .hints {
+  font: 500 11px var(--mono);
+  color: #8f938d;
+  line-height: 1.9;
+  margin-top: 16px;
+}
+
+.tf-student-portal-page .hints b {
+  color: var(--lime);
+  font-weight: 500;
+}
+
+.tf-student-portal-page .jc2 {
+  border-radius: 26px;
+  background: #15171a;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 24px;
+  box-shadow: 0 50px 80px -40px rgba(0, 0, 0, 0.9);
+  min-height: 330px;
+  transition: transform 0.15s;
+}
+
+.tf-student-portal-page .jc2 h3 {
+  margin: 12px 0 2px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.tf-student-portal-page .jc2 small {
+  color: #8f938d;
+}
+
+.tf-student-portal-page .kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.tf-student-portal-page .kv div {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 13px;
+  color: #fff;
+}
+
+.tf-student-portal-page .kv small {
+  display: block;
+  font: 500 10px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: #8f938d;
+}
+
+.tf-student-portal-page .msg {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  animation: fd 0.4s;
+  line-height: 1.5;
+  color: #ffb8b8;
+}
+
+@keyframes fd {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tf-student-portal-page .cap {
+  font: 500 10.5px var(--mono);
+  letter-spacing: 0.06em;
+  color: #6f736d;
+  margin-top: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FEATURES BENTO GRID (5 Cards)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .bgd {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  perspective: 1300px;
+}
+
+.tf-student-portal-page .cd {
+  position: relative;
+  grid-column: span 4;
+  background: #fff;
+  border: 1px solid var(--bd);
+  border-radius: 28px;
+  padding: 26px;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  isolation: isolate;
+  transform-style: preserve-3d;
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s;
+}
+
+.tf-student-portal-page .cd:hover {
+  box-shadow: 0 36px 56px -30px rgba(0, 0, 0, 0.4);
+}
+
+.tf-student-portal-page .cd.w8 {
   grid-column: span 8;
 }
 
-.tf-student-landing .stl-card.lime-card {
+.tf-student-portal-page .cd.l {
   background: var(--lime);
   border-color: transparent;
 }
 
-.tf-student-landing .stl-card.dark-card {
-  background: var(--ink);
+.tf-student-portal-page .cd.d {
+  background: var(--dk2);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
 }
 
-.tf-student-landing .stl-card h3 {
+.tf-student-portal-page .cd h3 {
   margin: 0 0 6px;
   font-size: 21px;
-  letter-spacing: -0.025em;
-  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--tx);
 }
 
-.tf-student-landing .stl-card p {
+.tf-student-portal-page .cd.d h3 {
+  color: #fff;
+}
+
+.tf-student-portal-page .cd p {
   margin: 0;
   font-size: 14px;
   line-height: 1.55;
@@ -198,252 +1252,395 @@
   max-width: 34ch;
 }
 
-.tf-student-landing .stl-tag {
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 600;
+.tf-student-portal-page .tg {
+  display: inline-block;
+  font: 600 11px var(--mono);
   padding: 5px 11px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.07);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  color: #111;
 }
 
-.tf-student-landing .dark-card .stl-tag {
+.tf-student-portal-page .cd.d .tg {
   background: rgba(237, 255, 114, 0.15);
   color: var(--lime);
 }
 
-.tf-student-landing .stl-code {
-  font-family: ui-monospace, Menlo, Monaco, 'JetBrains Mono', monospace;
-  font-size: 12px;
+.tf-student-portal-page .qs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.tf-student-portal-page .qs span {
+  font: 500 12px var(--mono);
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #F2F3F0;
+  color: #222;
+}
+
+.tf-student-portal-page .qs span:nth-child(2n) {
+  background: var(--lime);
+}
+
+.tf-student-portal-page .tm {
+  font: 600 54px var(--mono);
+  letter-spacing: -0.05em;
+  color: #111;
+}
+
+.tf-student-portal-page .tm small {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.tf-student-portal-page .code {
+  font: 12.5px/1.8 var(--mono);
   background: rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 12px;
-  line-height: 1.8;
   margin-top: 16px;
+  color: #fff;
 }
 
-.tf-student-landing .stl-code .ok {
+.tf-student-portal-page .code .ok {
   color: var(--lime);
 }
 
-.tf-student-landing .stl-pp {
-  margin-top: 16px;
-  display: grid;
-  gap: 6px;
+.tf-student-portal-page .code .cu {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  background: var(--lime);
+  vertical-align: -2px;
+  animation: bl 1s steps(1) infinite;
 }
 
-.tf-student-landing .stl-pp s {
-  height: 8px;
-  border-radius: 4px;
+@keyframes bl {
+  50% {
+    opacity: 0;
+  }
+}
+
+.tf-student-portal-page .pp {
+  margin-top: 16px;
+  display: grid;
+  gap: 7px;
+}
+
+.tf-student-portal-page .pp s {
+  height: 9px;
+  border-radius: 5px;
   background: rgba(0, 0, 0, 0.1);
   text-decoration: none;
   display: block;
 }
 
-.tf-student-landing .stl-pp s:nth-child(2) { width: 70%; }
-.tf-student-landing .stl-pp s:nth-child(3) { width: 85%; }
-.tf-student-landing .stl-pp s:nth-child(4) { width: 50%; background: var(--lime); }
+.tf-student-portal-page .pp s:nth-child(2) { width: 72%; }
+.tf-student-portal-page .pp s:nth-child(3) { width: 86%; }
+.tf-student-portal-page .pp s:nth-child(4) { width: 50%; background: var(--lime); }
 
-.tf-student-landing .stl-qs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 16px;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATS SECTION (3 Cards)
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.tf-student-landing .stl-qs span {
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #F1F1EE;
-  font-weight: 500;
-}
-
-.tf-student-landing .stl-qs span:nth-child(2n) {
-  background: var(--lime);
-}
-
-/* Steps Grid */
-.tf-student-landing .stl-steps {
+.tf-student-portal-page .st {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 90px;
 }
 
-.tf-student-landing .stl-step {
-  background: #fff;
-  border-radius: 28px;
-  padding: 28px;
-  position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.tf-student-landing .stl-step b {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--lime);
-  display: grid;
-  place-items: center;
-  margin-bottom: 48px;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.tf-student-landing .stl-step h3 {
-  margin: 0 0 8px;
-  font-size: 20px;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-}
-
-.tf-student-landing .stl-step p {
-  margin: 0;
-  color: #6B6B66;
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-/* Stats Section */
-.tf-student-landing .stl-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-top: 80px;
-}
-
-.tf-student-landing .stl-stat {
+.tf-student-portal-page .sn {
   border-radius: 28px;
   background: #fff;
+  border: 1px solid var(--bd);
   padding: 30px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.tf-student-landing .stl-stat b {
+.tf-student-portal-page .sn b {
   display: block;
   font-size: clamp(44px, 7vw, 76px);
   letter-spacing: -0.06em;
   line-height: 1;
-  font-weight: 700;
-  color: var(--ink);
+  color: var(--tx);
 }
 
-.tf-student-landing .stl-stat span {
-  color: var(--mut);
+.tf-student-portal-page .sn span {
+  color: var(--t2);
   font-size: 14px;
-  margin-top: 8px;
-  display: block;
 }
 
-/* Final CTA Section */
-.tf-student-landing .stl-cta {
-  margin: 80px 0 16px;
-  border-radius: 40px;
-  background: var(--ink);
-  color: #fff;
-  padding: clamp(36px, 7vw, 84px);
+/* ═══════════════════════════════════════════════════════════════════════════
+   FINAL CTA (Dark 3D Cube + Orbit Rings)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .cta {
   text-align: center;
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
+  padding: clamp(48px, 8vw, 100px) 24px;
+  margin: 100px 0 0;
 }
 
-.tf-student-landing .stl-cta::before {
-  content: "";
-  position: absolute;
-  inset: -30%;
-  z-index: -1;
-  background: radial-gradient(circle at 50% 50%, rgba(237, 255, 114, 0.28), transparent 45%);
-  animation: stlGlow 7s ease-in-out infinite alternate;
-}
-
-@keyframes stlGlow {
-  to {
-    transform: translateX(18%) scale(1.15);
-  }
-}
-
-.tf-student-landing .stl-cta h2 {
-  margin: 0 auto 24px;
+.tf-student-portal-page .cta h2 {
+  max-width: 15ch;
+  margin: 30px auto 14px;
   color: #fff;
-  max-width: 14ch;
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  font-weight: 600;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.2rem, 5.6vw, 4.4rem);
 }
 
-/* Buttons */
-.tf-student-landing .stl-btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.tf-student-portal-page .cta p {
+  color: #a4a7a1;
+  max-width: 30rem;
+  margin: 0 auto 30px;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.tf-student-portal-page .cta .row {
   justify-content: center;
 }
 
-.tf-student-landing .stl-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 26px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 14px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+.tf-student-portal-page .id3 {
+  perspective: 1100px;
+  height: 230px;
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-.tf-student-landing .stl-btn:hover {
-  transform: translateY(-2px);
+.tf-student-portal-page .sc3 {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(-10deg) rotateY(var(--wy, 0deg));
+  transition: transform 0.25s;
 }
 
-.tf-student-landing .stl-btn.stl-btn-lime {
+.tf-student-portal-page .cb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 108px;
+  height: 108px;
+  margin: -54px;
+  transform-style: preserve-3d;
+  animation: cb 14s linear infinite;
+}
+
+.tf-student-portal-page .cb i {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  font-style: normal;
   background: var(--lime);
-  color: var(--ink);
-  box-shadow: 0 8px 30px rgba(237, 255, 114, 0.25);
+  color: #111;
+  border: 1px solid rgba(0, 0, 0, 0.25);
 }
 
-.tf-student-landing .stl-btn.stl-btn-ghost {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
+.tf-student-portal-page .cb i:nth-child(even) {
+  background: #f4ffa6;
 }
 
-/* Footer */
-.tf-student-landing footer.stl-footer {
+.tf-student-portal-page .cb i:nth-child(1) { transform: translateZ(54px); }
+.tf-student-portal-page .cb i:nth-child(2) { transform: rotateY(90deg) translateZ(54px); }
+.tf-student-portal-page .cb i:nth-child(3) { transform: rotateY(180deg) translateZ(54px); }
+.tf-student-portal-page .cb i:nth-child(4) { transform: rotateY(-90deg) translateZ(54px); }
+.tf-student-portal-page .cb i:nth-child(5) { transform: rotateX(90deg) translateZ(54px); }
+.tf-student-portal-page .cb i:nth-child(6) { transform: rotateX(-90deg) translateZ(54px); }
+
+@keyframes cb {
+  to {
+    transform: rotateX(360deg) rotateY(360deg);
+  }
+}
+
+.tf-student-portal-page .ob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2);
+  border: 1px solid rgba(237, 255, 114, 0.28);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: rotateX(72deg);
+  animation: oz var(--t) linear infinite;
+}
+
+.tf-student-portal-page .ob i {
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  margin-left: -16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  display: grid;
+  place-items: center;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  font-style: normal;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+  animation: oc var(--t) linear infinite;
+}
+
+@keyframes oz {
+  to {
+    transform: rotateX(72deg) rotateZ(360deg);
+  }
+}
+
+@keyframes oc {
+  from {
+    transform: rotateX(-72deg) rotateZ(0);
+  }
+  to {
+    transform: rotateX(-72deg) rotateZ(-360deg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORDMARK & FOOTER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tf-student-portal-page .wm {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(70px, 18vw, 280px);
+  line-height: 0.9;
+  letter-spacing: -0.07em;
+  text-align: center;
+  margin: 70px 0 0;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(23, 24, 25, 0.2);
+  background: linear-gradient(100deg, transparent 40%, var(--lime) 50%, transparent 60%) 0 0 / 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: wsh 7s linear infinite;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+}
+
+@keyframes wsh {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.tf-student-portal-page footer {
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 28px 4px 16px;
+  padding: 20px 6px 12px;
   font-size: 13px;
-  color: var(--mut);
+  color: var(--t2);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: 30px;
 }
 
-/* Reveal transition */
-.tf-student-landing .rv {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE QUERIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 980px) {
+  .tf-student-portal-page .hero {
+    grid-template-columns: 1fr;
+    padding-top: 96px;
+    align-content: center;
+  }
+  .tf-student-portal-page .stage {
+    height: 300px;
+    margin-top: 10px;
+  }
+  .tf-student-portal-page .nl a:not(.g) {
+    display: none;
+  }
+  .tf-student-portal-page .jn {
+    grid-template-columns: 1fr;
+  }
+  .tf-student-portal-page .cd,
+  .tf-student-portal-page .cd.w8 {
+    grid-column: span 6;
+  }
+  .tf-student-portal-page .mg {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tf-student-portal-page .mk.d {
+    display: none;
+  }
+  .tf-student-portal-page .chart {
+    grid-column: span 2;
+  }
+  .tf-student-portal-page .sb {
+    display: none;
+  }
+  .tf-student-portal-page .fc {
+    display: none;
+  }
 }
 
-.tf-student-landing .rv.on {
-  opacity: 1;
-  transform: none;
-}
-
-/* Media Queries */
-@media (max-width: 900px) {
-  .tf-student-landing .stl-card,
-  .tf-student-landing .stl-card.w8 {
+@media (max-width: 640px) {
+  .tf-student-portal-page .cd,
+  .tf-student-portal-page .cd.w8 {
     grid-column: span 12;
   }
-
-  .tf-student-landing .stl-steps,
-  .tf-student-landing .stl-stats {
+  .tf-student-portal-page .st {
     grid-template-columns: 1fr;
+  }
+  .tf-student-portal-page .cue {
+    display: none;
+  }
+  .tf-student-portal-page .dk {
+    border-radius: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-student-portal-page * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tf-student-portal-page .in,
+  .tf-student-portal-page .rv {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .tf-student-portal-page h2 u {
+    background-size: 100% 100% !important;
+  }
+  .tf-student-portal-page .mock {
+    transform: none !important;
+  }
+  .tf-student-portal-page .sb {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .tf-student-portal-page .bars i {
+    height: var(--h) !important;
+  }
+  .tf-student-portal-page .sl s.f {
+    transform: none !important;
+  }
+  .tf-student-portal-page .fp path {
+    stroke-dasharray: none !important;
+    stroke-opacity: 0.1 !important;
   }
 }

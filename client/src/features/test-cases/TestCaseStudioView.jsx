@@ -104,6 +104,7 @@ export const TestCaseStudioView = ({
   const [selectedTestCaseId, setSelectedTestCaseId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [singleValidatingId, setSingleValidatingId] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -468,6 +469,22 @@ export const TestCaseStudioView = ({
       await fetchTests();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update expected output');
+    }
+  };
+
+  // Publish question directly from Test Studio once verified
+  const handlePublishFromStudio = async () => {
+    if (!currentQ?._id) return;
+    setIsPublishing(true);
+    try {
+      await api.patch(`/questions/${currentQ._id}`, { status: 'published' });
+      setCurrentQ((prev) => ({ ...prev, status: 'published' }));
+      showToast('✓ Successfully published question to Question Bank!');
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || 'Failed to publish question';
+      showToast(`Cannot publish: ${msg}`);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -1744,9 +1761,20 @@ export const TestCaseStudioView = ({
                 </div>
 
                 {validationReport.canPublish ? (
-                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Reference solution and test suite verified. Question is ready to publish!</span>
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Reference solution and test suite verified. Question is ready to publish!</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isPublishing || currentQ?.status === 'published'}
+                      onClick={handlePublishFromStudio}
+                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border-0 transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {currentQ?.status === 'published' ? '✓ Published to Question Bank' : isPublishing ? 'Publishing…' : 'Publish Question Now'}
+                    </button>
                   </div>
                 ) : (
                   <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium flex items-center gap-1.5">

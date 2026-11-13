@@ -43,27 +43,6 @@ const FeatureCard = ({ icon: Icon, title, description, tag }) => {
       style={style}
       className="relative rounded-[28px] border border-[#DDE1DA] bg-white p-7 shadow-xs overflow-hidden isolation-isolate transition-shadow duration-300 hover:shadow-[0_24px_50px_-20px_rgba(23,24,25,0.12)] flex flex-col justify-between min-h-[260px] group"
     >
-      {/* Radial Lime Spotlight */}
-      <div
-        aria-hidden="true"
-        style={{
-          background: `radial-gradient(280px circle at ${spotlight.x}% ${spotlight.y}%, rgba(237, 255, 114, 0.45), transparent 60%)`,
-          opacity: spotlight.opacity,
-          transition: 'opacity 0.25s ease'
-        }}
-        className="pointer-events-none absolute inset-0 z-0"
-      />
-
-      {/* Top Header */}
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="size-12 rounded-2xl bg-[#EDFF72] text-[#111] flex items-center justify-center shadow-[0_6px_18px_rgba(237,255,114,0.4)] transition-transform group-hover:scale-105">
-          <Icon className="size-6 stroke-[2]" />
-        </div>
-        <span className="font-mono text-[10px] font-semibold tracking-wider px-2.5 py-1 rounded-full bg-[#F2F3F0] text-[#777D78] border border-[#DDE1DA]">
-          {tag}
-        </span>
-      </div>
-
       {/* Content */}
       <div className="relative z-10 mt-6">
         <h3 className="text-xl font-bold tracking-tight text-[#171819]">

@@ -277,12 +277,27 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
   // 1. Resolve reference solution for target language (NEVER fall back to starter code)
   let refCode = null;
   if (question.referenceSolutions) {
-    refCode = question.referenceSolutions instanceof Map
-      ? question.referenceSolutions.get(targetLang)
-      : question.referenceSolutions[targetLang];
+    if (question.referenceSolutions instanceof Map) {
+      refCode =
+        question.referenceSolutions.get(targetLang) ||
+        question.referenceSolutions.get(targetLang.toLowerCase());
+    } else if (typeof question.referenceSolutions === 'object') {
+      const keys = Object.keys(question.referenceSolutions);
+      const matchedKey = keys.find((k) => k.toLowerCase() === targetLang.toLowerCase());
+      if (matchedKey) refCode = question.referenceSolutions[matchedKey];
+    }
   }
+
   if (!refCode || !refCode.trim()) {
-    if (question.language === targetLang && question.referenceSolution && question.referenceSolution.trim()) {
+    const qLang = (question.language || '').toLowerCase();
+    if (qLang === targetLang.toLowerCase() && question.referenceSolution && question.referenceSolution.trim()) {
+      refCode = question.referenceSolution;
+    }
+  }
+
+  // Fallback: If referenceSolution exists on the question and targetLang is the requested language
+  if (!refCode || !refCode.trim()) {
+    if (question.referenceSolution && question.referenceSolution.trim()) {
       refCode = question.referenceSolution;
     }
   }

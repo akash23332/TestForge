@@ -292,6 +292,29 @@ export const QuestionCreatorView = ({
     initialQuestion?.referenceSolution || getStandardTemplate(initialQuestion?.executionMode || 'FUNCTION', initialQuestion?.language || 'javascript')?.referenceSolution || ''
   );
 
+  // Multi-language code caches
+  const [langStarterCodes, setLangStarterCodes] = useState(() => {
+    const map = {};
+    if (initialQuestion?.starterCodes) {
+      Object.assign(map, initialQuestion.starterCodes instanceof Map ? Object.fromEntries(initialQuestion.starterCodes) : initialQuestion.starterCodes);
+    }
+    if (initialQuestion?.starterCode && initialQuestion?.language) {
+      map[initialQuestion.language.toLowerCase()] = initialQuestion.starterCode;
+    }
+    return map;
+  });
+
+  const [langRefSolutions, setLangRefSolutions] = useState(() => {
+    const map = {};
+    if (initialQuestion?.referenceSolutions) {
+      Object.assign(map, initialQuestion.referenceSolutions instanceof Map ? Object.fromEntries(initialQuestion.referenceSolutions) : initialQuestion.referenceSolutions);
+    }
+    if (initialQuestion?.referenceSolution && initialQuestion?.language) {
+      map[initialQuestion.language.toLowerCase()] = initialQuestion.referenceSolution;
+    }
+    return map;
+  });
+
   // 6. UI Status States
   const [loading, setLoading] = useState(false);
   const [saveDraftLoading, setSaveDraftLoading] = useState(false);
@@ -332,6 +355,28 @@ export const QuestionCreatorView = ({
     toastTimerRef.current = setTimeout(() => setToastMsg(null), 2400);
   };
 
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const handleDeleteQuestion = async () => {
+    if (!initialQuestion?._id) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/questions/${initialQuestion._id}`);
+      showToast('Question deleted successfully.');
+      setTimeout(() => {
+        if (onSuccess) onSuccess();
+      }, 700);
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || 'Failed to delete question.';
+      setError(msg);
+      showToast(msg);
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
   // Sync initial question if editing
   useEffect(() => {
     if (initialQuestion) {
@@ -368,32 +413,49 @@ export const QuestionCreatorView = ({
     return false;
   };
 
-  // Language Change Sync
+  // Language Change Sync: Dynamically updates boilerplate to match selected language & mode
   const handleLanguageChange = (newLangId) => {
-    setLanguage(newLangId);
-    const tpl = getStandardTemplate(executionMode, newLangId);
-    if (tpl) {
-      if (isDefaultCode(starterCode)) {
-        setStarterCode(tpl.starterCode);
-      }
-      if (isDefaultCode(referenceSolution)) {
-        setReferenceSolution(tpl.referenceSolution);
-      }
-    }
+    const prevLang = (language || 'javascript').toLowerCase();
+    const nextLang = (newLangId || 'javascript').toLowerCase();
+
+    // Cache current edits for previous language & mode key
+    const prevKey = `${executionMode}_${prevLang}`;
+    setLangStarterCodes((prev) => ({ ...prev, [prevKey]: starterCode }));
+    setLangRefSolutions((prev) => ({ ...prev, [prevLang]: referenceSolution }));
+
+    setLanguage(nextLang);
+
+    // Retrieve cached code for target language & mode, or load matching standard template
+    const nextKey = `${executionMode}_${nextLang}`;
+    const tpl = getStandardTemplate(executionMode, nextLang);
+    const existingStarter = langStarterCodes[nextKey];
+    const existingRef = langRefSolutions[nextKey];
+
+    setStarterCode(existingStarter !== undefined ? existingStarter : (tpl?.starterCode || ''));
+    setReferenceSolution(existingRef !== undefined ? existingRef : (tpl?.referenceSolution || ''));
   };
 
-  // Mode Change Sync
+  // Mode Change Sync: Dynamically updates boilerplate to match FUNCTION vs STDIN
   const handleModeChange = (newMode) => {
-    setExecutionMode(newMode);
-    const tpl = getStandardTemplate(newMode, language);
-    if (tpl) {
-      if (isDefaultCode(starterCode)) {
-        setStarterCode(tpl.starterCode);
-      }
-      if (isDefaultCode(referenceSolution)) {
-        setReferenceSolution(tpl.referenceSolution);
-      }
-    }
+    const prevMode = executionMode;
+    const nextMode = newMode;
+    const currentLang = (language || 'javascript').toLowerCase();
+
+    // Cache current edits for previous mode & language key
+    const prevKey = `${prevMode}_${currentLang}`;
+    setLangStarterCodes((prev) => ({ ...prev, [prevKey]: starterCode }));
+    setLangRefSolutions((prev) => ({ ...prev, [prevKey]: referenceSolution }));
+
+    setExecutionMode(nextMode);
+
+    // Retrieve cached code for new mode or load matching standard template
+    const nextKey = `${nextMode}_${currentLang}`;
+    const tpl = getStandardTemplate(nextMode, currentLang);
+    const existingStarter = langStarterCodes[nextKey];
+    const existingRef = langRefSolutions[nextKey];
+
+    setStarterCode(existingStarter !== undefined ? existingStarter : (tpl?.starterCode || ''));
+    setReferenceSolution(existingRef !== undefined ? existingRef : (tpl?.referenceSolution || ''));
   };
 
   // 7 Checklist Items for Outline & Completeness
@@ -444,10 +506,10 @@ export const QuestionCreatorView = ({
     ];
   }, [title, statement, inputFormat, outputFormat, constraints, examples, starterCode, referenceSolution]);
 
-  // Derived Completeness
+  // Derived Completeness: Question CANNOT be published until 100% completeness
   const completedCount = useMemo(() => outlineItems.filter((i) => i.isComplete).length, [outlineItems]);
   const completenessPercent = Math.round((completedCount / outlineItems.length) * 100);
-  const isReadyToPublish = outlineItems.slice(0, 5).every((i) => i.isComplete);
+  const isReadyToPublish = completenessPercent === 100;
 
   // Auto-Save to LocalStorage
   const triggerAutoSave = () => {
@@ -632,6 +694,14 @@ export const QuestionCreatorView = ({
       return;
     }
 
+    if (targetStatus === 'published' && completenessPercent < 100) {
+      const incomplete = outlineItems.filter((i) => !i.isComplete).map((i) => i.name).join(', ');
+      const msg = `Question cannot be published until 100% completeness (${completenessPercent}% complete). Missing: ${incomplete}. Please complete all fields or save as Draft.`;
+      setError(msg);
+      showToast(msg);
+      return;
+    }
+
     if (targetStatus === 'draft') {
       setSaveDraftLoading(true);
     } else {
@@ -664,26 +734,40 @@ export const QuestionCreatorView = ({
         })),
         starterCode: starterCode || getStandardTemplate(executionMode, language)?.starterCode || '',
         referenceSolution: referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || '',
+        starterCodes: {
+          ...langStarterCodes,
+          [(language || 'javascript').toLowerCase()]: starterCode || getStandardTemplate(executionMode, language)?.starterCode || ''
+        },
+        referenceSolutions: {
+          ...langRefSolutions,
+          [(language || 'javascript').toLowerCase()]: referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || ''
+        },
         status: targetStatus,
         ...(currentUser && { ownerId: currentUser.id || currentUser._id })
       };
 
+      let res;
       if (isEditing) {
-        await api.patch(`/questions/${initialQuestion._id}`, payload);
+        res = await api.patch(`/questions/${initialQuestion._id}`, payload);
       } else {
-        await api.post('/questions', payload);
+        res = await api.post('/questions', payload);
       }
 
-      if (targetStatus === 'published') {
+      const returnedQ = res?.data?.data || res?.data;
+      const isActuallyPublished = returnedQ?.status === 'published';
+
+      if (isActuallyPublished) {
         triggerConfettiBurst();
         showToast('Published to Question Bank!');
+      } else if (targetStatus === 'published') {
+        showToast('Saved to Question Bank as Draft! Complete test validation in Test Studio to publish.');
       } else {
-        showToast('Draft saved successfully!');
+        showToast('Draft saved to Question Bank successfully!');
       }
 
       setTimeout(() => {
         if (onSuccess) onSuccess();
-      }, 750);
+      }, 850);
     } catch (err) {
       const serverMsg =
         err.response?.data?.error?.message ||
@@ -1671,6 +1755,17 @@ export const QuestionCreatorView = ({
         </div>
 
         <div className="tf-fixed-actions">
+          {isEditing && (
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmOpen(true)}
+              className="tf-btn-sm gh"
+              style={{ color: '#e5484d', borderColor: '#fca5a5' }}
+              title="Delete Question"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsPreviewModalOpen(true)}
@@ -1690,9 +1785,11 @@ export const QuestionCreatorView = ({
             type="button"
             onClick={() => handleSaveQuestion('published')}
             disabled={loading}
+            title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete)`}
             className={`tf-btn-sm pri ${isReadyToPublish ? 'ready' : ''}`}
+            style={!isReadyToPublish ? { opacity: 0.75 } : {}}
           >
-            <Send className="w-3.5 h-3.5" /> {loading ? 'Publishing…' : 'Publish question'}
+            <Send className="w-3.5 h-3.5" /> {loading ? 'Publishing…' : isReadyToPublish ? 'Publish question' : `Publish (${completenessPercent}%)`}
           </button>
         </div>
       </div>
@@ -1736,9 +1833,11 @@ export const QuestionCreatorView = ({
                 type="button"
                 onClick={() => handleSaveQuestion('published')}
                 disabled={loading}
+                title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete)`}
                 className={`tf-btn pri ${isReadyToPublish ? 'ready' : ''}`}
+                style={!isReadyToPublish ? { opacity: 0.75 } : {}}
               >
-                {loading ? 'Publishing…' : '+ Publish question'}
+                {loading ? 'Publishing…' : isReadyToPublish ? '+ Publish question' : `+ Publish (${completenessPercent}%)`}
               </button>
               <button
                 type="button"
@@ -1748,6 +1847,16 @@ export const QuestionCreatorView = ({
               >
                 {saveDraftLoading ? 'Saving…' : 'Save draft'}
               </button>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="tf-btn gh"
+                  style={{ color: '#e5484d', borderColor: '#fca5a5' }}
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+              )}
             </div>
 
             {/* Live Count Up Facts Bar */}
@@ -2342,6 +2451,39 @@ export const QuestionCreatorView = ({
           </p>
         </section>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-[24px] border border-[rgba(0,0,0,.08)] p-6 max-w-sm w-full shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-extrabold text-[#121212]">Delete this Question?</h4>
+            <p className="text-xs text-[#73736c] mt-1 leading-relaxed">
+              This action cannot be undone. Associated test cases will also be permanently deleted.
+            </p>
+
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="px-4 py-2 rounded-full bg-[#f1f1ee] hover:bg-[#e4e4e0] text-xs font-bold text-[#121212] border-0 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteQuestion}
+                className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white border-0 shadow-sm cursor-pointer"
+              >
+                {isDeleting ? 'Deleting…' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Status Toast */}
       <div className={`tf-toast ${toastMsg ? 'on' : ''}`} role="status">

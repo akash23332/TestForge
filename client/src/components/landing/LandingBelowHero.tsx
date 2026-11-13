@@ -125,10 +125,12 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
         <div className="w-full pl-4 md:pl-[106px] lg:pl-[116px] pr-4 sm:pr-8 lg:pr-12 xl:pr-16 py-4 sm:py-6">
           {/* Section 1: Product Showcase (with Dashboard Mock) */}
           <ProductShowcase />
+        </div>
 
-          {/* Section 2: Marquee */}
-          <Marquee />
+        {/* Section 2: Marquee (True Full Screen Width Edge-to-Edge) */}
+        <Marquee />
 
+        <div className="w-full pl-4 md:pl-[106px] lg:pl-[116px] pr-4 sm:pr-8 lg:pr-12 xl:pr-16 py-4 sm:py-6">
           {/* Section 3: Feature Bento Grid */}
           <FeatureBento />
 

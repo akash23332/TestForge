@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -7,35 +7,63 @@ import {
   History,
   BarChart3,
   BookOpen,
-  Bell,
-  User,
   Settings,
   LogOut,
   Sparkles,
 } from 'lucide-react';
 
 export const STUDENT_NAV_ITEMS = [
-  { id: 'overview', label: 'Overview', path: '/student/overview', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
   { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: FileText },
   { id: 'join-test', label: 'Join Test', path: '/student/join-test', icon: KeyRound },
   { id: 'upcoming-tests', label: 'Upcoming Tests', path: '/student/upcoming', icon: Calendar },
   { id: 'test-history', label: 'Test History', path: '/student/history', icon: History },
-  { id: 'analytics', label: 'Performance Analytics', path: '/student/analytics', icon: BarChart3 },
+  { id: 'analytics', label: 'Analytics', path: '/student/analytics', icon: BarChart3 },
   { id: 'learning', label: 'My Learning', path: '/student/learning', icon: BookOpen },
-  { id: 'notifications', label: 'Notifications', path: '/student/notifications', icon: Bell },
-  { id: 'profile', label: 'My Profile', path: '/student/profile', icon: User },
   { id: 'settings', label: 'Settings', path: '/student/settings', icon: Settings },
 ];
 
 export const StudentSidebar = ({
-  activeTab = 'overview',
+  activeTab = 'dashboard',
   onNavigate,
   onSignOut,
   currentUser,
-  unreadNotifications = 0,
-  className = '',
+  className = 'my-3.5 ml-3.5 relative',
 }) => {
+  const [tooltip, setTooltip] = useState({ text: '', top: 0, visible: false });
+
+  // Main items in vertical stack
+  const mainNavItems = [
+    { id: 'dashboard', label: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
+    { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: FileText },
+    { id: 'join-test', label: 'Join Test', path: '/student/join-test', icon: KeyRound },
+    { id: 'upcoming-tests', label: 'Upcoming Tests', path: '/student/upcoming', icon: Calendar },
+    { id: 'test-history', label: 'Test History', path: '/student/history', icon: History },
+    { id: 'analytics', label: 'Analytics', path: '/student/analytics', icon: BarChart3 },
+    { id: 'learning', label: 'My Learning', path: '/student/learning', icon: BookOpen },
+  ];
+
+  // Bottom action buttons
+  const bottomActions = [
+    { id: 'settings', label: 'Settings', path: '/student/settings', icon: Settings },
+    { id: 'logout', label: 'Sign Out', path: '', icon: LogOut },
+  ];
+
+  const showTooltip = (e, label) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({
+      text: label,
+      top: rect.top + rect.height / 2,
+      visible: true,
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltip((prev) => ({ ...prev, visible: false }));
+  };
+
   const handleItemClick = (id, path) => {
+    hideTooltip();
     if (id === 'logout') {
       if (onSignOut) onSignOut();
     } else {
@@ -44,89 +72,114 @@ export const StudentSidebar = ({
   };
 
   const isItemActive = (itemId) => {
-    if (itemId === 'overview' && activeTab === 'dashboard') return true;
+    if (itemId === 'dashboard') {
+      return activeTab === 'dashboard' || activeTab === 'overview';
+    }
     return itemId === activeTab;
   };
 
   return (
     <>
-      {/* ── DESKTOP STICKY SIDEBAR (216px, sticky, dark rounded) ── */}
+      {/* ── DESKTOP VERTICAL CAPSULE SIDEBAR (78px, matching Teacher BentoSidebar) ── */}
       <aside
-        className={`hidden md:flex flex-col w-[216px] shrink-0 sticky top-4 h-[calc(100vh-32px)] max-h-[920px] bg-[#191A1D] rounded-[28px] p-3.5 shadow-2xl z-30 select-none border border-white/[0.08] justify-between ${className}`}
+        className={`hidden md:flex flex-col items-center w-[78px] shrink-0 h-[calc(100vh-36px)] max-h-[850px] bg-[#191A1D] rounded-[32px] py-4 px-3 shadow-2xl z-40 select-none ${className}`}
         aria-label="Student Navigation"
       >
-        <div className="flex flex-col w-full space-y-3">
-          {/* Top Logo / Brand Header */}
-          <div className="flex items-center gap-3 px-3 py-2 border-b border-white/10 pb-3">
-            <div className="w-9 h-9 rounded-xl bg-[#26282E] text-[#EDFF72] flex items-center justify-center font-mono font-bold text-xs shadow-md border border-[#EDFF72]/30">
-              TF
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-bold text-white text-xs tracking-tight truncate">TestForge</span>
-              <span className="text-[10px] text-[#8F938D] font-mono tracking-wider uppercase truncate">
-                Student Portal
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation Items List */}
-          <nav className="flex flex-col space-y-1 w-full" aria-label="Student navigation menu">
-            {STUDENT_NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isActive = isItemActive(item.id);
-              const isNotifications = item.id === 'notifications';
-              const showBadge = isNotifications && unreadNotifications > 0;
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleItemClick(item.id, item.path)}
-                  aria-label={item.label}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                    isActive
-                      ? 'bg-[#EDFF72] text-[#111111] font-bold shadow-md'
-                      : 'text-[#9A9D97] hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon
-                      className={`w-4 h-4 shrink-0 transition-transform ${
-                        isActive ? 'text-[#111111]' : 'text-[#8F938D]'
-                      }`}
-                      strokeWidth={isActive ? 2.5 : 2}
-                    />
-                    <span className="truncate">{item.label}</span>
-                  </div>
-
-                  {/* Lime Unread Notifications Badge */}
-                  {showBadge && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                        isActive ? 'bg-[#111111] text-[#EDFF72]' : 'bg-[#EDFF72] text-[#111111]'
-                      }`}
-                    >
-                      {unreadNotifications}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Bottom User & Sign Out Footer */}
-        <div className="pt-2 border-t border-white/10 flex flex-col space-y-1">
+        {/* 1. TOP LOGO SECTION */}
+        <div className="flex flex-col items-center w-full">
           <button
             type="button"
-            onClick={() => handleItemClick('logout', '')}
-            aria-label="Sign Out"
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-[#8F938D] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            onClick={() => handleItemClick('dashboard', '/student/dashboard')}
+            onMouseEnter={(e) => showTooltip(e, 'Student Dashboard')}
+            onMouseLeave={hideTooltip}
+            title="TestForge Student Portal"
+            className="w-11 h-11 rounded-2xl bg-[#26282E] hover:bg-[#32353D] text-[#EDFF72] flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer group"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <div className="w-6 h-6 rounded-full border-1.5 border-[#EDFF72] flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 fill-current transition-transform group-hover:scale-110" />
+            </div>
           </button>
+
+          {/* Subtle Divider under Logo */}
+          <div className="w-8 h-px bg-white/10 my-3" />
         </div>
+
+        {/* 2. MAIN NAVIGATION GROUP */}
+        <nav className="flex flex-col items-center gap-2 w-full" aria-label="Student menu">
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = isItemActive(item.id);
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleItemClick(item.id, item.path)}
+                onMouseEnter={(e) => showTooltip(e, item.label)}
+                onMouseLeave={hideTooltip}
+                aria-label={item.label}
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
+                  isActive
+                    ? 'bg-[#EDFF72] text-[#191A1D] shadow-md font-bold'
+                    : 'text-[#777D78] hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Icon
+                  className="w-5 h-5 transition-transform group-hover:scale-110"
+                  strokeWidth={isActive ? 2.5 : 2}
+                />
+                {isActive && (
+                  <span className="absolute -right-1 w-1 h-3.5 rounded-full bg-[#EDFF72]" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* 3. FLEXIBLE EMPTY SPACE SEPARATOR */}
+        <div className="flex-1 min-h-[32px] w-full" />
+
+        {/* 4. BOTTOM UTILITY GROUP (Divider line + Settings & Logout) */}
+        <div className="flex flex-col items-center gap-2 w-full pt-2">
+          <div className="w-8 h-px bg-white/10 my-1" />
+
+          {bottomActions.map((item) => {
+            const Icon = item.icon;
+            const isActive = isItemActive(item.id);
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleItemClick(item.id, item.path)}
+                onMouseEnter={(e) => showTooltip(e, item.label)}
+                onMouseLeave={hideTooltip}
+                aria-label={item.label}
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
+                  isActive
+                    ? 'bg-[#EDFF72] text-[#191A1D] shadow-md font-bold'
+                    : 'text-[#777D78] hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                {isActive && (
+                  <span className="absolute -right-1 w-1 h-3.5 rounded-full bg-[#EDFF72]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* FLOATING HOVER TOOLTIP */}
+        {tooltip.visible && (
+          <div
+            className="fixed left-[98px] -translate-y-1/2 bg-[#191A1D] text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none animate-fadeIn flex items-center gap-1.5"
+            style={{ top: `${tooltip.top}px` }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#EDFF72]" />
+            <span>{tooltip.text}</span>
+          </div>
+        )}
       </aside>
 
       {/* ── MOBILE SCROLLING PILL TAB BAR (Under 860px) ── */}
@@ -134,8 +187,6 @@ export const StudentSidebar = ({
         {STUDENT_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = isItemActive(item.id);
-          const isNotifications = item.id === 'notifications';
-          const showBadge = isNotifications && unreadNotifications > 0;
 
           return (
             <button
@@ -150,9 +201,6 @@ export const StudentSidebar = ({
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{item.label}</span>
-              {showBadge && (
-                <span className="w-2 h-2 rounded-full bg-[#EDFF72] animate-pulse" />
-              )}
             </button>
           );
         })}

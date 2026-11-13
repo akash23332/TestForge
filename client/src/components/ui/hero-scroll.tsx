@@ -249,7 +249,21 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 
     /* Mouse move tracking on hero */
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
+      const heroEl = heroRef.current;
+      if (!heroEl) return;
+      const rect = heroEl.getBoundingClientRect();
+      const isInside =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+
+      if (!isInside) {
+        setCursorRingVisible(false);
+        setIsHoveringInteractive(false);
+        return;
+      }
+
       cursorRef.current = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
@@ -382,21 +396,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
       }}
     >
       {/* ── STICKY HERO CONTAINER (100svh height, sticky top: 0, z-10) ───────── */}
-      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default lg:cursor-none">
-        {/* Custom Cursor Ring (Image 2 style) */}
-        <div
-          ref={cursorRingRef}
-          aria-hidden="true"
-          className={`pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out z-[9999] lg:block ${
-            cursorRingVisible ? 'opacity-100' : 'opacity-0'
-          } ${
-            isHoveringInteractive
-              ? 'size-14 -ml-7 -mt-7 border-[#EDFF72]'
-              : 'size-[34px] -ml-[17px] -mt-[17px]'
-          }`}
-          style={{ willChange: 'transform' }}
-        />
-
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default">
         <motion.div
           ref={heroRef}
           style={{
@@ -407,14 +407,22 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           }}
           className="relative h-full w-full overflow-hidden flex flex-col justify-between select-none bg-[#191A1D]"
         >
+          {/* Custom Glowing Lime Cursor Ring (matching Main Landing Page) */}
+          <div
+            ref={cursorRingRef}
+            aria-hidden="true"
+            className={`pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out z-[9999] lg:block ${
+              cursorRingVisible ? 'opacity-100' : 'opacity-0'
+            } ${
+              isHoveringInteractive
+                ? 'size-14 -ml-7 -mt-7 border-[#EDFF72] bg-[#EDFF72]/10 backdrop-blur-xs shadow-[0_0_16px_rgba(237,255,114,0.4)]'
+                : 'size-[34px] -ml-[17px] -mt-[17px] shadow-[0_0_10px_rgba(237,255,114,0.35)]'
+            }`}
+            style={{ willChange: 'transform' }}
+          />
+
           {/* Particle Background Canvas matching Student Dashboard Hero */}
           <AsmrBackground />
-
-          {/* Soft lime radial glow behind 3D scene matching Student Dashboard Hero */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-[5vw] top-[18%] h-[500px] w-[500px] rounded-full bg-[#EDFF72] opacity-[0.07] blur-[150px] z-0"
-          />
 
           {/* ── TOP NAV (ABSOLUTE) ────────────────────────────────────────── */}
           <nav

@@ -1085,10 +1085,29 @@ export const QuestionBankView = ({
         /* RIGID, BULLETPROOF GRID ALIGNMENT: CAN NEVER BLOW OUT */
         .tf-qb-root .th, .tf-qb-root .tr {
           display: grid;
-          grid-template-columns: minmax(0, 3fr) minmax(130px, 1.4fr) 115px 95px 65px;
-          gap: 14px;
+          grid-template-columns: minmax(0, 3fr) minmax(130px, 1.4fr) 115px 95px 55px 40px;
+          gap: 12px;
           align-items: center;
           padding: 0 14px;
+        }
+        .tf-qb-root .del-row-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #a1a19a;
+          cursor: pointer;
+          transition: all .2s;
+        }
+        .tf-qb-root .del-row-btn:hover {
+          background: #fee2e2;
+          color: #e11d48;
+          border-color: #fca5a5;
+          transform: scale(1.08);
         }
         .tf-qb-root .th {
           font-size: 11.5px;
@@ -1361,21 +1380,32 @@ export const QuestionBankView = ({
         .tf-qb-root .act {
           display: grid;
           grid-template-columns: 1.25fr 1fr 1fr;
-          gap: 10px;
+          gap: 8px;
           margin-top: 16px;
         }
         .tf-qb-root .act button {
           border: 1px solid var(--line);
           background: #fff;
           border-radius: 999px;
-          padding: 11px 0;
-          font-size: 12.5px;
+          padding: 10px 0;
+          font-size: 11.5px;
           font-weight: 700;
+          cursor: pointer;
           transition: transform .2s, box-shadow .2s;
         }
         .tf-qb-root .act button:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 14px rgba(0,0,0,.08);
+        }
+        .tf-qb-root .act .del {
+          color: #e5484d;
+          background: #fff5f5;
+          border-color: #fecdd3;
+        }
+        .tf-qb-root .act .del:hover {
+          background: #fee2e2;
+          border-color: #f87171;
+          box-shadow: 0 4px 14px rgba(229, 72, 77, 0.2);
         }
         .tf-qb-root .act .rn {
           background: var(--lime);
@@ -1731,6 +1761,7 @@ export const QuestionBankView = ({
                 <span>Language</span>
                 <span>Difficulty</span>
                 <span className="text-center">Tests</span>
+                <span className="text-center">Actions</span>
               </div>
               <div id="rows">
                 {filteredQuestions.length === 0 ? (
@@ -1773,6 +1804,21 @@ export const QuestionBankView = ({
                         <span className="font-mono text-center font-bold text-[#6f6f68]">
                           {q.testCases?.length || 2}
                         </span>
+
+                        {/* 6. Quick Action Delete */}
+                        <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            title="Delete this question"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirmId(q._id);
+                            }}
+                            className="del-row-btn"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })
@@ -1822,13 +1868,6 @@ export const QuestionBankView = ({
                 onClick={() => setActiveDetailTab('s')}
               >
                 Solution
-              </button>
-              <button
-                type="button"
-                className={activeDetailTab === 'm' ? 'on' : ''}
-                onClick={() => setActiveDetailTab('m')}
-              >
-                Mutation
               </button>
             </div>
 
@@ -1894,20 +1933,6 @@ export const QuestionBankView = ({
                   </pre>
                 </div>
               )}
-
-              {activeDetailTab === 'm' && (
-                <div>
-                  <h5>Mutation report</h5>
-                  {activeQuestion.mutations?.map((m, idx) => (
-                    <div key={idx} className="tc">
-                      <span>{m.op}</span>
-                      <span className={m.status === 'caught' ? 'ok' : 'bad'}>
-                        {m.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* ACTION BUTTONS */}
@@ -1931,15 +1956,17 @@ export const QuestionBankView = ({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveDetailTab('m')}
-              >
-                ↻ Mutate
-              </button>
-              <button
-                type="button"
                 onClick={() => onEditQuestion && onEditQuestion(activeQuestion.raw || activeQuestion)}
               >
                 ✎ Edit
+              </button>
+              <button
+                type="button"
+                className="del"
+                onClick={() => setDeleteConfirmId(activeQuestion._id)}
+                title="Delete this question"
+              >
+                🗑 Delete
               </button>
             </div>
           </aside>

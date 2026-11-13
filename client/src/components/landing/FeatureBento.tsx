@@ -51,19 +51,6 @@ const BentoCard: React.FC<BentoCardProps> = ({
         isHovered ? 'shadow-[0_20px_50px_rgba(0,0,0,0.12)]' : 'shadow-xs'
       } ${themeClasses} ${className}`}
     >
-      {/* Lime Radial Spotlight following cursor */}
-      <div
-        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-        style={{
-          opacity: isHovered ? 1 : 0,
-          background:
-            theme === 'dark'
-              ? 'radial-gradient(400px circle at var(--mx, 50%) var(--my, 50%), rgba(232, 255, 90, 0.18), transparent 75%)'
-              : 'radial-gradient(350px circle at var(--mx, 50%) var(--my, 50%), rgba(232, 255, 90, 0.35), transparent 70%)',
-        }}
-        aria-hidden="true"
-      />
-
       <div className="relative z-10 flex flex-col justify-between h-full">{children}</div>
     </div>
   );

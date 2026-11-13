@@ -41,13 +41,9 @@ export const AsmrBackground: React.FC<AsmrBackgroundProps> = ({ className }) => 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isFinePointer = window.matchMedia('(pointer: fine)').matches;
 
-    // Add cursor-none class to parent on fine pointers if screen >= 860px and not reduced motion
+    // Keep standard system cursor
     const updateParentCursor = () => {
-      if (isFinePointer && window.innerWidth >= 860 && !prefersReducedMotion) {
-        parent.style.cursor = 'none';
-      } else {
-        parent.style.cursor = '';
-      }
+      parent.style.cursor = '';
     };
     updateParentCursor();
 
@@ -336,21 +332,6 @@ export const AsmrBackground: React.FC<AsmrBackgroundProps> = ({ className }) => 
         aria-hidden="true"
         className="absolute inset-0 block h-full w-full pointer-events-none"
         style={{ zIndex: -2 }}
-      />
-
-      {/* Custom Cursor Ring: 34px base ring, grows to 54px over buttons and links (Image 2 style) */}
-      <div
-        ref={cursorRef}
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out lg:block",
-          cursorVisible ? "opacity-100" : "opacity-0",
-          isHoveringInteractive ? "size-14 -ml-7 -mt-7 border-[#EDFF72]" : "size-[34px] -ml-[17px] -mt-[17px]"
-        )}
-        style={{
-          zIndex: 9999,
-          willChange: 'transform'
-        }}
       />
     </div>
   );

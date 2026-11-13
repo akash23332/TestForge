@@ -17,18 +17,75 @@ export const createQuestion = async (req, res, next) => {
       }
     }
 
-    if (req.body.status === 'published') {
-      throw ApiError.badRequest(
-        'Questions must be saved as draft and validated against test cases in Test Studio before publishing.'
-      );
+    const requestedStatus = req.body.status || 'draft';
+    const lang = (req.body.language || 'javascript').toLowerCase();
+    const refSol = req.body.referenceSolution || '';
+    const starter = req.body.starterCode || '';
+
+    const initialRefSolutions = req.body.referenceSolutions || {};
+    if (refSol && !initialRefSolutions[lang]) {
+      initialRefSolutions[lang] = refSol;
+    }
+    const initialStarterCodes = req.body.starterCodes || {};
+    if (starter && !initialStarterCodes[lang]) {
+      initialStarterCodes[lang] = starter;
     }
 
+    // 1. ALWAYS persist the question in MongoDB (starts as 'draft')
     const question = await Question.create({
       ...req.body,
+      language: lang,
+      referenceSolution: refSol,
+      referenceSolutions: initialRefSolutions,
+      starterCode: starter,
+      starterCodes: initialStarterCodes,
+      status: 'draft',
       ownerId
     });
 
-    return ApiResponse.success(res, 201, question, 'Question created successfully');
+    // 2. Automatically create TestCase documents from examples if provided
+    if (Array.isArray(req.body.examples) && req.body.examples.length > 0) {
+      const testCasesToCreate = req.body.examples
+        .filter((ex) => ex.input !== undefined && ex.output !== undefined && String(ex.input).trim() !== '' && String(ex.output).trim() !== '')
+        .map((ex) => ({
+          questionId: question._id,
+          input: String(ex.input).trim(),
+          expectedOutput: String(ex.output).trim(),
+          explanation: ex.explanation || '',
+          category: 'sample',
+          visibility: 'public',
+          weight: 1.0,
+          verificationStatus: 'unverified'
+        }));
+
+      if (testCasesToCreate.length > 0) {
+        await TestCase.insertMany(testCasesToCreate);
+      }
+    }
+
+    // 3. If teacher requested 'published', try validating now
+    let noticeMessage = 'Question created successfully as draft.';
+    if (requestedStatus === 'published') {
+      try {
+        const suiteReport = await validateQuestionSuite({
+          questionId: question._id,
+          language: question.language,
+          user: req.user
+        });
+
+        if (suiteReport.canPublish) {
+          question.status = 'published';
+          await question.save();
+          noticeMessage = 'Question created and published to Question Bank.';
+        } else {
+          noticeMessage = 'Question saved as draft. Complete test case validation in Test Studio before publishing.';
+        }
+      } catch {
+        noticeMessage = 'Question saved as draft. Complete test case validation in Test Studio before publishing.';
+      }
+    }
+
+    return ApiResponse.success(res, 201, question, noticeMessage);
   } catch (error) {
     next(error);
   }
@@ -198,22 +255,46 @@ export const updateQuestion = async (req, res, next) => {
       throw ApiError.forbidden('You do not have permission to update this question.');
     }
 
-    // Strict Publishing Gate (Requirement 6)
+    const targetLang = (req.body.language || question.language || 'javascript').toLowerCase();
+
+    // 1. Sync referenceSolutions and starterCodes for the target language
+    if (req.body.referenceSolution) {
+      if (!question.referenceSolutions) question.referenceSolutions = new Map();
+      if (question.referenceSolutions instanceof Map) {
+        question.referenceSolutions.set(targetLang, req.body.referenceSolution);
+      } else {
+        question.set(`referenceSolutions.${targetLang}`, req.body.referenceSolution);
+      }
+    }
+    if (req.body.starterCode) {
+      if (!question.starterCodes) question.starterCodes = new Map();
+      if (question.starterCodes instanceof Map) {
+        question.starterCodes.set(targetLang, req.body.starterCode);
+      } else {
+        question.set(`starterCodes.${targetLang}`, req.body.starterCode);
+      }
+    }
+
+    // 2. Apply field updates to the question and persist before running validation
+    Object.assign(question, req.body);
+    question.language = targetLang;
+    await question.save();
+
+    // 3. Strict Publishing Gate (Requirement 6)
     if (req.body.status === 'published') {
       const suiteReport = await validateQuestionSuite({
         questionId: id,
-        language: req.body.language || question.language,
+        language: targetLang,
         user: req.user
       });
       if (!suiteReport.canPublish) {
+        question.status = 'draft';
+        await question.save();
         throw ApiError.badRequest(
           `Question cannot be published. Unresolved issues: ${suiteReport.blockingErrors.join('; ')}`
         );
       }
     }
-
-    Object.assign(question, req.body);
-    await question.save();
 
     return ApiResponse.success(res, 200, question, 'Question updated successfully');
   } catch (error) {
