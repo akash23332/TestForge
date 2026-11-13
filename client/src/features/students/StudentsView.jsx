@@ -123,8 +123,17 @@ const DEFAULT_STUDENTS = [
   }
 ];
 
-export const StudentsView = ({ onNavigateToExams }) => {
-  const [students, setStudents] = useState(DEFAULT_STUDENTS);
+export const StudentsView = ({ onNavigateToExams, currentUser }) => {
+  const isDummyAccount = useMemo(() => {
+    if (!currentUser) return false;
+    const email = (currentUser.email || '').toLowerCase();
+    return email === 'teacher@testforge.edu' || email === 'student@testforge.edu';
+  }, [currentUser]);
+
+  const isAuthenticatedUser = Boolean(currentUser && !isDummyAccount);
+
+  const [students, setStudents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [cohortFilter, setCohortFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -134,18 +143,48 @@ export const StudentsView = ({ onNavigateToExams }) => {
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [newStudentCohort, setNewStudentCohort] = useState('CS-2026 A');
   const [newStudentRoll, setNewStudentRoll] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const heroRef = useRef(null);
   const tiltRef = useRef(null);
 
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/auth/students');
+      const items = res.data?.data || [];
+      if (isAuthenticatedUser) {
+        setStudents(items);
+      } else {
+        setStudents(items.length > 0 ? items : DEFAULT_STUDENTS);
+      }
+    } catch {
+      if (isAuthenticatedUser) {
+        setStudents([]);
+      } else {
+        setStudents(DEFAULT_STUDENTS);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, [isAuthenticatedUser]);
+
   // Filtered Students
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
+      const name = s.name || '';
+      const email = s.email || '';
+      const roll = s.rollNo || s.rollNumber || '';
       const matchSearch =
         searchQuery === '' ||
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.rollNo.toLowerCase().includes(searchQuery.toLowerCase());
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        roll.toLowerCase().includes(searchQuery.toLowerCase());
       const matchCohort = cohortFilter === 'ALL' || s.cohort === cohortFilter;
       const matchStatus = statusFilter === 'ALL' || s.status === statusFilter;
       return matchSearch && matchCohort && matchStatus;
@@ -155,34 +194,35 @@ export const StudentsView = ({ onNavigateToExams }) => {
   // Aggregate Metrics
   const metrics = useMemo(() => {
     const total = students.length;
-    const avgCohort = Math.round(students.reduce((acc, s) => acc + s.avgScore, 0) / (total || 1));
-    const highPerformers = students.filter((s) => s.avgScore >= 85).length;
-    const integrityScore = Math.round(students.reduce((acc, s) => acc + s.integrityRate, 0) / (total || 1));
+    const avgCohort = Math.round(students.reduce((acc, s) => acc + (s.avgScore || 0), 0) / (total || 1));
+    const highPerformers = students.filter((s) => (s.avgScore || 0) >= 85).length;
+    const integrityScore = Math.round(students.reduce((acc, s) => acc + (s.integrityRate || 100), 0) / (total || 1));
     return { total, avgCohort, highPerformers, integrityScore };
   }, [students]);
 
-  const handleAddStudent = (e) => {
+  const handleAddStudent = async (e) => {
     e.preventDefault();
     if (!newStudentName.trim() || !newStudentEmail.trim()) return;
 
-    const added = {
-      id: `std-${Date.now()}`,
-      name: newStudentName.trim(),
-      email: newStudentEmail.trim(),
-      cohort: newStudentCohort,
-      rollNo: newStudentRoll.trim() || `22BCS${Math.floor(100 + Math.random() * 900)}`,
-      examsAttempted: 0,
-      avgScore: 0,
-      integrityRate: 100,
-      status: 'ACTIVE',
-      lastActive: 'Just registered'
-    };
-
-    setStudents([added, ...students]);
-    setIsAddStudentOpen(false);
-    setNewStudentName('');
-    setNewStudentEmail('');
-    setNewStudentRoll('');
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      await api.post('/auth/students', {
+        name: newStudentName.trim(),
+        email: newStudentEmail.trim().toLowerCase(),
+        cohort: newStudentCohort,
+        rollNo: newStudentRoll.trim() || `TF-${Math.floor(1000 + Math.random() * 9000)}`
+      });
+      await fetchStudents();
+      setIsAddStudentOpen(false);
+      setNewStudentName('');
+      setNewStudentEmail('');
+      setNewStudentRoll('');
+    } catch (err) {
+      setErrorMessage(err?.customMessage || 'Failed to enroll student');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Cursor Gyro Tilt Handlers
@@ -649,59 +689,77 @@ export const StudentsView = ({ onNavigateToExams }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DDE1DA] bg-white">
-              {filteredStudents.map((std) => (
-                <tr key={std.id} className="hover:bg-[#F2F3F0]/60 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#101112] text-[#EDFF72] font-black text-xs flex items-center justify-center shrink-0">
-                        {std.name.charAt(0)}
-                      </div>
-                      <div>
-                        <span className="font-bold text-[#171819] block">{std.name}</span>
-                        <span className="text-[11px] text-[#777D78] font-mono">{std.email}</span>
-                      </div>
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="py-12 text-center text-[#777D78]">
+                    <div className="w-10 h-10 rounded-2xl bg-[#F2F3F0] flex items-center justify-center mx-auto mb-2 text-[#171819]">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs font-bold text-[#171819]">
+                      {students.length === 0 ? 'No students enrolled in database' : 'No students match this filter'}
+                    </div>
+                    <div className="text-[11px] text-[#777D78] mt-1 max-w-xs mx-auto">
+                      {students.length === 0
+                        ? 'Enrol candidates using "+ Add Student" above to begin tracking live exam submissions and scores.'
+                        : 'Try adjusting your search query, cohort, or status filter.'}
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 font-semibold text-[#171819]">
-                    {std.cohort}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-[#777D78]">
-                    {std.rollNo}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-[#171819]">
-                    {std.examsAttempted} exams
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-black text-[#171819]">
-                    {std.avgScore}%
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      {std.integrityRate}%
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                        std.status === 'ACTIVE'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}
-                    >
-                      {std.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStudent(std)}
-                      className="px-3 py-1.5 rounded-full bg-[#F2F3F0] hover:bg-[#101112] hover:text-white text-xs font-bold text-[#171819] transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                    >
-                      <span>Report</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredStudents.map((std) => (
+                  <tr key={std.id || std._id} className="hover:bg-[#F2F3F0]/60 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#101112] text-[#EDFF72] font-black text-xs flex items-center justify-center shrink-0">
+                          {(std.name || std.email || 'S').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <span className="font-bold text-[#171819] block">{std.name}</span>
+                          <span className="text-[11px] text-[#777D78] font-mono">{std.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-[#171819]">
+                      {std.cohort || 'CS-2026'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-[#777D78]">
+                      {std.rollNo || std.rollNumber || '—'}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-[#171819]">
+                      {std.testsCount ?? std.examsAttempted ?? 0} exams
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-black text-[#171819]">
+                      {std.avgScore || 0}%
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        {std.integrityRate ?? 100}%
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                          std.status === 'ACTIVE'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}
+                      >
+                        {std.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudent(std)}
+                        className="px-3 py-1.5 rounded-full bg-[#F2F3F0] hover:bg-[#101112] hover:text-white text-xs font-bold text-[#171819] transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                      >
+                        <span>Report</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -782,9 +840,16 @@ export const StudentsView = ({ onNavigateToExams }) => {
                 </div>
               </div>
 
+              {errorMessage && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                  {errorMessage}
+                </div>
+              )}
+
               <div className="pt-3 border-t border-[#DDE1DA] flex justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setIsAddStudentOpen(false)}
                   className="px-4 py-2 rounded-full text-xs font-bold text-[#777D78] hover:text-[#171819]"
                 >
@@ -792,9 +857,10 @@ export const StudentsView = ({ onNavigateToExams }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black shadow-xs"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black shadow-xs disabled:opacity-50"
                 >
-                  Enrol Student
+                  {isSubmitting ? 'Enrolling…' : 'Enrol Student'}
                 </button>
               </div>
             </form>

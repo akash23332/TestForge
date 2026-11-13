@@ -435,7 +435,9 @@ export const processExecutionJob = async (job) => {
           title: question.title,
           language: submission.language || question.language,
           executionMode: question.executionMode || 'STDIN',
+          dataStructure: question.dataStructure || 'ARRAY',
           functionName: question.functionName || 'solution',
+          returnType: question.functionSignature?.returnType || 'void',
           parameters: question.functionSignature?.parameters || []
         },
         timeoutMs: 3500,

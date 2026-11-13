@@ -72,7 +72,8 @@ const AnimatedCount = ({ value, duration = 900 }) => {
 
 export const PaperDesignerView = ({
   questions: initialCodingQuestions = [],
-  onNavigateToExams
+  onNavigateToExams,
+  currentUser
 }) => {
   // ── 1. ACTIVE VIEW MODE ──────────────────────────────────────────────────
   // 'designer' | 'preview_student' | 'teacher_key'
@@ -145,31 +146,6 @@ export const PaperDesignerView = ({
       const mcqRes = await api.get('/mcq/saved');
       const mcqItems = mcqRes.data?.data?.items || [];
       setMcqBank(mcqItems);
-
-      // Pre-populate sections if currently empty
-      setSections((prev) => {
-        if (prev.some((s) => s.items.length > 0)) return prev;
-        const next = [...prev];
-        if (mcqItems.length > 0 && next[0]) {
-          next[0].items = mcqItems.slice(0, 1).map((m) => ({
-            type: 'mcq',
-            id: m._id || m.id,
-            title: m.question,
-            data: m,
-            marks: 2
-          }));
-        }
-        if (codingItems.length > 0 && next[1]) {
-          next[1].items = codingItems.slice(0, 2).map((q) => ({
-            type: 'coding',
-            id: q._id || q.id,
-            title: q.title,
-            data: q,
-            marks: 10
-          }));
-        }
-        return next;
-      });
     } catch (err) {
       console.warn('Failed to load question banks', err);
     } finally {
@@ -264,7 +240,7 @@ export const PaperDesignerView = ({
 
   // Check if a question is already added in the paper
   const isQuestionInPaper = (questionId) => {
-    return sections.some((s) => s.items.some((item) => item.id === questionId));
+    return sections.some((s) => s.items.some((item) => item.id === questionId || (item.data?._id && item.data._id === questionId)));
   };
 
   // Add question to active section
@@ -275,21 +251,42 @@ export const PaperDesignerView = ({
       return;
     }
 
+    const targetSec = sections.find((s) => s.id === destSecId);
+    if (!targetSec) return;
+
+    // Check if question already exists in this section
+    const qId = questionItem.id || questionItem.data?._id;
+    const isAlreadyAdded = targetSec.items.some(
+      (it) => it.id === qId || (it.data?._id && it.data._id === qId)
+    );
+    if (isAlreadyAdded) {
+      setNotification({
+        type: 'warning',
+        text: `"${(questionItem.title || 'Question').slice(0, 30)}..." is already in ${targetSec.title}.`
+      });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const uniqueInstanceId = `${questionItem.type}-${qId || Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const initialMarks = Math.max(
+      1,
+      Number(questionItem.marks || targetSec.defaultMarks || questionItem.defaultMarks || (questionItem.type === 'coding' ? 10 : 2))
+    );
+
     setSections((prev) =>
       prev.map((sec) => {
         if (sec.id === destSecId) {
-          if (sec.items.some((it) => it.id === questionItem.id)) {
-            return sec;
-          }
           return {
             ...sec,
             items: [
               ...sec.items,
               {
+                instanceId: uniqueInstanceId,
                 type: questionItem.type,
-                id: questionItem.id,
+                id: qId,
                 title: questionItem.title,
-                marks: sec.defaultMarks || questionItem.defaultMarks || 2,
+                marks: initialMarks,
                 data: questionItem.data
               }
             ]
@@ -301,20 +298,20 @@ export const PaperDesignerView = ({
 
     setNotification({
       type: 'success',
-      text: `Added "${questionItem.title.slice(0, 32)}..." to ${sections.find((s) => s.id === destSecId)?.title || 'section'}.`
+      text: `Added "${(questionItem.title || 'Question').slice(0, 32)}..." to ${targetSec.title}.`
     });
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Update Question Marks inside section
+  // Update Question Marks inside section (guaranteed >= 1)
   const handleUpdateItemMarks = (secId, itemId, newMarks) => {
-    const parsed = Math.max(0, parseInt(newMarks, 10) || 0);
+    const parsed = Math.max(1, parseInt(newMarks, 10) || 1);
     setSections((prev) =>
       prev.map((sec) => {
         if (sec.id === secId) {
           return {
             ...sec,
-            items: sec.items.map((it) => (it.id === itemId ? { ...it, marks: parsed } : it))
+            items: sec.items.map((it) => ((it.instanceId === itemId || it.id === itemId) ? { ...it, marks: parsed } : it))
           };
         }
         return sec;
@@ -329,12 +326,23 @@ export const PaperDesignerView = ({
         if (sec.id === secId) {
           return {
             ...sec,
-            items: sec.items.filter((it) => it.id !== itemId)
+            items: sec.items.filter((it) => it.instanceId !== itemId && it.id !== itemId)
           };
         }
         return sec;
       })
     );
+  };
+
+  // 1-Click Sync Target Marks with actual sum of question marks
+  const handleSyncTargetMarks = () => {
+    const total = calculation.totalAllocatedMarks || 10;
+    setTargetMarks(total);
+    setNotification({
+      type: 'success',
+      text: `Target Marks synchronized to ${total} marks.`
+    });
+    setTimeout(() => setNotification(null), 3000);
   };
 
   // Move Question Up / Down in section
@@ -462,21 +470,28 @@ export const PaperDesignerView = ({
         durationMinutes: Number(durationMinutes) || 60,
         instructions: candidateInstructions.split('\n').filter((l) => l.trim().length > 0),
         accessMode: 'PUBLIC_CODE',
-        sections: sections.map((sec) => ({
-          title: sec.title,
-          description: sec.instructions,
-          questions: sec.items.map((item) => ({
-            questionId: item.type === 'coding' ? item.id : undefined,
-            type: item.type === 'mcq' ? 'MCQ' : 'CODING',
-            title: item.title,
-            marks: Number(item.marks) || 2,
-            mcqData: item.type === 'mcq' ? item.data : undefined
-          }))
+        sections: sections.map((sec, secIdx) => ({
+          name: sec.title || `Section ${secIdx + 1}`,
+          description: sec.instructions || '',
+          questions: sec.items.map((item, itemIdx) => {
+            const rawId = item.id || item.data?._id;
+            const isValidId = rawId && /^[0-9a-fA-F]{24}$/.test(String(rawId));
+            const isCoding = item.type === 'coding';
+            return {
+              questionId: isCoding && isValidId ? rawId : null,
+              mcqQuestionId: !isCoding && isValidId ? rawId : null,
+              type: isCoding ? 'coding' : item.type === 'subjective' ? 'subjective' : 'mcq',
+              title: item.title,
+              marks: Math.max(1, Number(item.marks) || (isCoding ? 10 : 2)),
+              order: itemIdx + 1,
+              mcqData: item.type === 'mcq' ? (item.data || { question: item.title }) : undefined
+            };
+          })
         })),
         settings: {
           enableProctoring: proctoringMode !== 'No Proctoring',
           strictMode: proctoringMode.includes('Strict'),
-          targetMarks: calculation.targetMarks
+          targetMarks: calculation.totalAllocatedMarks || calculation.targetMarks || 100
         }
       };
 
@@ -485,7 +500,7 @@ export const PaperDesignerView = ({
       setPublishedExam(created);
       setIsPublishModalOpen(true);
     } catch (err) {
-      alert(err.response?.data?.error?.message || err.customMessage || 'Failed to publish exam');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || err.customMessage || 'Failed to publish exam');
     } finally {
       setIsPublishing(false);
     }
@@ -902,9 +917,21 @@ export const PaperDesignerView = ({
               </span>
             </div>
             <div className="tf-cap">Marks Allocated</div>
-            <div className="tf-big">
-              <AnimatedCount value={calculation.totalAllocatedMarks} />
-              <span className="text-base text-[#777D78] font-normal"> / {calculation.targetMarks}</span>
+            <div className="tf-big flex items-baseline justify-between">
+              <div>
+                <AnimatedCount value={calculation.totalAllocatedMarks} />
+                <span className="text-base text-[#777D78] font-normal"> / {calculation.targetMarks}</span>
+              </div>
+              {!calculation.isBalanced && calculation.totalAllocatedMarks > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSyncTargetMarks}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline ml-2 cursor-pointer"
+                  title="Sync target marks to total allocated"
+                >
+                  Auto-sync
+                </button>
+              )}
             </div>
             <div className="tf-sub">
               {calculation.progressPercent}% of target weight
@@ -994,6 +1021,17 @@ export const PaperDesignerView = ({
 
         {/* Quick Summary Pill on Right */}
         <div className="flex items-center gap-3 text-xs pr-2">
+          {!calculation.isBalanced && calculation.totalAllocatedMarks > 0 && (
+            <button
+              type="button"
+              onClick={handleSyncTargetMarks}
+              className="px-2.5 py-1 rounded-full text-[11px] font-black bg-[#EDFF72] text-[#171819] hover:bg-[#e4f85e] border border-[#d6ea53] shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+              title="Set Target Marks equal to the sum of question marks"
+            >
+              <Sparkles className="w-3 h-3 text-[#171819]" />
+              Sync Target ({calculation.totalAllocatedMarks} pts)
+            </button>
+          )}
           <span className="text-[#777D78] font-bold">Paper Status:</span>
           <span
             className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 ${
@@ -1440,7 +1478,7 @@ export const PaperDesignerView = ({
                                       min="1"
                                       max="50"
                                       value={item.marks}
-                                      onChange={(e) => handleUpdateItemMarks(sec.id, item.id, e.target.value)}
+                                      onChange={(e) => handleUpdateItemMarks(sec.id, item.instanceId || item.id, e.target.value)}
                                       className="w-10 bg-transparent text-center font-black text-xs text-[#171819] focus:outline-none"
                                     />
                                   </div>
@@ -1470,7 +1508,7 @@ export const PaperDesignerView = ({
                                   {/* Remove Button */}
                                   <button
                                     type="button"
-                                    onClick={() => handleRemoveItem(sec.id, item.id)}
+                                    onClick={() => handleRemoveItem(sec.id, item.instanceId || item.id)}
                                     title="Remove from Paper"
                                     className="p-1 rounded-lg text-[#777D78] hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
                                   >

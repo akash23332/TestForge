@@ -10,6 +10,63 @@ import { validateSingleTestCase } from './codeRunner.service.js';
  */
 
 /**
+ * Normalizes unicode superscripts, exponentiation, and bullet markers in constraint text.
+ */
+export const normalizeConstraintText = (str) => {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/⁰/g, '^0')
+    .replace(/¹/g, '^1')
+    .replace(/²/g, '^2')
+    .replace(/³/g, '^3')
+    .replace(/⁴/g, '^4')
+    .replace(/⁵/g, '^5')
+    .replace(/⁶/g, '^6')
+    .replace(/⁷/g, '^7')
+    .replace(/⁸/g, '^8')
+    .replace(/⁹/g, '^9')
+    .replace(/\*\*/g, '^');
+};
+
+/**
+ * Parses numeric bounds including power notation (e.g., "10^5", "10⁵", "-10^9", "500").
+ */
+export const parseConstraintNumber = (str) => {
+  if (!str) return NaN;
+  const s = normalizeConstraintText(str.trim().replace(/,/g, ''));
+  const isNegative = s.startsWith('-');
+  const cleanS = isNegative ? s.slice(1).trim() : s;
+  const powMatch = cleanS.match(/^(\d+)\^([+-]?\d+)$/);
+  if (powMatch) {
+    const base = Number(powMatch[1]);
+    const exp = Number(powMatch[2]);
+    const val = Math.pow(base, exp);
+    return isNegative ? -val : val;
+  }
+  return Number(s);
+};
+
+/**
+ * Determines whether a constraint target represents a sequence/array/string length or count.
+ */
+export const isLengthTarget = (targetVar) => {
+  if (!targetVar) return false;
+  const t = targetVar.trim().toLowerCase();
+  return (
+    t.includes('|') ||
+    t.includes('length') ||
+    t.includes('size') ||
+    t.includes('.len') ||
+    t.includes('count') ||
+    /^n$/i.test(t) ||
+    /^m$/i.test(t) ||
+    /^k$/i.test(t) ||
+    /^len$/i.test(t) ||
+    /\|\s*[a-z0-9_]+\s*\|/i.test(t)
+  );
+};
+
+/**
  * Parses numeric and length constraints from the question constraints string.
  * Uses the actual question constraints text. Never invents constraints.
  */
@@ -21,71 +78,76 @@ export const parseConstraints = (constraintsStr) => {
   const rules = [];
   const lines = constraintsStr.split(/\r?\n|;/);
 
+  const numPattern = `[+-]?\\d+(?:\\^[+-]?\\d+)?`;
+  const varPattern = `[a-zA-Z0-9_\\[\\]|\\s,().-]+?`;
+
+  const doubleBoundRegex = new RegExp(
+    `(${numPattern})\\s*(?:<=|≤|<)\\s*(${varPattern})\\s*(?:<=|≤|<)\\s*(${numPattern})`
+  );
+  const minBoundRegex = new RegExp(
+    `(${varPattern})\\s*(?:>=|≥|>)\\s*(${numPattern})`
+  );
+  const maxBoundRegex = new RegExp(
+    `(${varPattern})\\s*(?:<=|≤|<)\\s*(${numPattern})`
+  );
+
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line) continue;
 
-    const parseNumber = (str) => {
-      if (!str) return NaN;
-      let s = str.trim().replace(/,/g, '');
-      const powMatch = s.match(/([+-]?\d+)\^(\d+)/);
-      if (powMatch) {
-        const base = Number(powMatch[1]);
-        const exp = Number(powMatch[2]);
-        return Math.pow(base, exp);
-      }
-      return Number(s);
-    };
+    // Strip leading bullets, markdown dashes, asterisks only if followed by space (preserve negative numbers)
+    line = line.replace(/^(?:[-*•–—]\s+|\d+\.\s+)/, '').trim();
+    if (!line) continue;
+
+    const normalizedLine = normalizeConstraintText(line);
 
     // Pattern 1: A <= X <= B or A ≤ X ≤ B
-    const doubleBoundMatch = line.match(
-      /([+-]?\d+(?:\^\d+)?)\s*(?:<=|≤|<)\s*([a-zA-Z0-9_\[\]|\s,.-]+?)\s*(?:<=|≤|<)\s*([+-]?\d+(?:\^\d+)?)/
-    );
+    const doubleBoundMatch = normalizedLine.match(doubleBoundRegex);
     if (doubleBoundMatch) {
-      const minVal = parseNumber(doubleBoundMatch[1]);
+      const minVal = parseConstraintNumber(doubleBoundMatch[1]);
       const targetVar = doubleBoundMatch[2].trim();
-      const maxVal = parseNumber(doubleBoundMatch[3]);
+      const maxVal = parseConstraintNumber(doubleBoundMatch[3]);
       if (!isNaN(minVal) && !isNaN(maxVal)) {
         rules.push({
-          type: targetVar.includes('|') || targetVar.includes('length') || targetVar.includes('size') ? 'LENGTH' : 'VALUE',
+          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
           target: targetVar,
           min: minVal,
           max: maxVal,
-          raw: line
+          raw: rawLine.trim()
         });
         continue;
       }
     }
 
     // Pattern 2: X >= A or X ≥ A
-    const minBoundMatch = line.match(/([a-zA-Z0-9_\[\]|\s,.-]+?)\s*(?:>=|≥|>)\s*([+-]?\d+(?:\^\d+)?)/);
+    const minBoundMatch = normalizedLine.match(minBoundRegex);
     if (minBoundMatch) {
       const targetVar = minBoundMatch[1].trim();
-      const minVal = parseNumber(minBoundMatch[2]);
+      const minVal = parseConstraintNumber(minBoundMatch[2]);
       if (!isNaN(minVal)) {
         rules.push({
-          type: targetVar.includes('|') || targetVar.includes('length') || targetVar.includes('size') ? 'LENGTH' : 'VALUE',
+          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
           target: targetVar,
           min: minVal,
           max: Infinity,
-          raw: line
+          raw: rawLine.trim()
         });
         continue;
       }
     }
 
     // Pattern 3: X <= B or X ≤ B
-    const maxBoundMatch = line.match(/([a-zA-Z0-9_\[\]|\s,.-]+?)\s*(?:<=|≤|<)\s*([+-]?\d+(?:\^\d+)?)/);
+    const maxBoundMatch = normalizedLine.match(maxBoundRegex);
     if (maxBoundMatch) {
       const targetVar = maxBoundMatch[1].trim();
-      const maxVal = parseNumber(maxBoundMatch[2]);
+      const maxVal = parseConstraintNumber(maxBoundMatch[2]);
       if (!isNaN(maxVal)) {
         rules.push({
-          type: targetVar.includes('|') || targetVar.includes('length') || targetVar.includes('size') ? 'LENGTH' : 'VALUE',
+          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
           target: targetVar,
           min: -Infinity,
           max: maxVal,
-          raw: line
+          raw: rawLine.trim()
         });
       }
     }
@@ -95,7 +157,7 @@ export const parseConstraints = (constraintsStr) => {
 };
 
 /**
- * Extracts numbers and line lengths from test input text.
+ * Extracts numbers and line/array lengths from test input text.
  */
 export const extractNumbersAndLengths = (inputStr) => {
   if (typeof inputStr !== 'string') return { numbers: [], lengths: [], raw: String(inputStr) };
@@ -108,7 +170,30 @@ export const extractNumbersAndLengths = (inputStr) => {
   }
 
   const lines = inputStr.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const lengths = lines.map((l) => l.trim().length);
+  const lengths = [];
+
+  // Extract JSON/bracketed arrays (e.g. "[12, 35, 1, 10, 34, 1]")
+  const arrayMatches = inputStr.match(/\[([\s\S]*?)\]/g);
+  if (arrayMatches && arrayMatches.length > 0) {
+    for (const arrStr of arrayMatches) {
+      try {
+        const parsed = JSON.parse(arrStr);
+        if (Array.isArray(parsed)) {
+          lengths.push(parsed.length);
+        }
+      } catch {
+        const items = arrStr.slice(1, -1).split(',').filter((x) => x.trim().length > 0);
+        lengths.push(items.length);
+      }
+    }
+  }
+
+  // If no explicit bracketed arrays, record line lengths
+  if (lengths.length === 0) {
+    for (const l of lines) {
+      lengths.push(l.trim().length);
+    }
+  }
 
   return { numbers, lengths, lines };
 };
@@ -125,15 +210,17 @@ export const checkInputAgainstConstraints = (inputStr, rules) => {
   for (const rule of rules) {
     if (rule.type === 'VALUE') {
       for (const num of numbers) {
-        if (num < rule.min) {
+        if (rule.min !== -Infinity && num < rule.min) {
           violations.push(`Input value ${num} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
-        } else if (num > rule.max) {
+        } else if (rule.max !== Infinity && num > rule.max) {
           violations.push(`Input value ${num} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
         }
       }
     } else if (rule.type === 'LENGTH') {
       for (const len of lengths) {
-        if (len > rule.max) {
+        if (rule.min !== -Infinity && len < rule.min) {
+          violations.push(`Input length ${len} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
+        } else if (rule.max !== Infinity && len > rule.max) {
           violations.push(`Input length ${len} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
         }
       }
@@ -280,10 +367,15 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
     if (question.referenceSolutions instanceof Map) {
       refCode =
         question.referenceSolutions.get(targetLang) ||
-        question.referenceSolutions.get(targetLang.toLowerCase());
+        question.referenceSolutions.get(targetLang.toLowerCase()) ||
+        question.referenceSolutions.get(`function_${targetLang.toLowerCase()}`) ||
+        question.referenceSolutions.get(`stdin_${targetLang.toLowerCase()}`);
     } else if (typeof question.referenceSolutions === 'object') {
       const keys = Object.keys(question.referenceSolutions);
-      const matchedKey = keys.find((k) => k.toLowerCase() === targetLang.toLowerCase());
+      const matchedKey = keys.find((k) =>
+        k.toLowerCase() === targetLang.toLowerCase() ||
+        k.toLowerCase().endsWith(`_${targetLang.toLowerCase()}`)
+      );
       if (matchedKey) refCode = question.referenceSolutions[matchedKey];
     }
   }
@@ -328,7 +420,9 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
     tags: question.tags || [],
     language: targetLang,
     executionMode: question.executionMode || 'STDIN',
+    dataStructure: question.dataStructure || 'ARRAY',
     functionName: question.functionName || 'solution',
+    returnType: question.functionSignature?.returnType || 'void',
     parameters: question.functionSignature?.parameters || []
   };
 
@@ -373,12 +467,17 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
       }
     }
 
-    // Execute reference solution if available
+    // Execute reference solution if available and test case has valid input and expected output
     let execResult = null;
     let computedOutput = null;
     let isMismatch = false;
 
-    if (hasRefCode && isCaseValid) {
+    const hasInputAndOutput = Boolean(
+      tc.input !== undefined && tc.input !== null && String(tc.input).trim() !== '' &&
+      tc.expectedOutput !== undefined && tc.expectedOutput !== null && String(tc.expectedOutput).trim() !== ''
+    );
+
+    if (hasRefCode && hasInputAndOutput) {
       try {
         execResult = await validateSingleTestCase({
           code: refCode,
@@ -549,12 +648,23 @@ export const validateSingleTest = async ({ questionId, testId, language = null, 
 
   let refCode = null;
   if (question.referenceSolutions) {
-    refCode = question.referenceSolutions instanceof Map
-      ? question.referenceSolutions.get(targetLang)
-      : question.referenceSolutions[targetLang];
+    if (question.referenceSolutions instanceof Map) {
+      refCode =
+        question.referenceSolutions.get(targetLang) ||
+        question.referenceSolutions.get(targetLang.toLowerCase()) ||
+        question.referenceSolutions.get(`function_${targetLang.toLowerCase()}`) ||
+        question.referenceSolutions.get(`stdin_${targetLang.toLowerCase()}`);
+    } else if (typeof question.referenceSolutions === 'object') {
+      const keys = Object.keys(question.referenceSolutions);
+      const matchedKey = keys.find((k) =>
+        k.toLowerCase() === targetLang.toLowerCase() ||
+        k.toLowerCase().endsWith(`_${targetLang.toLowerCase()}`)
+      );
+      if (matchedKey) refCode = question.referenceSolutions[matchedKey];
+    }
   }
   if (!refCode || !refCode.trim()) {
-    if (question.language === targetLang && question.referenceSolution && question.referenceSolution.trim()) {
+    if (question.referenceSolution && question.referenceSolution.trim()) {
       refCode = question.referenceSolution;
     }
   }
@@ -568,7 +678,9 @@ export const validateSingleTest = async ({ questionId, testId, language = null, 
     tags: question.tags || [],
     language: targetLang,
     executionMode: question.executionMode || 'STDIN',
+    dataStructure: question.dataStructure || 'ARRAY',
     functionName: question.functionName || 'solution',
+    returnType: question.functionSignature?.returnType || 'void',
     parameters: question.functionSignature?.parameters || []
   };
 

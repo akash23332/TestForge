@@ -298,39 +298,6 @@ export const StudentLandingView = ({
       {/* 3px Lime Top Progress Bar */}
       <div className="pg" style={{ transform: `scaleX(${scrollProgress})` }} />
 
-      {/* Top Navigation */}
-      <nav id="nv" className={`top-nav ${navScrolled ? 'scrolled' : ''}`}>
-        <a
-          className="logo"
-          href="#top"
-          onClick={(e) => {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <i>TF</i>
-          <span>TestForge</span>
-        </a>
-        <div className="nl">
-          <button type="button" onClick={() => scrollToSection('join')}>
-            Join Test
-          </button>
-          <button type="button" onClick={() => scrollToSection('features')}>
-            Features
-          </button>
-          <button
-            type="button"
-            className="g"
-            onClick={() => {
-              if (onNavigateTab) onNavigateTab('overview', '/student/overview');
-              else scrollToSection('show');
-            }}
-          >
-            Student portal
-          </button>
-        </div>
-      </nav>
-
       {/* ═══════════════════════════════════════════════════════════════════════════
           HERO SECTION (Sticky 100svh, Two Columns)
           ═══════════════════════════════════════════════════════════════════════════ */}
@@ -346,6 +313,38 @@ export const StudentLandingView = ({
             opacity: heroOpacity
           }}
         >
+          {/* Top Header Fixed on Hero (Does not follow down into dashboard) */}
+          <div className="hero-top-bar">
+            <a
+              className="logo"
+              href="#top"
+              onClick={(e) => {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              <i>TF</i>
+              <span>TestForge</span>
+            </a>
+            <div className="nl">
+              <button type="button" onClick={() => scrollToSection('join')}>
+                Join Test
+              </button>
+              <button type="button" onClick={() => scrollToSection('features')}>
+                Features
+              </button>
+              <button
+                type="button"
+                className="g"
+                onClick={() => {
+                  if (onNavigateTab) onNavigateTab('overview', '/student/overview');
+                  else scrollToSection('show');
+                }}
+              >
+                Student portal
+              </button>
+            </div>
+          </div>
           {/* Custom Glowing Lime Cursor Ring (matching Main Landing Page) */}
           <div
             ref={cursorRingRef}

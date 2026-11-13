@@ -1,3 +1,11 @@
+import { buildCppWrapper } from './execution/wrappers/cppWrapper.js';
+import { buildJavaWrapper } from './execution/wrappers/javaWrapper.js';
+import { buildPythonWrapper } from './execution/wrappers/pythonWrapper.js';
+import { buildJavaScriptWrapper } from './execution/wrappers/javascriptWrapper.js';
+import { splitCppParams, parseCppParams, extractCppFunctionInfo } from './execution/wrappers/cppParser.js';
+
+export { splitCppParams, parseCppParams, extractCppFunctionInfo };
+
 /**
  * TestForge Code Contract Service
  * Single source of truth for coding question execution modes (FUNCTION vs STDIN),
@@ -144,14 +152,16 @@ export const getStarterCode = ({
 };
 
 /**
- * Wraps student code with a test harness for FUNCTION mode execution on OnlineCompiler.
+ * Wraps student code with a test harness for FUNCTION mode execution on OnlineCompiler or Local runner.
  * In STDIN mode, code is returned unchanged.
  */
 export const wrapCodeForExecution = ({
   code,
   language = 'javascript',
   executionMode = EXECUTION_MODES.STDIN,
+  dataStructure = 'ARRAY',
   functionName = 'solution',
+  returnType = 'void',
   parameters = []
 }) => {
   if (!code || typeof code !== 'string') return '';
@@ -161,232 +171,18 @@ export const wrapCodeForExecution = ({
   }
 
   const lang = (language || 'javascript').toLowerCase();
-  const fn = functionName || 'solution';
 
-  // ── Python FUNCTION Harness ───────────────────────────────────────────────
-  if (lang === 'python' || lang === 'py') {
-    return `import sys, json
-
-${code}
-
-if __name__ == '__main__':
-    try:
-        raw_input = sys.stdin.read().strip()
-        args = []
-        if raw_input:
-            lines = [l.strip() for l in raw_input.split('\\n') if l.strip()]
-            for line in lines:
-                try:
-                    args.append(json.loads(line))
-                except Exception:
-                    tokens = line.split()
-                    try:
-                        num_tokens = [int(t) for t in tokens]
-                        if len(num_tokens) > 1:
-                            args.extend(num_tokens)
-                        else:
-                            args.append(line)
-                    except Exception:
-                        args.append(line)
-
-        if 'Solution' in globals():
-            sol_inst = Solution()
-            fn = getattr(sol_inst, '${fn}', None)
-            if fn is None:
-                methods = [m for m in dir(sol_inst) if not m.startswith('_')]
-                fn = getattr(sol_inst, methods[0])
-            res = fn(*args)
-        else:
-            fn = globals().get('${fn}')
-            if fn is None:
-                # Fallback to first non-main function defined
-                for name, obj in list(globals().items()):
-                    if callable(obj) and not name.startswith('_') and name != 'main':
-                        fn = obj
-                        break
-            if fn is None:
-                raise NameError("Function '${fn}' is not defined")
-            res = fn(*args)
-
-        print(json.dumps(res))
-    except Exception as e:
-        sys.stderr.write(str(e))
-        sys.exit(1)
-`;
-  }
-
-  // ── JavaScript FUNCTION Harness ───────────────────────────────────────────
-  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
-    return `const fs = require('fs');
-
-${code}
-
-(function() {
-  try {
-    const rawInput = fs.readFileSync(0, 'utf-8').trim();
-    let args = [];
-    if (rawInput) {
-      const lines = rawInput.split('\\n').map((l) => l.trim()).filter(Boolean);
-      for (const line of lines) {
-        try {
-          args.push(JSON.parse(line));
-        } catch {
-          const numTokens = line.split(/\\s+/).map(Number);
-          if (numTokens.length > 1 && numTokens.every((n) => !isNaN(n))) {
-            args.push(...numTokens);
-          } else {
-            args.push(line);
-          }
-        }
-      }
-    }
-    const fn = typeof ${fn} === 'function' ? ${fn} : (typeof solution === 'function' ? solution : null);
-    if (!fn) throw new Error("Function '${fn}' is not defined.");
-    const res = fn.apply(null, args);
-    console.log(JSON.stringify(res));
-  } catch (err) {
-    console.error(err.message || String(err));
-    process.exit(1);
-  }
-})();
-`;
-  }
-
-  // ── Java FUNCTION Harness ─────────────────────────────────────────────────
-  if (lang === 'java') {
-    // Strip redundant package/imports from student code if present
-    const cleanStudentCode = code.replace(/^\s*public\s+class\s+Solution/m, 'class Solution');
-
-    return `import java.util.*;
-import java.io.*;
-import java.lang.reflect.*;
-
-${cleanStudentCode}
-
-public class Main {
-    public static void main(String[] args) {
-        try {
-            Scanner sc = new Scanner(System.in);
-            StringBuilder sb = new StringBuilder();
-            while (sc.hasNextLine()) {
-                sb.append(sc.nextLine()).append("\\n");
-            }
-            sc.close();
-            String rawInput = sb.toString().trim();
-
-            Class<?> solClass = Class.forName("Solution");
-            Object solInst = solClass.getDeclaredConstructor().newInstance();
-            Method targetMethod = null;
-            for (Method m : solClass.getDeclaredMethods()) {
-                if (Modifier.isPublic(m.getModifiers()) && !m.getName().equals("main")) {
-                    if (m.getName().equals("${fn}")) {
-                        targetMethod = m;
-                        break;
-                    }
-                    if (targetMethod == null) targetMethod = m;
-                }
-            }
-            if (targetMethod == null) {
-                System.err.println("No public method found in Solution class.");
-                System.exit(1);
-            }
-
-            Class<?>[] pTypes = targetMethod.getParameterTypes();
-            Object[] invokeArgs = new Object[pTypes.length];
-            // Split tokens by any whitespace or newline
-            String[] tokens = rawInput.isEmpty() ? new String[0] : rawInput.trim().split("\\\\s+");
-
-            for (int i = 0; i < pTypes.length; i++) {
-                String token = i < tokens.length ? tokens[i].trim() : "";
-                invokeArgs[i] = parseJavaArg(pTypes[i], token);
-            }
-
-            Object result = targetMethod.invoke(solInst, invokeArgs);
-            printJavaResult(result);
-        } catch (InvocationTargetException ite) {
-            Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
-            System.err.println(cause.getMessage() != null ? cause.getMessage() : cause.toString());
-            System.exit(1);
-        } catch (Exception e) {
-            System.err.println(e.getMessage() != null ? e.getMessage() : e.toString());
-            System.exit(1);
-        }
-    }
-
-    private static Object parseJavaArg(Class<?> type, String val) {
-        if (type == int.class || type == Integer.class) {
-            return val.isEmpty() ? 0 : Integer.parseInt(val.replaceAll("[^0-9-]", ""));
-        }
-        if (type == long.class || type == Long.class) {
-            return val.isEmpty() ? 0L : Long.parseLong(val.replaceAll("[^0-9-]", ""));
-        }
-        if (type == double.class || type == Double.class) {
-            return val.isEmpty() ? 0.0 : Double.parseDouble(val);
-        }
-        if (type == boolean.class || type == Boolean.class) {
-            return Boolean.parseBoolean(val);
-        }
-        if (type == String.class) {
-            return val.startsWith("\\"") && val.endsWith("\\"") && val.length() >= 2
-                ? val.substring(1, val.length() - 1) : val;
-        }
-        if (type == int[].class) {
-            String clean = val.replaceAll("[\\\\[\\\\]\\\\s]", "");
-            if (clean.isEmpty()) return new int[0];
-            String[] parts = clean.split(",");
-            int[] arr = new int[parts.length];
-            for (int i = 0; i < parts.length; i++) arr[i] = Integer.parseInt(parts[i].trim());
-            return arr;
-        }
-        return val;
-    }
-
-    private static void printJavaResult(Object res) {
-        if (res == null) {
-            System.out.println("null");
-        } else if (res instanceof int[]) {
-            System.out.println(Arrays.toString((int[]) res));
-        } else if (res instanceof Object[]) {
-            System.out.println(Arrays.deepToString((Object[]) res));
-        } else {
-            System.out.println(res);
-        }
-    }
-}
-`;
-  }
-
-  // ── C++ FUNCTION Harness ──────────────────────────────────────────────────
   if (lang === 'cpp' || lang === 'c++') {
-    return `#include <bits/stdc++.h>
-using namespace std;
-
-${code}
-
-int main() {
-    try {
-        Solution sol;
-        vector<string> tokens;
-        string tok;
-        while (cin >> tok) {
-            tokens.push_back(tok);
-        }
-
-        // Generic integer invocation fallback
-        int a = tokens.size() > 0 ? stoi(tokens[0]) : 0;
-        int b = tokens.size() > 1 ? stoi(tokens[1]) : 0;
-        auto res = sol.${fn}(a, b);
-        cout << res << "\\n";
-        return 0;
-    } catch (const std::exception& e) {
-        cerr << e.what() << endl;
-        return 1;
-    } catch (...) {
-        cerr << "Execution exception" << endl;
-        return 1;
-    }
-}
-`;
+    return buildCppWrapper({ code, functionName, parameters, dataStructure, returnType });
+  }
+  if (lang === 'java') {
+    return buildJavaWrapper({ code, functionName, parameters, dataStructure, returnType });
+  }
+  if (lang === 'python' || lang === 'py') {
+    return buildPythonWrapper({ code, functionName, parameters, dataStructure, returnType });
+  }
+  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
+    return buildJavaScriptWrapper({ code, functionName, parameters, dataStructure, returnType });
   }
 
   return code;
@@ -397,5 +193,8 @@ export default {
   SUPPORTED_LANGUAGES,
   DEFAULT_TEMPLATES,
   getStarterCode,
-  wrapCodeForExecution
+  wrapCodeForExecution,
+  splitCppParams,
+  parseCppParams,
+  extractCppFunctionInfo
 };

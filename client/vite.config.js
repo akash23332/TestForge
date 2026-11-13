@@ -26,6 +26,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          monaco: ['@monaco-editor/react'],
           three: ['three'],
           reactVendor: ['react', 'react-dom']
         }

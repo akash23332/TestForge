@@ -304,6 +304,7 @@ export const TestCaseStudioView = ({
   }, [testCases]);
 
   // Derived 5-Status Teacher Validation Dashboard (Requirements 4 & 5)
+  const isAlreadyPublished = currentQ?.status === 'published';
   const refStatus = validationReport?.referenceSolutionStatus || currentQ?.validationSummary?.referenceSolutionStatus || 'PENDING';
   const caseValidity = validationReport?.testCaseValidity || currentQ?.validationSummary?.testCaseValidity || 'PENDING';
   const outStatus = validationReport?.expectedOutputStatus || currentQ?.validationSummary?.expectedOutputStatus || 'PENDING';
@@ -312,7 +313,9 @@ export const TestCaseStudioView = ({
     : (currentQ?.validationSummary?.testQualityStatus
       ? (currentQ.validationSummary.testQualityStatus === 'ADEQUATE' ? 'ADEQUATE' : 'NEEDS IMPROVEMENT')
       : 'PENDING');
-  const pubStatus = validationReport?.publishingStatus || currentQ?.validationSummary?.publishingStatus || 'NOT_READY';
+  const pubStatus = isAlreadyPublished
+    ? 'PUBLISHED'
+    : (validationReport?.publishingStatus || currentQ?.validationSummary?.publishingStatus || 'NOT_READY');
 
   // Open Add Modal
   const openAddModal = (presetCategory = 'sample', presetVisibility = 'public') => {
@@ -1087,7 +1090,7 @@ export const TestCaseStudioView = ({
               ))}
             </h1>
 
-            <p>Design, mutate, and execute precision test suites with real-time telemetry and isolation.</p>
+            <p>Design, validate, and execute precision test suites with real-time telemetry and isolation.</p>
 
             <div className="tf-btns">
               <button
@@ -1095,7 +1098,6 @@ export const TestCaseStudioView = ({
                 onClick={() => openAddModal('sample', 'public')}
                 className="tf-btn pri"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
                 <span>+ Add Test Case</span>
               </button>
               <button
@@ -1331,29 +1333,42 @@ export const TestCaseStudioView = ({
 
           {/* Status 5: Publishing Status */}
           <div className={`p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between min-h-[96px] ${
-            pubStatus === 'READY' ? 'bg-emerald-50/80 border-emerald-300' : 'bg-rose-50/80 border-rose-300'
+            pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'bg-emerald-50/80 border-emerald-300' : 'bg-rose-50/80 border-rose-300'
           }`}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Publishing Status</span>
-              <span className={`w-2.5 h-2.5 rounded-full ${pubStatus === 'READY' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              <span className={`w-2.5 h-2.5 rounded-full ${pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
             </div>
-            <div className={`text-base font-black ${pubStatus === 'READY' ? 'text-emerald-800' : 'text-rose-800'}`}>
+            <div className={`text-base font-black ${pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'text-emerald-800' : 'text-rose-800'}`}>
               {pubStatus}
             </div>
             <span className="text-[10px] text-[#777D78]">
-              {pubStatus === 'READY' ? 'All criteria satisfied' : 'Resolve blocking errors'}
+              {pubStatus === 'PUBLISHED' ? 'Live in Question Bank' : pubStatus === 'READY' ? 'All criteria satisfied' : 'Resolve blocking errors'}
             </span>
           </div>
         </div>
 
         {/* Blocking Errors Banner (Requirement 4 & 6) */}
-        {validationReport?.blockingErrors?.length > 0 && (
+        {!isAlreadyPublished && validationReport?.blockingErrors?.length > 0 && (
           <div className="mt-3 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 shadow-xs">
             <div className="flex items-center gap-2 font-bold text-xs text-rose-800 mb-1.5">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>Blocking Errors ({validationReport.blockingErrors.length}) — Question Cannot Be Published:</span>
             </div>
             <ul className="list-disc list-inside text-xs space-y-1 text-rose-800 font-medium">
+              {validationReport.blockingErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {isAlreadyPublished && validationReport?.blockingErrors?.length > 0 && (
+          <div className="mt-3 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 shadow-xs">
+            <div className="flex items-center gap-2 font-bold text-xs text-amber-800 mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Suite Validation Issues ({validationReport.blockingErrors.length}) — Some test cases require review:</span>
+            </div>
+            <ul className="list-disc list-inside text-xs space-y-1 text-amber-800 font-medium">
               {validationReport.blockingErrors.map((err, i) => (
                 <li key={i}>{err}</li>
               ))}
@@ -1542,6 +1557,11 @@ export const TestCaseStudioView = ({
                     <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-[#191A1D] text-[#EDFF72]">
                       SELECTED TEST SPEC
                     </span>
+                    {currentQ?.dataStructure && currentQ.dataStructure !== 'ARRAY' && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        {currentQ.dataStructure}
+                      </span>
+                    )}
                     <span className="text-xs font-bold text-[#777D78]">
                       Weightage: {activeTestCase.weight || 1.0} pts
                     </span>
@@ -1644,7 +1664,11 @@ export const TestCaseStudioView = ({
                     )}
                   </div>
                   <div className="code-box min-h-[60px] text-xs">
-                    {activeTestCase.computedOutput}
+                    {activeTestCase.computedOutput === '' ? (
+                      <span className="text-[#8a8a85] italic font-normal">// (Empty output / no stdout produced)</span>
+                    ) : (
+                      activeTestCase.computedOutput
+                    )}
                   </div>
                   {String(activeTestCase.computedOutput).trim() !== String(activeTestCase.expectedOutput || '').trim() && (
                     <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
@@ -1733,11 +1757,11 @@ export const TestCaseStudioView = ({
                     <BarChart3 className="w-4 h-4 text-emerald-600" /> Test Quality Analysis
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                    validationReport.canPublish
+                    isAlreadyPublished || validationReport.canPublish
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-rose-100 text-rose-800'
                   }`}>
-                    {validationReport.publishingStatus || (validationReport.canPublish ? 'READY' : 'NOT READY')}
+                    {isAlreadyPublished ? 'PUBLISHED' : (validationReport.publishingStatus || (validationReport.canPublish ? 'READY' : 'NOT READY'))}
                   </span>
                 </div>
 
@@ -1760,7 +1784,18 @@ export const TestCaseStudioView = ({
                   </div>
                 </div>
 
-                {validationReport.canPublish ? (
+                {isAlreadyPublished ? (
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Question is published and live in Question Bank.</span>
+                    </div>
+                    <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ✓ Published to Question Bank
+                    </div>
+                  </div>
+                ) : validationReport.canPublish ? (
                   <div className="space-y-2">
                     <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1768,12 +1803,12 @@ export const TestCaseStudioView = ({
                     </div>
                     <button
                       type="button"
-                      disabled={isPublishing || currentQ?.status === 'published'}
+                      disabled={isPublishing}
                       onClick={handlePublishFromStudio}
                       className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border-0 transition-colors"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      {currentQ?.status === 'published' ? '✓ Published to Question Bank' : isPublishing ? 'Publishing…' : 'Publish Question Now'}
+                      {isPublishing ? 'Publishing…' : 'Publish Question Now'}
                     </button>
                   </div>
                 ) : (

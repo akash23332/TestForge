@@ -314,19 +314,6 @@ export const StudentLayout = ({
                 </button>
               )}
 
-              {/* Notification Bell */}
-              <button
-                type="button"
-                onClick={() => onNavigate('overview', '/student/overview')}
-                className="relative flex size-8 items-center justify-center rounded-full bg-white border border-[#DDE1DA] text-[#171819] hover:bg-[#F8F9F7] transition-colors cursor-pointer"
-                title="Notifications"
-              >
-                <Bell className="size-3.5 text-[#171819]" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[#EDFF72] ring-1 ring-[#191A1D]" />
-                )}
-              </button>
-
               {/* Candidate Profile Pill */}
               <button
                 type="button"

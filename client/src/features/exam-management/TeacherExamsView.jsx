@@ -137,11 +137,15 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
     setCreateError('');
 
     try {
-      const formattedQuestions = selectedQuestionIds.map((qId, i) => ({
-        questionId: qId,
-        marks: 10,
-        order: i + 1
-      }));
+      const formattedQuestions = selectedQuestionIds.map((qId, i) => {
+        const isValidId = /^[0-9a-fA-F]{24}$/.test(String(qId));
+        return {
+          type: 'coding',
+          questionId: isValidId ? qId : null,
+          marks: 10,
+          order: i + 1
+        };
+      });
 
       await api.post('/exams', {
         title: newTitle.trim(),
@@ -837,7 +841,7 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                 className="tf-card p-6 flex flex-col justify-between group hover:border-[#101112]/40 transition-all shadow-xs"
               >
                 <div>
-                  {/* Top Status & Category Strip */}
+                  {/* Top Status Strip */}
                   <div className="flex items-center justify-between gap-2 mb-4">
                     <span
                       onClick={(e) => toggleStatus(exam, e)}
@@ -847,27 +851,18 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       LIVE
                     </span>
-
-                    <span className="text-[11px] font-bold text-[#777D78] px-3 py-1 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
-                      {meta.category}
-                    </span>
                   </div>
 
-                  {/* Icon & Title Row */}
-                  <div className="flex items-start gap-3.5 mb-4">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
-                      <TopicIcon className="w-5 h-5 stroke-[2]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-black text-[#171819] line-clamp-2 leading-snug">
-                        {exam.title}
-                      </h3>
-                      {exam.examCode && (
-                        <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-0.5">
-                          Code: {exam.examCode}
-                        </span>
-                      )}
-                    </div>
+                  {/* Title & Exam Code */}
+                  <div className="mb-4">
+                    <h3 className="text-base font-black text-[#171819] line-clamp-2 leading-snug">
+                      {exam.title}
+                    </h3>
+                    {exam.examCode && (
+                      <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-1">
+                        Code: {exam.examCode}
+                      </span>
+                    )}
                   </div>
 
                   {/* Metrics Badges */}
@@ -1025,26 +1020,17 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         COMPLETED
                       </span>
-
-                      <span className="text-[11px] font-bold text-[#777D78] px-3 py-1 rounded-full bg-[#F2F3F0] border border-[#DDE1DA] truncate max-w-[150px]">
-                        {meta.category}
-                      </span>
                     </div>
 
-                    <div className="flex items-start gap-3.5 mb-3.5">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
-                        <TopicIcon className="w-5 h-5 stroke-[2]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-[#171819] line-clamp-2 leading-snug">
-                          {exam.title}
-                        </h3>
-                        {exam.examCode && (
-                          <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-0.5">
-                            Code: {exam.examCode}
-                          </span>
-                        )}
-                      </div>
+                    <div className="mb-3.5">
+                      <h3 className="text-base font-bold text-[#171819] line-clamp-2 leading-snug">
+                        {exam.title}
+                      </h3>
+                      {exam.examCode && (
+                        <span className="text-[11px] font-mono font-bold text-[#777D78] block mt-1">
+                          Code: {exam.examCode}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2.5 text-xs text-[#777D78] mb-4">

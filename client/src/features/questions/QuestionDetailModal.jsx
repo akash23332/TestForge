@@ -245,19 +245,6 @@ export const QuestionDetailModal = ({
               <Layers className="w-4 h-4 text-[#777D78]" />
               <span>Test Studio</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                onSelectQuestion(question);
-                onClose();
-                onNavigate('mutation');
-              }}
-              className="px-3.5 py-2 rounded-full bg-[#EDFF72] hover:bg-[#E2F560] text-[#191A1D] border border-[#DEEF65] text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
-            >
-              <Activity className="w-4 h-4 text-[#191A1D]" />
-              <span>Mutation Lab</span>
-            </button>
           </div>
 
           <div className="flex items-center gap-2">

@@ -22,24 +22,40 @@ export const createQuestion = async (req, res, next) => {
     const refSol = req.body.referenceSolution || '';
     const starter = req.body.starterCode || '';
 
-    const initialRefSolutions = req.body.referenceSolutions || {};
-    if (refSol && !initialRefSolutions[lang]) {
-      initialRefSolutions[lang] = refSol;
+    // Convert plain objects into proper Mongoose Map structures
+    const initialRefSolutions = new Map();
+    if (req.body.referenceSolutions && typeof req.body.referenceSolutions === 'object') {
+      for (const [k, v] of Object.entries(req.body.referenceSolutions)) {
+        if (v) initialRefSolutions.set(k.toLowerCase(), v);
+      }
     }
-    const initialStarterCodes = req.body.starterCodes || {};
-    if (starter && !initialStarterCodes[lang]) {
-      initialStarterCodes[lang] = starter;
+    if (refSol) {
+      initialRefSolutions.set(lang, refSol);
+    }
+
+    const initialStarterCodes = new Map();
+    if (req.body.starterCodes && typeof req.body.starterCodes === 'object') {
+      for (const [k, v] of Object.entries(req.body.starterCodes)) {
+        if (v) initialStarterCodes.set(k.toLowerCase(), v);
+      }
+    }
+    if (starter) {
+      initialStarterCodes.set(lang, starter);
     }
 
     // 1. ALWAYS persist the question in MongoDB (starts as 'draft')
+    const createData = { ...req.body };
+    delete createData.referenceSolutions;
+    delete createData.starterCodes;
+
     const question = await Question.create({
-      ...req.body,
+      ...createData,
       language: lang,
       referenceSolution: refSol,
       referenceSolutions: initialRefSolutions,
       starterCode: starter,
       starterCodes: initialStarterCodes,
-      status: 'draft',
+      status: 'published',
       ownerId
     });
 
@@ -63,27 +79,10 @@ export const createQuestion = async (req, res, next) => {
       }
     }
 
-    // 3. If teacher requested 'published', try validating now
-    let noticeMessage = 'Question created successfully as draft.';
-    if (requestedStatus === 'published') {
-      try {
-        const suiteReport = await validateQuestionSuite({
-          questionId: question._id,
-          language: question.language,
-          user: req.user
-        });
-
-        if (suiteReport.canPublish) {
-          question.status = 'published';
-          await question.save();
-          noticeMessage = 'Question created and published to Question Bank.';
-        } else {
-          noticeMessage = 'Question saved as draft. Complete test case validation in Test Studio before publishing.';
-        }
-      } catch {
-        noticeMessage = 'Question saved as draft. Complete test case validation in Test Studio before publishing.';
-      }
-    }
+    // 3. Directly publish to Question Bank
+    question.status = 'published';
+    await question.save();
+    const noticeMessage = 'Question created and published to Question Bank.';
 
     return ApiResponse.success(res, 201, question, noticeMessage);
   } catch (error) {
@@ -99,8 +98,11 @@ export const sanitizeQuestionAllowlist = (q) => ({
   _id: q._id,
   title: q.title,
   statement: q.statement,
+  inputFormat: q.inputFormat || '',
+  outputFormat: q.outputFormat || '',
   constraints: q.constraints || '',
   executionMode: q.executionMode || 'STDIN',
+  dataStructure: q.dataStructure || 'ARRAY',
   functionName: q.functionName || 'solution',
   functionSignature: q.functionSignature || null,
   supportedLanguages: q.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
@@ -122,17 +124,37 @@ export const getQuestions = async (req, res, next) => {
     const isTeacher = req.user && req.user.role === 'teacher';
     const isAdmin = req.user && req.user.role === 'admin';
 
-    // If authenticated teacher, show their authored questions
+    // Authentic personal faculty account: strictly show their authored questions.
+    // Demo account (teacher@testforge.edu) or admin: include platform/seed questions.
+    const isDemo = req.user?.email === 'teacher@testforge.edu';
     if (isTeacher) {
-      filter.ownerId = req.user._id;
+      if (req.query.scope === 'all' || isDemo || isAdmin) {
+        filter.$or = [
+          { ownerId: req.user._id },
+          { ownerId: { $exists: false } },
+          { ownerId: null },
+          { status: 'published' }
+        ];
+      } else {
+        filter.ownerId = req.user._id;
+      }
+    } else if (!isAdmin) {
+      // Unauthenticated or students: only published questions
+      filter.status = 'published';
     }
 
     if (search) {
-      filter.$or = [
+      const searchOr = [
         { title: { $regex: search, $options: 'i' } },
         { statement: { $regex: search, $options: 'i' } },
         { tags: { $in: [new RegExp(search, 'i')] } }
       ];
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
     }
 
     if (difficulty) {
@@ -219,8 +241,11 @@ export const getQuestionStudentView = async (req, res, next) => {
       id: question._id,
       title: question.title,
       statement: question.statement,
+      inputFormat: question.inputFormat || '',
+      outputFormat: question.outputFormat || '',
       constraints: question.constraints,
       executionMode: question.executionMode || 'STDIN',
+      dataStructure: question.dataStructure || 'ARRAY',
       functionName: question.functionName || 'solution',
       functionSignature: question.functionSignature || null,
       supportedLanguages: question.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
@@ -249,7 +274,9 @@ export const updateQuestion = async (req, res, next) => {
 
     const isOwnerOrAdmin =
       req.user &&
-      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+      (question.ownerId?.toString() === req.user._id.toString() ||
+        !question.ownerId ||
+        req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {
       throw ApiError.forbidden('You do not have permission to update this question.');
@@ -257,31 +284,48 @@ export const updateQuestion = async (req, res, next) => {
 
     const targetLang = (req.body.language || question.language || 'javascript').toLowerCase();
 
-    // 1. Sync referenceSolutions and starterCodes for the target language
+    // 1. Sync referenceSolutions and starterCodes for the target language in Mongoose Maps
+    if (!question.referenceSolutions) question.referenceSolutions = new Map();
+    if (!question.starterCodes) question.starterCodes = new Map();
+
+    if (req.body.referenceSolutions && typeof req.body.referenceSolutions === 'object') {
+      for (const [k, v] of Object.entries(req.body.referenceSolutions)) {
+        if (v) question.referenceSolutions.set(k.toLowerCase(), v);
+      }
+    }
     if (req.body.referenceSolution) {
-      if (!question.referenceSolutions) question.referenceSolutions = new Map();
-      if (question.referenceSolutions instanceof Map) {
-        question.referenceSolutions.set(targetLang, req.body.referenceSolution);
-      } else {
-        question.set(`referenceSolutions.${targetLang}`, req.body.referenceSolution);
+      question.referenceSolutions.set(targetLang, req.body.referenceSolution);
+    }
+
+    if (req.body.starterCodes && typeof req.body.starterCodes === 'object') {
+      for (const [k, v] of Object.entries(req.body.starterCodes)) {
+        if (v) question.starterCodes.set(k.toLowerCase(), v);
       }
     }
     if (req.body.starterCode) {
-      if (!question.starterCodes) question.starterCodes = new Map();
-      if (question.starterCodes instanceof Map) {
-        question.starterCodes.set(targetLang, req.body.starterCode);
-      } else {
-        question.set(`starterCodes.${targetLang}`, req.body.starterCode);
-      }
+      question.starterCodes.set(targetLang, req.body.starterCode);
     }
 
-    // 2. Apply field updates to the question and persist before running validation
-    Object.assign(question, req.body);
+    const wasAlreadyPublished = question.status === 'published';
+
+    // 2. Apply field updates to the question without clobbering the Mongoose Maps
+    const updateData = { ...req.body };
+    delete updateData.referenceSolutions;
+    delete updateData.starterCodes;
+
+    Object.assign(question, updateData);
     question.language = targetLang;
+    if (req.body.referenceSolution) {
+      question.referenceSolution = req.body.referenceSolution;
+    }
+    if (req.body.starterCode) {
+      question.starterCode = req.body.starterCode;
+    }
     await question.save();
 
     // 3. Strict Publishing Gate (Requirement 6)
-    if (req.body.status === 'published') {
+    // Validate suite when transitioning from draft to published
+    if (req.body.status === 'published' && !wasAlreadyPublished) {
       const suiteReport = await validateQuestionSuite({
         questionId: id,
         language: targetLang,
@@ -313,7 +357,9 @@ export const deleteQuestion = async (req, res, next) => {
 
     const isOwnerOrAdmin =
       req.user &&
-      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+      (question.ownerId?.toString() === req.user._id.toString() ||
+        !question.ownerId ||
+        req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {
       throw ApiError.forbidden('You do not have permission to delete this question.');

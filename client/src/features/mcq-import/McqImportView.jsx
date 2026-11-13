@@ -134,9 +134,16 @@ const AnimatedCount = ({ value, duration = 900 }) => {
   return <>{display}</>;
 };
 
-export const McqImportView = () => {
+export const McqImportView = ({ currentUser }) => {
   // Mode Selection: 'ai' | 'bulk' | 'manual' | 'bank'
   const [activeMode, setActiveMode] = useState('ai');
+
+  // Check whether current user is demo faculty vs personal authenticated teacher
+  const isDemo = useMemo(() => {
+    if (!currentUser) return false;
+    const email = (currentUser.email || '').toLowerCase();
+    return email === 'teacher@testforge.edu' || email === 'student@testforge.edu';
+  }, [currentUser]);
 
   // Questions Database State
   const [questions, setQuestions] = useState([]);
@@ -196,7 +203,7 @@ export const McqImportView = () => {
       const res = await api.get('/mcq/saved');
       let items = res.data?.data?.items || [];
 
-      if (items.length === 0) {
+      if (items.length === 0 && isDemo) {
         const seeded = [];
         for (const item of DEFAULT_INITIAL_MCQS) {
           try {
@@ -211,8 +218,12 @@ export const McqImportView = () => {
 
       setQuestions(items);
     } catch (err) {
-      console.warn('Using local starter questions:', err);
-      setQuestions(DEFAULT_INITIAL_MCQS.map((q, i) => ({ ...q, _id: `local-${i}` })));
+      console.warn('Failed to fetch MCQs:', err);
+      if (isDemo) {
+        setQuestions(DEFAULT_INITIAL_MCQS.map((q, i) => ({ ...q, _id: `local-${i}` })));
+      } else {
+        setQuestions([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -222,19 +233,29 @@ export const McqImportView = () => {
     fetchQuestions();
   }, []);
 
-  // Calculate Real Statistics
+  // Calculate Real Statistics directly from database
   const stats = useMemo(() => {
     const totalQuestions = questions.length;
     const totalMarks = questions.reduce((sum, q) => sum + (Number(q.marks) || 1), 0);
     const uniqueTopics = new Set(questions.map((q) => (q.topic || 'General').trim())).size;
+    const aiCount = questions.filter((q) => q.isAiGenerated || q.aiSynthesized || q.tags?.includes('AI')).length;
+
+    if (isDemo) {
+      return {
+        totalQuestions: Math.max(totalQuestions, 42),
+        totalMarks: Math.max(totalMarks, 84),
+        distinctTopics: Math.max(uniqueTopics, 8),
+        aiSynthesized: 18
+      };
+    }
 
     return {
-      totalQuestions: Math.max(totalQuestions, 42),
-      totalMarks: Math.max(totalMarks, 84),
-      distinctTopics: Math.max(uniqueTopics, 8),
-      aiSynthesized: 18
+      totalQuestions,
+      totalMarks,
+      distinctTopics: uniqueTopics,
+      aiSynthesized: aiCount
     };
-  }, [questions]);
+  }, [questions, isDemo]);
 
   // Unique topics list
   const availableTopics = useMemo(() => {
@@ -1622,8 +1643,23 @@ export const McqImportView = () => {
           </div>
 
           {/* Questions Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredQuestions.map((q, idx) => (
+          {filteredQuestions.length === 0 ? (
+            <div className="tf-card p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#F2F3F0] flex items-center justify-center mx-auto text-[#777D78]">
+                <FileCheck2 className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-sm text-[#171819]">
+                {questions.length === 0 ? 'No MCQs in Database' : 'No Matching MCQs'}
+              </h4>
+              <p className="text-xs text-[#777D78] max-w-sm mx-auto">
+                {questions.length === 0
+                  ? 'Use the AI Batch Generator, CSV Upload, or Manual Item Builder above to add MCQs to your bank.'
+                  : 'Try adjusting your search query, topic filter, or difficulty tags.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredQuestions.map((q, idx) => (
               <div key={q._id} className="tf-card p-5 space-y-3 flex flex-col justify-between hover:border-[#101112]/40 transition-all shadow-xs">
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -1680,8 +1716,9 @@ export const McqImportView = () => {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
     </div>
   );
 };

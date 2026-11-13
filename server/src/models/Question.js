@@ -27,6 +27,14 @@ const questionSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Problem statement is required']
     },
+    inputFormat: {
+      type: String,
+      default: ''
+    },
+    outputFormat: {
+      type: String,
+      default: ''
+    },
     constraints: {
       type: String,
       default: ''
@@ -35,6 +43,12 @@ const questionSchema = new mongoose.Schema(
       type: String,
       enum: ['FUNCTION', 'STDIN'],
       default: 'STDIN',
+      index: true
+    },
+    dataStructure: {
+      type: String,
+      enum: ['NONE', 'ARRAY', 'STRING', 'LINKED_LIST', 'BINARY_TREE'],
+      default: 'ARRAY',
       index: true
     },
     functionName: {

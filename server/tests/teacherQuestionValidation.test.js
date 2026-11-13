@@ -112,6 +112,31 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       expect(missingScenarios).toContainEqual(expect.stringContaining('negative numbers'));
       expect(missingScenarios).toContainEqual(expect.stringContaining('zero (0)'));
     });
+
+    test('1.5 Accurately handles unicode superscripts, length variables (n), and array inputs', () => {
+      const constraintsText = `
+        2 ≤ n ≤ 10⁵
+        -10⁹ ≤ nums[i] ≤ 10⁹
+      `;
+      const rules = parseConstraints(constraintsText);
+      expect(rules).toHaveLength(2);
+
+      const nRule = rules.find((r) => r.target === 'n');
+      expect(nRule).toBeDefined();
+      expect(nRule.type).toBe('LENGTH');
+      expect(nRule.min).toBe(2);
+      expect(nRule.max).toBe(100000);
+
+      const numRule = rules.find((r) => r.target.includes('nums[i]'));
+      expect(numRule).toBeDefined();
+      expect(numRule.type).toBe('VALUE');
+      expect(numRule.min).toBe(-1000000000);
+      expect(numRule.max).toBe(1000000000);
+
+      // Array input [12, 35, 1, 10, 34, 1] has length 6 and numbers [12, 35, 1, 10, 34, 1]
+      const violations = checkInputAgainstConstraints('[12, 35, 1, 10, 34, 1]', rules);
+      expect(violations).toHaveLength(0);
+    });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -582,6 +607,85 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       expect(result.computedOutput).toBe('50');
       expect(result.status).toBe('verified');
       expect(mockTestCase.save).toHaveBeenCalled();
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // 7. TEACHER CASING & DATA STRUCTURE (TREE & LINKED LIST) RESILIENCE
+  // ════════════════════════════════════════════════════════════════════════════
+  describe('7. Teacher Case Insensitivity & Auto-Wiring for TreeNode and ListNode', () => {
+    test('7.1 Matches boolean outputs regardless of capitalization (True vs true, False vs false)', async () => {
+      const { compareOutputs } = await import('../src/services/codeRunner.service.js');
+
+      expect(compareOutputs('true', 'True')).toBe(true);
+      expect(compareOutputs('false', 'False')).toBe(true);
+      expect(compareOutputs(true, 'True')).toBe(true);
+      expect(compareOutputs(false, 'False')).toBe(true);
+      expect(compareOutputs('True\n', 'true')).toBe(true);
+      expect(compareOutputs('[true, false]', '[True, False]')).toBe(true);
+    });
+
+    test('7.2 Automatically injects ListNode and Listnode into C++ wrapper even if question dataStructure is ARRAY', async () => {
+      const { buildCppWrapper } = await import('../src/services/execution/wrappers/cppWrapper.js');
+
+      const cppCode = `
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        ListNode* prev = nullptr;
+        ListNode* curr = head;
+        while (curr) {
+            ListNode* next = curr->next;
+            curr->next = prev;
+            prev = curr;
+            curr = next;
+        }
+        return prev;
+    }
+};
+      `;
+
+      const wrapped = buildCppWrapper({
+        code: cppCode,
+        dataStructure: 'ARRAY', // Teacher forgot to set dataStructure to LINKED_LIST
+        functionName: 'reverseList',
+        returnType: 'ListNode*'
+      });
+
+      expect(wrapped).toContain('struct ListNode');
+      expect(wrapped).toContain('using Listnode = ListNode;');
+      expect(wrapped).toContain('parseListNodeArg');
+      expect(wrapped).toContain('printOutput(ListNode*');
+    });
+
+    test('7.3 Automatically injects TreeNode and Treenode into Java wrapper and normalizes mixed casing', async () => {
+      const { buildJavaWrapper } = await import('../src/services/execution/wrappers/javaWrapper.js');
+
+      const javaCode = `
+class Solution {
+    public Treenode invertTree(Treenode root) {
+        if (root == null) return null;
+        TreeNode temp = root.left;
+        root.left = root.right;
+        root.right = temp;
+        invertTree(root.left);
+        invertTree(root.right);
+        return root;
+    }
+}
+      `;
+
+      const wrapped = buildJavaWrapper({
+        code: javaCode,
+        dataStructure: 'ARRAY', // Teacher forgot to set dataStructure to BINARY_TREE
+        functionName: 'invertTree',
+        returnType: 'TreeNode'
+      });
+
+      expect(wrapped).toContain('class TreeNode');
+      expect(wrapped).toContain('class Treenode extends TreeNode');
+      expect(wrapped).toContain('public TreeNode invertTree(TreeNode root)');
+      expect(wrapped).toContain('TreeNode.fromLevelOrder');
     });
   });
 });

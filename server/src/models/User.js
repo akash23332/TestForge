@@ -25,6 +25,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['teacher', 'admin', 'student'],
       default: 'teacher'
+    },
+    cohort: {
+      type: String,
+      trim: true,
+      default: 'CS-2026'
+    },
+    rollNumber: {
+      type: String,
+      trim: true,
+      default: ''
     }
   },
   {

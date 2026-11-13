@@ -11,8 +11,11 @@ export const validateCreateQuestion = (req, res, next) => {
       'any.required': 'Problem statement is required.',
       'string.min': 'Statement must be at least 10 characters long.'
     }),
+    inputFormat: Joi.string().allow('').default(''),
+    outputFormat: Joi.string().allow('').default(''),
     constraints: Joi.string().allow('').default(''),
     executionMode: Joi.string().valid('FUNCTION', 'STDIN').default('STDIN'),
+    dataStructure: Joi.string().valid('NONE', 'ARRAY', 'STRING', 'LINKED_LIST', 'BINARY_TREE').default('ARRAY'),
     functionName: Joi.string().trim().allow('').default('solution'),
     functionSignature: Joi.object({
       parameters: Joi.array().items(

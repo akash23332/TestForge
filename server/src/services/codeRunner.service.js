@@ -35,28 +35,52 @@ export const parseInputArguments = (inputStr) => {
   }
 
   // Remove parameter names if present (e.g. "nums = [1,2], target = 3" -> "[1,2], 3")
-  const cleaned = trimmed.replace(/(?:^|,|\n)\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/g, (match) => {
+  let cleaned = trimmed.replace(/(?:^|,|\n)\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/g, (match) => {
     return match.startsWith(',') ? ', ' : match.startsWith('\n') ? ', ' : '';
   }).trim();
 
-  // Evaluate safely within an isolated array wrapper
-  try {
-    const wrappedCode = `[${cleaned}]`;
-    const sandbox = Object.create(null);
-    const script = new vm.Script(wrappedCode);
-    const context = vm.createContext(sandbox);
-    const args = script.runInContext(context, { timeout: 500 });
-    if (Array.isArray(args)) {
-      return args;
-    }
-    return [args];
-  } catch (err) {
+  // If there are newlines, try separating into lines first (e.g. "[3, 2, 4]\n6" -> "[3, 2, 4], 6")
+  const commaSeparatedLines = cleaned
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .join(', ');
+
+  // Try parsing direct array wrapper: first with commaSeparatedLines, then cleaned
+  for (const candidate of [commaSeparatedLines, cleaned]) {
     try {
-      const parsed = JSON.parse(cleaned);
-      return Array.isArray(parsed) ? [parsed] : [parsed];
-    } catch {
-      return [cleaned];
-    }
+      const wrappedCode = `[${candidate}]`;
+      const sandbox = Object.create(null);
+      const script = new vm.Script(wrappedCode);
+      const context = vm.createContext(sandbox);
+      const args = script.runInContext(context, { timeout: 500 });
+      if (Array.isArray(args) && args.length > 0) {
+        return args;
+      }
+    } catch {}
+  }
+
+  // Next try line-by-line JSON parse or fallback for multiline tokens
+  const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    const parsedLines = lines.map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        const num = Number(line);
+        return !isNaN(num) && line !== '' ? num : line;
+      }
+    });
+    return parsedLines;
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? [parsed] : [parsed];
+  } catch {
+    const num = Number(cleaned);
+    if (!isNaN(num) && cleaned !== '') return [num];
+    return [cleaned];
   }
 };
 
@@ -71,7 +95,16 @@ export const normalizeOutput = (val) => {
     try {
       return JSON.parse(trimmed);
     } catch {
-      return trimmed;
+      // Handle Python-style booleans and nulls in collections like "[True, False]" or "(True, False)"
+      try {
+        const jsonCompatible = trimmed
+          .replace(/\bTrue\b/g, 'true')
+          .replace(/\bFalse\b/g, 'false')
+          .replace(/\bNone\b/g, 'null');
+        return JSON.parse(jsonCompatible);
+      } catch {
+        return trimmed;
+      }
     }
   }
   return val;
@@ -92,11 +125,22 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     v === undefined ||
     v === 'null' ||
     v === 'undefined' ||
-    (Array.isArray(v) && v.length === 0) ||
-    (typeof v === 'string' && (v.trim() === '[]' || v.trim() === 'null' || v.trim() === ''));
+    (typeof v === 'string' && /^(null|none|nil|undefined|\[\])$/i.test(v.trim())) ||
+    (Array.isArray(v) && v.length === 0);
 
   if (isEmptyOrNull(normActual) && isEmptyOrNull(normExpected)) {
     return true;
+  }
+
+  // 1. Boolean case-insensitive comparison (e.g. "True" vs "true", "False" vs "false", true vs "True")
+  const strA = String(normActual).trim();
+  const strB = String(normExpected).trim();
+
+  const isBoolA = typeof normActual === 'boolean' || /^(true|false)$/i.test(strA);
+  const isBoolB = typeof normExpected === 'boolean' || /^(true|false)$/i.test(strB);
+
+  if (isBoolA && isBoolB) {
+    return strA.toLowerCase() === strB.toLowerCase();
   }
 
   const isTwoSum =
@@ -112,10 +156,26 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     return JSON.stringify(normActual) === JSON.stringify(normExpected);
   }
 
-  // Deep object & array comparison supporting key-order independence
+  // Deep object & array comparison supporting key-order and boolean normalization
   const isDeepEqual = (a, b) => {
     if (a === b) return true;
     if (a == null || b == null) return false;
+
+    // Element-level boolean equivalence (e.g. true vs "True")
+    const isElemBoolA = typeof a === 'boolean' || (typeof a === 'string' && /^(true|false)$/i.test(String(a).trim()));
+    const isElemBoolB = typeof b === 'boolean' || (typeof b === 'string' && /^(true|false)$/i.test(String(b).trim()));
+    if (isElemBoolA && isElemBoolB) {
+      return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    }
+
+    // Number vs numeric string equivalence
+    if (
+      (typeof a === 'number' || (typeof a === 'string' && a.trim() !== '' && !isNaN(Number(a.trim())))) &&
+      (typeof b === 'number' || (typeof b === 'string' && b.trim() !== '' && !isNaN(Number(b.trim()))))
+    ) {
+      if (Number(a) === Number(b)) return true;
+    }
+
     if (typeof a !== typeof b) return false;
     if (typeof a !== 'object') return false;
     if (Array.isArray(a) !== Array.isArray(b)) return false;
@@ -140,7 +200,13 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     return isDeepEqual(normActual, normExpected);
   }
 
-  return String(normActual).trim() === String(normExpected).trim();
+  // Quoted string vs unquoted string equivalence (e.g., "\"true\"" vs "true" or "\"abc\"" vs "abc")
+  const unquote = (s) => (s.startsWith('"') && s.endsWith('"') && s.length >= 2 ? s.slice(1, -1) : s);
+  if (unquote(strA) === unquote(strB)) {
+    return true;
+  }
+
+  return strA === strB;
 };
 
 /**
@@ -198,18 +264,44 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
   const startTime = Date.now();
 
   try {
-    const fnName = extractFunctionName(code);
-    if (!fnName) {
-      return {
-        status: 'invalid_test',
-        output: null,
-        error: 'No executable function declaration found in reference code.',
-        runtimeMs: 0
-      };
-    }
+    const rawInput = typeof inputArgs === 'string'
+      ? inputArgs
+      : Array.isArray(inputArgs)
+        ? inputArgs.map(arg => typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')).join('\n')
+        : String(inputArgs ?? '');
+
+    const stdout = [];
+    const mockFs = {
+      readFileSync: (fd) => {
+        if (fd === 0 || fd === '/dev/stdin' || fd === 'dev/stdin') {
+          return rawInput;
+        }
+        return '';
+      }
+    };
 
     const sandbox = {
-      console: { log: () => {}, error: () => {}, warn: () => {} },
+      console: {
+        log: (...args) => stdout.push(args.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a)).join(' ')),
+        error: (...args) => stdout.push(args.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a)).join(' ')),
+        warn: () => {}
+      },
+      require: (mod) => {
+        if (mod === 'fs') return mockFs;
+        throw new Error(`Cannot find module '${mod}'`);
+      },
+      process: {
+        stdin: {
+          read: () => rawInput,
+          on: () => {}
+        },
+        stdout: {
+          write: (s) => stdout.push(String(s))
+        },
+        exit: (code) => {
+          if (code && code !== 0) throw new Error(`Process exited with code ${code}`);
+        }
+      },
       Math,
       Date,
       parseInt,
@@ -243,10 +335,16 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
         }
         return dummy.next;
       };
-      ListNode.toArray = function(head) {
+      ListNode.toArray = function(head, limit) {
+        limit = limit || 100000;
         var res = [];
         var curr = head;
+        var count = 0;
         while (curr) {
+          count++;
+          if (count > limit) {
+            throw new Error("Cycle detected or linked list traversal limit exceeded (max 100,000 nodes)");
+          }
           res.push(curr.val);
           curr = curr.next;
         }
@@ -258,30 +356,61 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
         this.left = (left===undefined ? null : left);
         this.right = (right===undefined ? null : right);
       }
+      const Listnode = ListNode;
+      const Treenode = TreeNode;
     `;
 
-    const runnerScript = `
-      "use strict";
-      ${helperDataStructures}
-      ${code}
+    const fnName = extractFunctionName(code);
+    const hasFunction = Boolean(
+      fnName && (
+        code.includes(`function ${fnName}`) ||
+        code.includes(`const ${fnName}`) ||
+        code.includes(`let ${fnName}`) ||
+        code.includes(`var ${fnName}`) ||
+        code.includes('class Solution')
+      )
+    );
 
-      if (typeof ${fnName} !== 'function') {
-        throw new TypeError("Identifier '${fnName}' is not a function.");
-      }
-      var isListNodeCode = ${code.includes('.next') || code.includes('ListNode') ? 'true' : 'false'};
-      var finalArgs = __args.map(function(arg) {
-        if (Array.isArray(arg) && isListNodeCode) {
-          return ListNode.fromArray(arg);
+    let runnerScript = '';
+    if (hasFunction) {
+      runnerScript = `
+        "use strict";
+        ${helperDataStructures}
+        ${code}
+
+        var isListNodeCode = ${code.includes('.next') || code.includes('ListNode') ? 'true' : 'false'};
+        var finalArgs = __args.map(function(arg) {
+          if (Array.isArray(arg) && isListNodeCode) {
+            return ListNode.fromArray(arg);
+          }
+          return arg;
+        });
+
+        var targetFn = typeof ${fnName} === 'function' ? ${fnName} : null;
+        if (!targetFn && typeof Solution === 'function') {
+          var solInst = new Solution();
+          if (typeof solInst.${fnName} === 'function') {
+            targetFn = solInst.${fnName}.bind(solInst);
+          }
         }
-        return arg;
-      });
-      var res = ${fnName}.apply(null, finalArgs);
-      if (res && res instanceof ListNode) {
-        __result = ListNode.toArray(res);
-      } else {
-        __result = res;
-      }
-    `;
+
+        if (targetFn) {
+          var res = targetFn.apply(null, finalArgs);
+          if (res && res instanceof ListNode) {
+            __result = ListNode.toArray(res);
+          } else {
+            __result = res;
+          }
+        }
+      `;
+    } else {
+      // Plain STDIN top-level script
+      runnerScript = `
+        "use strict";
+        ${helperDataStructures}
+        ${code}
+      `;
+    }
 
     const script = new vm.Script(runnerScript, { filename: 'sandbox.js' });
     const context = vm.createContext(sandbox);
@@ -292,9 +421,19 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
     });
 
     const runtimeMs = Date.now() - startTime;
+    let finalOut = sandbox.__result;
+    if (finalOut === undefined && stdout.length > 0) {
+      const combined = stdout.join('\n').trim();
+      try {
+        finalOut = JSON.parse(combined);
+      } catch {
+        finalOut = combined;
+      }
+    }
+
     return {
       status: 'success',
-      output: sandbox.__result,
+      output: finalOut,
       error: null,
       runtimeMs
     };
@@ -339,6 +478,37 @@ export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => 
   const runnerFile = path.join(tmpDir, `${runnerId}.java`);
 
   try {
+    const isPreWrapped = code.includes('public class Main') || code.includes('class Main {');
+    if (isPreWrapped) {
+      const javaDir = path.join(tmpDir, `java_${Date.now()}_${Math.floor(Math.random() * 10000)}`);
+      await fs.promises.mkdir(javaDir, { recursive: true });
+      const mainFile = path.join(javaDir, 'Main.java');
+      await fs.promises.writeFile(mainFile, code, 'utf-8');
+      try {
+        execSync(`javac "${mainFile}"`, { timeout: timeoutMs, stdio: ['pipe', 'pipe', 'pipe'] });
+        let stdinData = '';
+        if (typeof inputArgs === 'string') {
+          stdinData = inputArgs;
+        } else if (Array.isArray(inputArgs)) {
+          stdinData = inputArgs.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a ?? '')).join('\n');
+        } else if (inputArgs !== undefined && inputArgs !== null) {
+          stdinData = String(inputArgs);
+        }
+        const out = execSync(`java -cp "${javaDir}" Main`, {
+          input: stdinData,
+          encoding: 'utf-8',
+          timeout: timeoutMs,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        const runtimeMs = Date.now() - startTime;
+        let parsedOut = out.trim();
+        try { parsedOut = JSON.parse(parsedOut); } catch {}
+        return { status: 'success', output: parsedOut, error: null, runtimeMs };
+      } finally {
+        try { await fs.promises.rm(javaDir, { recursive: true, force: true }); } catch {}
+      }
+    }
+
     const imports = [];
     const cleanCode = code
       .replace(/import\s+[a-zA-Z0-9_.*]+;/g, (m) => {
@@ -352,7 +522,7 @@ export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => 
     let targetClassName = 'Solution';
     for (const match of classMatches) {
       const cName = match[1];
-      if (!['ListNode', 'TreeNode', runnerId].includes(cName)) {
+      if (!['ListNode', 'TreeNode', 'Listnode', 'Treenode', runnerId].includes(cName)) {
         targetClassName = cName;
         if (cName === 'Result' || cName === 'Solution') break;
       }
@@ -704,6 +874,12 @@ class ListNode {
     }
 }
 
+class Listnode extends ListNode {
+    public Listnode() { super(); }
+    public Listnode(int val) { super(val); }
+    public Listnode(int val, ListNode next) { super(val, next); }
+}
+
 class TreeNode {
     public int val;
     public TreeNode left;
@@ -765,6 +941,12 @@ class TreeNode {
         sb.append("]");
         return sb.toString();
     }
+}
+
+class Treenode extends TreeNode {
+    public Treenode() { super(); }
+    public Treenode(int val) { super(val); }
+    public Treenode(int val, TreeNode left, TreeNode right) { super(val, left, right); }
 }
 
 ${cleanCode}
@@ -846,10 +1028,31 @@ export const runPythonIsolated = async ({ code, inputArgs, timeoutMs = 3500 }) =
   const runnerFile = path.join(tmpDir, `runner_${Date.now()}_${Math.floor(Math.random() * 10000)}.py`);
 
   try {
-    const fnMatch = code.match(/def\s+([a-zA-Z0-9_$]+)\s*\(/);
-    const fnName = fnMatch ? fnMatch[1] : 'solution';
+    let serializedInput = '';
+    if (typeof inputArgs === 'string') {
+      serializedInput = inputArgs;
+    } else if (Array.isArray(inputArgs)) {
+      serializedInput = inputArgs
+        .map(arg => (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')))
+        .join('\n');
+    } else if (inputArgs !== undefined && inputArgs !== null) {
+      serializedInput = String(inputArgs);
+    }
 
-    const harness = `
+    const isPreWrapped = code.includes("if __name__ == '__main__':");
+    let harness = '';
+
+    if (isPreWrapped) {
+      harness = code;
+    } else {
+      const fnMatch = code.match(/def\s+([a-zA-Z0-9_$]+)\s*\(/);
+      const fnName = fnMatch ? fnMatch[1] : null;
+
+      if (!fnName) {
+        // Top-level STDIN script without function definition
+        harness = code;
+      } else {
+        harness = `
 import sys, json
 
 class ListNode:
@@ -880,6 +1083,9 @@ class TreeNode:
         self.left = left
         self.right = right
 
+Listnode = ListNode
+Treenode = TreeNode
+
 ${code}
 
 try:
@@ -902,10 +1108,13 @@ except Exception as e:
     sys.stderr.write(str(e))
     sys.exit(1)
 `;
+      }
+    }
 
     await fs.promises.writeFile(runnerFile, harness, 'utf-8');
 
     const out = execSync(`python "${runnerFile}"`, {
+      input: serializedInput,
       encoding: 'utf-8',
       timeout: timeoutMs,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -1096,16 +1305,33 @@ export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
   const binFile = path.join(tmpDir, `runner_${uid}`);
 
   try {
-    // 1. Detect function info
-    const fnInfo = extractCppFunctionInfo(code);
-    if (!fnInfo) {
-      return {
-        status: 'runtime_error',
-        output: null,
-        error: 'No public function found in Solution class. Define your solution as: class Solution { public: returnType funcName(...) {} };',
-        runtimeMs: 0
-      };
+    let serializedInput = '';
+    if (typeof inputArgs === 'string') {
+      serializedInput = inputArgs;
+    } else if (Array.isArray(inputArgs)) {
+      serializedInput = inputArgs
+        .map(arg => (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')))
+        .join('\n');
+    } else if (inputArgs !== undefined && inputArgs !== null) {
+      serializedInput = String(inputArgs);
     }
+
+    let harness = '';
+    const isPreWrapped = code.includes('int main(') || code.includes('int main ()');
+
+    if (isPreWrapped) {
+      harness = code;
+    } else {
+      // 1. Detect function info
+      const fnInfo = extractCppFunctionInfo(code);
+      if (!fnInfo) {
+        return {
+          status: 'runtime_error',
+          output: null,
+          error: 'No public function found in Solution class. Define your solution as: class Solution { public: returnType funcName(...) {} };',
+          runtimeMs: 0
+        };
+      }
 
     const { funcName, params } = fnInfo;
 
@@ -1120,7 +1346,7 @@ export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
     const argNames = params.map(p => p.name).join(', ');
 
     // 3. Generate full C++ harness
-    const harness = `
+    harness = `
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -1143,6 +1369,8 @@ struct TreeNode {
     int val; TreeNode *left,*right;
     TreeNode(int x=0,TreeNode* l=nullptr,TreeNode* r=nullptr):val(x),left(l),right(r){}
 };
+using Listnode = ListNode;
+using Treenode = TreeNode;
 
 // Result printers
 void printOutput(int v)           { cout<<v<<"\\n"; }
@@ -1192,6 +1420,7 @@ int main(){
     return 0;
 }
 `;
+    }
 
     // 4. Write source
     await fs.promises.writeFile(srcFile, harness, 'utf-8');
@@ -1213,6 +1442,7 @@ int main(){
 
     // 6. Run binary
     const out = execSync(`"${binFile}"`, {
+      input: serializedInput,
       encoding: 'utf-8', timeout: timeoutMs, stdio: ['pipe','pipe','pipe']
     });
 
@@ -1309,16 +1539,18 @@ export const validateSingleTestCase = async ({
 
   // Decoupled Execution: Run code through configured Execution Provider
   const activeProvider = provider || getActiveProvider();
+  const wrappedCode = wrapCodeForExecution({
+    code,
+    language: lang,
+    executionMode: questionContext.executionMode || 'STDIN',
+    dataStructure: questionContext.dataStructure || 'ARRAY',
+    functionName: questionContext.functionName || 'solution',
+    returnType: questionContext.returnType || 'void',
+    parameters: questionContext.parameters || []
+  });
+
   let execResult;
   if (activeProvider) {
-    const wrappedCode = wrapCodeForExecution({
-      code,
-      language: lang,
-      executionMode: questionContext.executionMode || 'STDIN',
-      functionName: questionContext.functionName || 'solution',
-      parameters: questionContext.parameters || []
-    });
-
     execResult = await activeProvider.executeCode({
       language: lang,
       code: wrappedCode,
@@ -1339,13 +1571,13 @@ export const validateSingleTestCase = async ({
         runtimeMs: 0
       };
     } else if (lang === 'java') {
-      execResult = await runJavaIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runJavaIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
     } else if (lang === 'python') {
-      execResult = await runPythonIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runPythonIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
     } else if (lang === 'cpp') {
-      execResult = await runCppIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runCppIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
     } else {
-      execResult = await runCodeIsolated({ code, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runCodeIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
     }
   }
 

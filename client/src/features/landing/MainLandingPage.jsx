@@ -61,14 +61,14 @@ export const MainLandingPage = ({
         className="fixed top-0 left-0 h-[3px] bg-[#EDFF72] z-[100] shadow-[0_0_12px_rgba(237,255,114,0.8)]"
       />
 
-      {/* Navigation Bar */}
+      {/* Navigation Bar (Absolute, not fixed on scroll) */}
       <Navbar
         onJoinTest={handleOpenJoin}
         onNavigateStudentPortal={onNavigateStudentPortal}
         onNavigateTeacherLogin={onNavigateTeacherLogin}
       />
 
-      {/* Hero Section (completely untouched) */}
+      {/* Hero Section */}
       <HeroSection
         onJoinTest={handleOpenJoin}
         onExplorePlatform={handleExplorePlatform}

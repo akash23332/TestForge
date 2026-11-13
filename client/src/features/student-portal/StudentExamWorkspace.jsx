@@ -25,8 +25,12 @@ import {
   GripVertical,
   GripHorizontal,
   Layers,
-  HelpCircle
+  HelpCircle,
+  Sun,
+  Moon,
+  Columns
 } from 'lucide-react';
+import CodeEditor from '../../components/editor/CodeEditor';
 
 const STANDARDIZED_TEMPLATES = {
   FUNCTION: {
@@ -131,6 +135,11 @@ export const StudentExamWorkspace = ({
   const [currentCode, setCurrentCode] = useState(
     initialAnswers[questions[0]?._id]?.code || resolveStarterCode(questions[0], questions[0]?.language || 'javascript')
   );
+
+  // Multi-language draft caching: preserves candidate code per language per question
+  const [codeDraftsByLang, setCodeDraftsByLang] = useState({});
+  const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('testforge_editor_theme') || 'vs-dark');
+  const [minimapEnabled, setMinimapEnabled] = useState(false);
 
   // Custom Input State
   const [customInput, setCustomInput] = useState('');
@@ -325,9 +334,20 @@ export const StudentExamWorkspace = ({
     [currentQuestion._id, attempt._id]
   );
 
-  const handleCodeChange = (e) => {
-    const newCode = e.target.value;
+  const handleCodeChange = (valueOrEvent) => {
+    const newCode = typeof valueOrEvent === 'string' ? valueOrEvent : (valueOrEvent?.target?.value || '');
     setCurrentCode(newCode);
+
+    if (currentQuestion._id) {
+      setCodeDraftsByLang((prev) => ({
+        ...prev,
+        [currentQuestion._id]: {
+          ...(prev[currentQuestion._id] || {}),
+          [selectedLanguage]: newCode
+        }
+      }));
+    }
+
     triggerAutosave(
       newCode,
       selectedLanguage,
@@ -853,6 +873,32 @@ export const StudentExamWorkspace = ({
                 {currentQuestion.statement}
               </div>
 
+              {/* Input Format & Output Format */}
+              {!isMcq && (currentQuestion.inputFormat || currentQuestion.outputFormat) && (
+                <div className="space-y-3 pt-2">
+                  {currentQuestion.inputFormat && (
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#777D78]">
+                        Input Format
+                      </h4>
+                      <div className="text-xs font-mono text-[#171819] bg-[#F5F6F3] p-3 rounded-xl border border-[#DDE1DA] leading-relaxed whitespace-pre-wrap">
+                        {currentQuestion.inputFormat}
+                      </div>
+                    </div>
+                  )}
+                  {currentQuestion.outputFormat && (
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#777D78]">
+                        Output Format
+                      </h4>
+                      <div className="text-xs font-mono text-[#171819] bg-[#F5F6F3] p-3 rounded-xl border border-[#DDE1DA] leading-relaxed whitespace-pre-wrap">
+                        {currentQuestion.outputFormat}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Optional Question Image */}
               {currentQuestion.imageUrl && (
                 <div className="pt-2">
@@ -1073,15 +1119,37 @@ export const StudentExamWorkspace = ({
                     <select
                       value={selectedLanguage}
                       onChange={(e) => {
-                        const lang = e.target.value;
-                        const prevTemplate = resolveStarterCode(currentQuestion, selectedLanguage);
-                        setSelectedLanguage(lang);
-                        if (
-                          !currentCode ||
-                          currentCode === prevTemplate ||
-                          currentCode.trim().length === 0
-                        ) {
-                          setCurrentCode(resolveStarterCode(currentQuestion, lang));
+                        const nextLang = e.target.value;
+                        const prevLang = selectedLanguage;
+
+                        // Cache current code under prevLang
+                        if (currentQuestion._id) {
+                          setCodeDraftsByLang((prev) => ({
+                            ...prev,
+                            [currentQuestion._id]: {
+                              ...(prev[currentQuestion._id] || {}),
+                              [prevLang]: currentCode
+                            }
+                          }));
+                        }
+
+                        setSelectedLanguage(nextLang);
+
+                        // Look up cached code for nextLang
+                        const cached = codeDraftsByLang[currentQuestion._id]?.[nextLang];
+                        if (cached !== undefined) {
+                          setCurrentCode(cached);
+                          triggerAutosave(cached, nextLang, selectedOption, answers[currentQuestion._id]?.isMarkedForReview || false);
+                        } else {
+                          const savedAnswer = answers[currentQuestion._id];
+                          if (savedAnswer?.language === nextLang && savedAnswer?.code) {
+                            setCurrentCode(savedAnswer.code);
+                            triggerAutosave(savedAnswer.code, nextLang, selectedOption, answers[currentQuestion._id]?.isMarkedForReview || false);
+                          } else {
+                            const template = resolveStarterCode(currentQuestion, nextLang);
+                            setCurrentCode(template);
+                            triggerAutosave(template, nextLang, selectedOption, answers[currentQuestion._id]?.isMarkedForReview || false);
+                          }
                         }
                       }}
                       className="bg-[#FFFFFF] border border-[#DDE1DA] text-[#171819] text-xs font-medium rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#191A1D] cursor-pointer"
@@ -1103,6 +1171,34 @@ export const StudentExamWorkspace = ({
                     >
                       {currentQuestion.executionMode === 'FUNCTION' ? 'FUNCTION' : 'STDIN'}
                     </span>
+
+                    {/* Theme Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextTheme = editorTheme === 'vs-dark' ? 'light' : 'vs-dark';
+                        setEditorTheme(nextTheme);
+                        localStorage.setItem('testforge_editor_theme', nextTheme);
+                      }}
+                      className="text-[11px] text-[#777D78] hover:text-[#171819] flex items-center gap-1 transition-colors px-2 py-1 rounded-md hover:bg-[#F5F6F3] cursor-pointer"
+                      title={editorTheme === 'vs-dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+                    >
+                      {editorTheme === 'vs-dark' ? <Sun className="h-3.5 w-3.5 text-amber-500" /> : <Moon className="h-3.5 w-3.5 text-slate-700" />}
+                      <span className="hidden sm:inline">{editorTheme === 'vs-dark' ? 'Light' : 'Dark'}</span>
+                    </button>
+
+                    {/* Minimap Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => setMinimapEnabled(!minimapEnabled)}
+                      className={`text-[11px] flex items-center gap-1 transition-colors px-2 py-1 rounded-md cursor-pointer ${
+                        minimapEnabled ? 'bg-[#EDFF72]/40 text-[#171819] font-bold' : 'text-[#777D78] hover:text-[#171819] hover:bg-[#F5F6F3]'
+                      }`}
+                      title="Toggle Editor Minimap"
+                    >
+                      <Columns className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Map</span>
+                    </button>
 
                     <button
                       type="button"
@@ -1146,23 +1242,14 @@ export const StudentExamWorkspace = ({
 
                 </div>
 
-                {/* Code Editor Surface with Line Numbers */}
-                <div className="flex-1 flex overflow-hidden min-h-[180px] bg-[#FFFFFF]">
-                  {/* Line Numbers Gutter */}
-                  <div className="w-11 bg-[#F5F6F3] border-r border-[#DDE1DA] py-3 text-right pr-2.5 text-[#9DA39B] font-mono text-xs select-none leading-relaxed shrink-0">
-                    {currentCode.split('\n').map((_, i) => (
-                      <div key={i}>{i + 1}</div>
-                    ))}
-                  </div>
-
-                  {/* Textarea Editor */}
-                  <textarea
+                {/* Monaco Code Editor Surface */}
+                <div className={`flex-1 flex overflow-hidden min-h-[180px] ${editorTheme === 'vs-dark' ? 'bg-[#131416]' : 'bg-[#FFFFFF]'}`}>
+                  <CodeEditor
                     value={currentCode}
                     onChange={handleCodeChange}
-                    onKeyDown={handleEditorKeyDown}
-                    spellCheck={false}
-                    className="flex-1 bg-[#FFFFFF] text-[#171819] font-mono text-xs sm:text-[13px] p-3 outline-none resize-none leading-relaxed overflow-y-auto selection:bg-[#EDFF72]/60 border-0"
-                    placeholder="// Write your solution here..."
+                    language={selectedLanguage}
+                    theme={editorTheme}
+                    minimap={minimapEnabled}
                   />
                 </div>
 

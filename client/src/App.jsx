@@ -229,12 +229,11 @@ export const App = () => {
   useEffect(() => {
     fetchQuestions();
     fetchHealth();
-  }, []);
+  }, [currentUser]);
 
   // Core Navigation Modules for mobile drawer
   const mobileNavLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'students', label: 'Students', icon: Users },
     { id: 'bank', label: 'Question Bank', icon: BookOpen },
     { id: 'create', label: 'Create Question', icon: FilePlus },
     { id: 'tests', label: 'Test Studio', icon: FlaskConical },
@@ -242,13 +241,11 @@ export const App = () => {
     { id: 'mcq', label: 'Bulk MCQ', icon: Files },
     { id: 'paper', label: 'Paper Designer', icon: FileText },
     { id: 'exams', label: 'Examinations', icon: ClipboardList },
-    { id: 'analytics', label: 'Analytics', icon: ChartNoAxesCombined }
   ];
 
   // Top horizontal module navigation pills matching the sidebar order
   const navigationPills = [
     { id: 'dashboard', label: 'Overview' },
-    { id: 'students', label: 'Students' },
     { id: 'bank', label: 'Question Bank' },
     { id: 'create', label: 'Create Question' },
     { id: 'tests', label: 'Test Studio' },
@@ -256,7 +253,6 @@ export const App = () => {
     { id: 'mcq', label: 'Bulk MCQ' },
     { id: 'paper', label: 'Paper Designer' },
     { id: 'exams', label: 'Examinations' },
-    { id: 'analytics', label: 'Analytics' }
   ];
 
   // 0. Direct guest candidate exam execution
@@ -518,14 +514,11 @@ export const App = () => {
 
           {/* Main Workspace Body */}
           <main className="flex-1 mt-3">
-            {activeTab === 'students' && (
-              <StudentsView onNavigateToExams={() => setActiveTab('exams')} />
-            )}
-
             {activeTab === 'bank' && (
               <QuestionBankView
                 questions={questions}
                 onRefresh={fetchQuestions}
+                currentUser={currentUser}
                 onNavigate={(tab) => {
                   if (tab === 'create') setEditingQuestion(null);
                   setActiveTab(tab);
@@ -578,11 +571,12 @@ export const App = () => {
               />
             )}
 
-            {activeTab === 'mcq' && <McqImportView />}
+            {activeTab === 'mcq' && <McqImportView currentUser={currentUser} />}
 
             {activeTab === 'paper' && (
               <PaperDesignerView
                 questions={questions}
+                currentUser={currentUser}
                 onNavigateToExams={() => setActiveTab('exams')}
               />
             )}
@@ -598,8 +592,6 @@ export const App = () => {
               />
             )}
 
-            {activeTab === 'analytics' && <AnalyticsView />}
-
             {activeTab === 'student-portal' && (
               <StudentPortalContainer
                 initialExamCode={candidateExamCode}
@@ -608,7 +600,7 @@ export const App = () => {
             )}
 
             {/* Custom 404 Fallback View */}
-            {!['dashboard', 'students', 'bank', 'create', 'tests', 'mutation', 'mcq', 'paper', 'exams', 'analytics', 'student-portal'].includes(activeTab) && (
+            {!['dashboard', 'bank', 'create', 'tests', 'mutation', 'mcq', 'paper', 'exams', 'student-portal'].includes(activeTab) && (
               <div className="flex-1 flex items-center justify-center p-8 animate-fadeIn">
                 <div className="bg-white border border-[#DDE1DA] rounded-[32px] p-10 max-w-lg w-full text-center space-y-4 shadow-bento">
                   <div className="w-16 h-16 rounded-2xl bg-[#191A1D] text-[#EDFF72] flex items-center justify-center mx-auto text-2xl font-black">

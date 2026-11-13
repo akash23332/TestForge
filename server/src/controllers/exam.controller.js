@@ -48,13 +48,35 @@ export const createExam = async (req, res, next) => {
 
     const examCode = await generateExamCode();
 
+    // Sanitize sections and questions safely so malformed client payloads never break schema
+    const sanitizedSections = (sections || []).map((sec, secIdx) => ({
+      name: sec.name || sec.title || `Section ${secIdx + 1}`,
+      description: sec.description || '',
+      questions: (sec.questions || []).map((q, qIdx) => {
+        const rawType = (q.type || 'coding').toLowerCase();
+        const validTypes = ['coding', 'mcq', 'subjective'];
+        const type = validTypes.includes(rawType) ? rawType : 'coding';
+        const rawId = q.questionId || q.mcqQuestionId;
+        const isValidId = rawId && /^[0-9a-fA-F]{24}$/.test(String(rawId));
+        return {
+          type,
+          questionId: (type === 'coding' && isValidId) ? rawId : null,
+          mcqQuestionId: (type === 'mcq' && isValidId) ? rawId : null,
+          mcqData: q.mcqData || {},
+          subjectiveData: q.subjectiveData || {},
+          marks: Math.max(1, Number(q.marks) || (type === 'coding' ? 10 : 2)),
+          order: typeof q.order === 'number' ? q.order : qIdx + 1
+        };
+      })
+    }));
+
     const exam = await Exam.create({
       examCode,
       title: title.trim(),
       description: description || '',
       durationMinutes: durationMinutes || 60,
       createdBy: req.user._id,
-      sections: sections || [],
+      sections: sanitizedSections,
       instructions: instructions && instructions.length ? instructions : undefined,
       accessMode: accessMode || 'PUBLIC_CODE',
       settings: settings || {},
@@ -74,9 +96,19 @@ export const createExam = async (req, res, next) => {
  */
 export const getTeacherExams = async (req, res, next) => {
   try {
-    const filter = req.user.role === 'admin' && req.query.all === 'true'
-      ? {}
-      : { createdBy: req.user._id };
+    const isDemo = req.user?.email === 'teacher@testforge.edu';
+    const filter =
+      req.user.role === 'admin' && req.query.all === 'true'
+        ? {}
+        : req.query.scope === 'all' || isDemo
+        ? {
+            $or: [
+              { createdBy: req.user._id },
+              { createdBy: { $exists: false } },
+              { createdBy: null }
+            ]
+          }
+        : { createdBy: req.user._id };
 
     const exams = await Exam.find(filter)
       .sort({ createdAt: -1 })

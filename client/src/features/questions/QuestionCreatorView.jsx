@@ -26,6 +26,7 @@ import {
   X
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import CodeEditor from '../../components/editor/CodeEditor';
 
 // Helper to smoothly count up numbers like Question Bank
 const AnimatedCount = ({ value, duration = 900 }) => {
@@ -214,11 +215,208 @@ int main() {
 }
 `
     }
+  },
+  LINKED_LIST: {
+    javascript: {
+      name: 'JavaScript',
+      starterCode: `/**
+ * Definition for singly-linked list.
+ * function ListNode(val, next) {
+ *     this.val = (val===undefined ? 0 : val)
+ *     this.next = (next===undefined ? null : next)
+ * }
+ */
+function reverseList(head) {
+  // Write your code here
+}
+`,
+      referenceSolution: `function reverseList(head) {
+  let prev = null;
+  while (head) {
+    let nxt = head.next;
+    head.next = prev;
+    prev = head;
+    head = nxt;
+  }
+  return prev;
+}
+`
+    },
+    python: {
+      name: 'Python',
+      starterCode: `class Solution:
+    def reverseList(self, head):
+        # Write your code here
+        pass
+`,
+      referenceSolution: `class Solution:
+    def reverseList(self, head):
+        prev = None
+        while head:
+            nxt = head.next
+            head.next = prev
+            prev = head
+            head = nxt
+        return prev
+`
+    },
+    java: {
+      name: 'Java',
+      starterCode: `class Solution {
+    public ListNode reverseList(ListNode head) {
+        // Write your code here
+        return null;
+    }
+}
+`,
+      referenceSolution: `class Solution {
+    public ListNode reverseList(ListNode head) {
+        ListNode prev = null;
+        while (head != null) {
+            ListNode nxt = head.next;
+            head.next = prev;
+            prev = head;
+            head = nxt;
+        }
+        return prev;
+    }
+}
+`
+    },
+    cpp: {
+      name: 'C++',
+      starterCode: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        // Write your code here
+        return nullptr;
+    }
+};
+`,
+      referenceSolution: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        ListNode* prev = nullptr;
+        while (head) {
+            ListNode* nxt = head->next;
+            head->next = prev;
+            prev = head;
+            head = nxt;
+        }
+        return prev;
+    }
+};
+`
+    }
+  },
+  BINARY_TREE: {
+    javascript: {
+      name: 'JavaScript',
+      starterCode: `/**
+ * Definition for a binary tree node.
+ * function TreeNode(val, left, right) {
+ *     this.val = (val===undefined ? 0 : val)
+ *     this.left = (left===undefined ? null : left)
+ *     this.right = (right===undefined ? null : right)
+ * }
+ */
+function invertTree(root) {
+  // Write your code here
+}
+`,
+      referenceSolution: `function invertTree(root) {
+  if (!root) return null;
+  const temp = root.left;
+  root.left = invertTree(root.right);
+  root.right = invertTree(temp);
+  return root;
+}
+`
+    },
+    python: {
+      name: 'Python',
+      starterCode: `class Solution:
+    def invertTree(self, root):
+        # Write your code here
+        pass
+`,
+      referenceSolution: `class Solution:
+    def invertTree(self, root):
+        if not root:
+            return None
+        root.left, root.right = self.invertTree(root.right), self.invertTree(root.left)
+        return root
+`
+    },
+    java: {
+      name: 'Java',
+      starterCode: `class Solution {
+    public TreeNode invertTree(TreeNode root) {
+        // Write your code here
+        return null;
+    }
+}
+`,
+      referenceSolution: `class Solution {
+    public TreeNode invertTree(TreeNode root) {
+        if (root == null) return null;
+        TreeNode temp = root.left;
+        root.left = invertTree(root.right);
+        root.right = invertTree(temp);
+        return root;
+    }
+}
+`
+    },
+    cpp: {
+      name: 'C++',
+      starterCode: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    TreeNode* invertTree(TreeNode* root) {
+        // Write your code here
+        return nullptr;
+    }
+};
+`,
+      referenceSolution: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    TreeNode* invertTree(TreeNode* root) {
+        if (!root) return nullptr;
+        TreeNode* temp = root->left;
+        root->left = invertTree(root->right);
+        root->right = invertTree(temp);
+        return root;
+    }
+};
+`
+    }
   }
 };
 
-export const getStandardTemplate = (mode, lang) => {
+export const DATA_STRUCTURE_OPTIONS = [
+  { id: 'ARRAY', label: 'Array / Primitives', defaultFn: 'solution' },
+  { id: 'STRING', label: 'String', defaultFn: 'solution' },
+  { id: 'LINKED_LIST', label: 'Linked List (ListNode)', defaultFn: 'reverseList' },
+  { id: 'BINARY_TREE', label: 'Binary Tree (TreeNode)', defaultFn: 'invertTree' }
+];
+
+export const getStandardTemplate = (mode, lang, dataStructure = 'ARRAY') => {
   const m = mode === 'STDIN' ? 'STDIN' : 'FUNCTION';
+  if (m === 'FUNCTION' && (dataStructure === 'LINKED_LIST' || dataStructure === 'BINARY_TREE')) {
+    return STANDARDIZED_TEMPLATES[dataStructure]?.[lang] || STANDARDIZED_TEMPLATES.FUNCTION[lang];
+  }
   return STANDARDIZED_TEMPLATES[m]?.[lang] || STANDARDIZED_TEMPLATES.FUNCTION[lang];
 };
 
@@ -239,15 +437,71 @@ export const QuestionCreatorView = ({
 }) => {
   const isEditing = Boolean(initialQuestion && initialQuestion._id);
 
+  // Helper to cleanly extract and decouple statement, inputFormat and outputFormat
+  const parseStatementAndFormats = (rawStmt = '', rawIn = '', rawOut = '') => {
+    let stmt = String(rawStmt || '');
+    let inFmt = String(rawIn || '').trim();
+    let outFmt = String(rawOut || '').trim();
+
+    const inRegex = /###\s*Input Format\s*\n([\s\S]*?)(?=(?:###\s*Output Format|$))/i;
+    const outRegex = /###\s*Output Format\s*\n([\s\S]*?)(?=(?:###|$))/i;
+
+    if (!inFmt) {
+      const match = stmt.match(inRegex);
+      if (match && match[1]) {
+        inFmt = match[1].trim();
+      }
+    }
+    if (!outFmt) {
+      const match = stmt.match(outRegex);
+      if (match && match[1]) {
+        outFmt = match[1].trim();
+      }
+    }
+
+    const inBoldRegex = /\*\*Input Format:\*\*\s*([\s\S]*?)(?=(?:\*\*Output Format:\*\*|$))/i;
+    const outBoldRegex = /\*\*Output Format:\*\*\s*([\s\S]*?)(?=(?:\*\*|$))/i;
+
+    if (!inFmt) {
+      const match = stmt.match(inBoldRegex);
+      if (match && match[1]) {
+        inFmt = match[1].trim();
+      }
+    }
+    if (!outFmt) {
+      const match = stmt.match(outBoldRegex);
+      if (match && match[1]) {
+        outFmt = match[1].trim();
+      }
+    }
+
+    const cleanedStmt = stmt
+      .replace(inRegex, '')
+      .replace(outRegex, '')
+      .replace(inBoldRegex, '')
+      .replace(outBoldRegex, '')
+      .trim();
+
+    return { stmt: cleanedStmt, inFmt, outFmt };
+  };
+
+  const initialParsed = useMemo(() => {
+    return parseStatementAndFormats(
+      initialQuestion?.statement,
+      initialQuestion?.inputFormat,
+      initialQuestion?.outputFormat
+    );
+  }, [initialQuestion]);
+
   // 1. Tab states
   const [activeTab, setActiveTab] = useState('details'); // 'details' | 'starter' | 'reference'
   const [previewTab, setPreviewTab] = useState('problem'); // 'problem' | 'example' | 'starter'
 
   // 2. Core Question Fields
   const [title, setTitle] = useState(initialQuestion?.title || '');
-  const [statement, setStatement] = useState(initialQuestion?.statement || '');
-  const [inputFormat, setInputFormat] = useState(initialQuestion?.inputFormat || '');
-  const [outputFormat, setOutputFormat] = useState(initialQuestion?.outputFormat || '');
+  const [statement, setStatement] = useState(initialParsed.stmt);
+  const [inputFormat, setInputFormat] = useState(initialParsed.inFmt);
+  const [outputFormat, setOutputFormat] = useState(initialParsed.outFmt);
   const [constraints, setConstraints] = useState(
     initialQuestion?.constraints || '1 ≤ |s| ≤ 10^5\nTime limit: 1.0s\nMemory limit: 256MB'
   );
@@ -274,7 +528,9 @@ export const QuestionCreatorView = ({
   // 4. Configuration Fields
   const [language, setLanguage] = useState(initialQuestion?.language || 'javascript');
   const [executionMode, setExecutionMode] = useState(initialQuestion?.executionMode || 'FUNCTION');
+  const [dataStructure, setDataStructure] = useState(initialQuestion?.dataStructure || 'ARRAY');
   const [functionName, setFunctionName] = useState(initialQuestion?.functionName || 'solution');
+  const [returnType, setReturnType] = useState(initialQuestion?.returnType || initialQuestion?.functionSignature?.returnType || 'void');
   const [difficulty, setDifficulty] = useState(initialQuestion?.difficulty || 'Medium');
   const [topics, setTopics] = useState(() => {
     if (Array.isArray(initialQuestion?.tags) && initialQuestion.tags.length > 0) {
@@ -380,15 +636,24 @@ export const QuestionCreatorView = ({
   // Sync initial question if editing
   useEffect(() => {
     if (initialQuestion) {
+      const parsed = parseStatementAndFormats(
+        initialQuestion.statement,
+        initialQuestion.inputFormat,
+        initialQuestion.outputFormat
+      );
       setTitle(initialQuestion.title || '');
-      setStatement(initialQuestion.statement || '');
-      setInputFormat(initialQuestion.inputFormat || '');
-      setOutputFormat(initialQuestion.outputFormat || '');
+      setStatement(parsed.stmt);
+      setInputFormat(parsed.inFmt);
+      setOutputFormat(parsed.outFmt);
       setConstraints(initialQuestion.constraints || '');
       setExplanation(initialQuestion.explanation || '');
       setLanguage(initialQuestion.language || 'javascript');
       if (initialQuestion.executionMode) setExecutionMode(initialQuestion.executionMode);
+      if (initialQuestion.dataStructure) setDataStructure(initialQuestion.dataStructure);
       if (initialQuestion.functionName) setFunctionName(initialQuestion.functionName);
+      if (initialQuestion.returnType || initialQuestion.functionSignature?.returnType) {
+        setReturnType(initialQuestion.returnType || initialQuestion.functionSignature?.returnType);
+      }
       setDifficulty(initialQuestion.difficulty || 'Medium');
       if (Array.isArray(initialQuestion.tags)) setTopics(initialQuestion.tags);
       if (initialQuestion.starterCode) setStarterCode(initialQuestion.starterCode);
@@ -418,18 +683,26 @@ export const QuestionCreatorView = ({
     const prevLang = (language || 'javascript').toLowerCase();
     const nextLang = (newLangId || 'javascript').toLowerCase();
 
-    // Cache current edits for previous language & mode key
+    // Cache current edits for previous language & mode
     const prevKey = `${executionMode}_${prevLang}`;
-    setLangStarterCodes((prev) => ({ ...prev, [prevKey]: starterCode }));
-    setLangRefSolutions((prev) => ({ ...prev, [prevLang]: referenceSolution }));
+    setLangStarterCodes((prev) => ({
+      ...prev,
+      [prevKey]: starterCode,
+      [prevLang]: starterCode
+    }));
+    setLangRefSolutions((prev) => ({
+      ...prev,
+      [prevKey]: referenceSolution,
+      [prevLang]: referenceSolution
+    }));
 
     setLanguage(nextLang);
 
     // Retrieve cached code for target language & mode, or load matching standard template
-    const nextKey = `${executionMode}_${nextLang}`;
-    const tpl = getStandardTemplate(executionMode, nextLang);
-    const existingStarter = langStarterCodes[nextKey];
-    const existingRef = langRefSolutions[nextKey];
+    const nextKey = `${executionMode}_${dataStructure}_${nextLang}`;
+    const tpl = getStandardTemplate(executionMode, nextLang, dataStructure);
+    const existingStarter = langStarterCodes[nextKey] || langStarterCodes[`${executionMode}_${nextLang}`] || langStarterCodes[nextLang];
+    const existingRef = langRefSolutions[nextKey] || langRefSolutions[`${executionMode}_${nextLang}`] || langRefSolutions[nextLang];
 
     setStarterCode(existingStarter !== undefined ? existingStarter : (tpl?.starterCode || ''));
     setReferenceSolution(existingRef !== undefined ? existingRef : (tpl?.referenceSolution || ''));
@@ -442,20 +715,73 @@ export const QuestionCreatorView = ({
     const currentLang = (language || 'javascript').toLowerCase();
 
     // Cache current edits for previous mode & language key
-    const prevKey = `${prevMode}_${currentLang}`;
-    setLangStarterCodes((prev) => ({ ...prev, [prevKey]: starterCode }));
-    setLangRefSolutions((prev) => ({ ...prev, [prevKey]: referenceSolution }));
+    const prevKey = `${prevMode}_${dataStructure}_${currentLang}`;
+    setLangStarterCodes((prev) => ({
+      ...prev,
+      [prevKey]: starterCode
+    }));
+    setLangRefSolutions((prev) => ({
+      ...prev,
+      [prevKey]: referenceSolution
+    }));
 
     setExecutionMode(nextMode);
 
     // Retrieve cached code for new mode or load matching standard template
-    const nextKey = `${nextMode}_${currentLang}`;
-    const tpl = getStandardTemplate(nextMode, currentLang);
-    const existingStarter = langStarterCodes[nextKey];
-    const existingRef = langRefSolutions[nextKey];
+    const nextKey = `${nextMode}_${dataStructure}_${currentLang}`;
+    const tpl = getStandardTemplate(nextMode, currentLang, dataStructure);
+    const existingStarter = langStarterCodes[nextKey] || langStarterCodes[`${nextMode}_${currentLang}`];
+    const existingRef = langRefSolutions[nextKey] || langRefSolutions[`${nextMode}_${currentLang}`];
 
     setStarterCode(existingStarter !== undefined ? existingStarter : (tpl?.starterCode || ''));
     setReferenceSolution(existingRef !== undefined ? existingRef : (tpl?.referenceSolution || ''));
+  };
+
+  // Data Structure Change Sync: Updates boilerplate and function names for Lists, Trees, Strings, Arrays
+  const handleDataStructureChange = (newDs) => {
+    const prevDs = dataStructure;
+    const currentLang = (language || 'javascript').toLowerCase();
+
+    // Cache current edits
+    const prevKey = `${executionMode}_${prevDs}_${currentLang}`;
+    setLangStarterCodes((prev) => ({
+      ...prev,
+      [prevKey]: starterCode
+    }));
+    setLangRefSolutions((prev) => ({
+      ...prev,
+      [prevKey]: referenceSolution
+    }));
+
+    setDataStructure(newDs);
+
+    // Auto-update function name if it matches default
+    const currentOpt = DATA_STRUCTURE_OPTIONS.find((o) => o.id === prevDs);
+    const nextOpt = DATA_STRUCTURE_OPTIONS.find((o) => o.id === newDs);
+    if (nextOpt && (!functionName || functionName === 'solution' || (currentOpt && functionName === currentOpt.defaultFn))) {
+      setFunctionName(nextOpt.defaultFn);
+    }
+
+    if (newDs === 'LINKED_LIST') {
+      setReturnType('ListNode');
+    } else if (newDs === 'BINARY_TREE') {
+      setReturnType('TreeNode');
+    } else {
+      setReturnType('void');
+    }
+
+    // Retrieve cached code or standard template for this data structure
+    const nextKey = `${executionMode}_${newDs}_${currentLang}`;
+    const tpl = getStandardTemplate(executionMode, currentLang, newDs);
+    const existingStarter = langStarterCodes[nextKey];
+    const existingRef = langRefSolutions[nextKey];
+
+    if (isDefaultCode(starterCode) || existingStarter !== undefined) {
+      setStarterCode(existingStarter !== undefined ? existingStarter : (tpl?.starterCode || ''));
+    }
+    if (isDefaultCode(referenceSolution) || existingRef !== undefined) {
+      setReferenceSolution(existingRef !== undefined ? existingRef : (tpl?.referenceSolution || ''));
+    }
   };
 
   // 7 Checklist Items for Outline & Completeness
@@ -694,37 +1020,58 @@ export const QuestionCreatorView = ({
       return;
     }
 
-    if (targetStatus === 'published' && completenessPercent < 100) {
+    // Only block if creating a NEW question with publish status and completeness is less than 100%
+    if (!isEditing && targetStatus === 'published' && completenessPercent < 100) {
       const incomplete = outlineItems.filter((i) => !i.isComplete).map((i) => i.name).join(', ');
-      const msg = `Question cannot be published until 100% completeness (${completenessPercent}% complete). Missing: ${incomplete}. Please complete all fields or save as Draft.`;
+      const msg = `Question cannot be published until 100% completeness (${completenessPercent}% complete). Missing: ${incomplete}. Please complete all fields.`;
       setError(msg);
       showToast(msg);
       return;
     }
 
-    if (targetStatus === 'draft') {
-      setSaveDraftLoading(true);
-    } else {
-      setLoading(true);
-    }
+    setLoading(true);
     setError(null);
 
     try {
-      let finalStatement = statement;
-      if (inputFormat.trim() && !finalStatement.includes('**Input Format:**')) {
-        finalStatement += `\n\n### Input Format\n${inputFormat}`;
-      }
-      if (outputFormat.trim() && !finalStatement.includes('**Output Format:**')) {
-        finalStatement += `\n\n### Output Format\n${outputFormat}`;
+      const effectiveLang = (language || 'javascript').toLowerCase();
+      const currentStarter = starterCode || getStandardTemplate(executionMode, language)?.starterCode || '';
+      const currentRef = referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || '';
+
+      const updatedStarterCodes = {
+        ...langStarterCodes,
+        [`${executionMode}_${effectiveLang}`]: currentStarter,
+        [effectiveLang]: currentStarter
+      };
+
+      const updatedRefSolutions = {
+        ...langRefSolutions,
+        [`${executionMode}_${effectiveLang}`]: currentRef,
+        [effectiveLang]: currentRef
+      };
+
+      // Ensure all 4 supported languages have fallback templates seeded
+      for (const l of ['javascript', 'python', 'java', 'cpp']) {
+        if (!updatedStarterCodes[l]) {
+          updatedStarterCodes[l] = getStandardTemplate(executionMode, l)?.starterCode || '';
+        }
+        if (!updatedRefSolutions[l]) {
+          updatedRefSolutions[l] = getStandardTemplate(executionMode, l)?.referenceSolution || '';
+        }
       }
 
       const payload = {
         title: title.trim(),
-        statement: finalStatement,
+        statement: statement.trim(),
+        inputFormat: inputFormat.trim(),
+        outputFormat: outputFormat.trim(),
         constraints: constraints.trim(),
-        language,
+        language: effectiveLang,
         executionMode,
-        ...(executionMode === 'FUNCTION' && { functionName: (functionName || 'solution').trim() }),
+        ...(executionMode === 'FUNCTION' && {
+          functionName: (functionName || 'solution').trim(),
+          dataStructure: dataStructure || 'ARRAY',
+          returnType: returnType || 'void'
+        }),
         difficulty,
         tags: topics,
         examples: examples.map((ex) => ({
@@ -732,16 +1079,10 @@ export const QuestionCreatorView = ({
           output: ex.output || 'Sample Output',
           explanation: ex.explanation || ''
         })),
-        starterCode: starterCode || getStandardTemplate(executionMode, language)?.starterCode || '',
-        referenceSolution: referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || '',
-        starterCodes: {
-          ...langStarterCodes,
-          [(language || 'javascript').toLowerCase()]: starterCode || getStandardTemplate(executionMode, language)?.starterCode || ''
-        },
-        referenceSolutions: {
-          ...langRefSolutions,
-          [(language || 'javascript').toLowerCase()]: referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || ''
-        },
+        starterCode: currentStarter,
+        referenceSolution: currentRef,
+        starterCodes: updatedStarterCodes,
+        referenceSolutions: updatedRefSolutions,
         status: targetStatus,
         ...(currentUser && { ownerId: currentUser.id || currentUser._id })
       };
@@ -756,14 +1097,8 @@ export const QuestionCreatorView = ({
       const returnedQ = res?.data?.data || res?.data;
       const isActuallyPublished = returnedQ?.status === 'published';
 
-      if (isActuallyPublished) {
-        triggerConfettiBurst();
-        showToast('Published to Question Bank!');
-      } else if (targetStatus === 'published') {
-        showToast('Saved to Question Bank as Draft! Complete test validation in Test Studio to publish.');
-      } else {
-        showToast('Draft saved to Question Bank successfully!');
-      }
+      triggerConfettiBurst();
+      showToast(isEditing ? 'Question changes saved successfully!' : 'Question saved and published to Question Bank!');
 
       setTimeout(() => {
         if (onSuccess) onSuccess();
@@ -1768,29 +2103,33 @@ export const QuestionCreatorView = ({
           )}
           <button
             type="button"
-            onClick={() => setIsPreviewModalOpen(true)}
+            onClick={() => document.getElementById('pv-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
             className="tf-btn-sm gh"
+            title="Jump to Student Preview"
           >
             <Eye className="w-3.5 h-3.5" /> Preview
           </button>
-          <button
-            type="button"
-            onClick={() => handleSaveQuestion('draft')}
-            disabled={saveDraftLoading}
-            className="tf-btn-sm gh"
-          >
-            <Save className="w-3.5 h-3.5" /> {saveDraftLoading ? 'Saving…' : 'Save draft'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSaveQuestion('published')}
-            disabled={loading}
-            title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete)`}
-            className={`tf-btn-sm pri ${isReadyToPublish ? 'ready' : ''}`}
-            style={!isReadyToPublish ? { opacity: 0.75 } : {}}
-          >
-            <Send className="w-3.5 h-3.5" /> {loading ? 'Publishing…' : isReadyToPublish ? 'Publish question' : `Publish (${completenessPercent}%)`}
-          </button>
+          {isEditing ? (
+            <button
+              type="button"
+              onClick={() => handleSaveQuestion(initialQuestion?.status || 'published')}
+              disabled={loading || !title.trim() || !statement.trim()}
+              title="Save changes to this question"
+              className="tf-btn-sm pri ready cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" /> {loading ? 'Saving…' : 'Save Changes'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSaveQuestion('published')}
+              disabled={!isReadyToPublish || loading}
+              title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete). Complete all checklist items.`}
+              className={`tf-btn-sm pri ${isReadyToPublish ? 'ready cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+            >
+              <Send className="w-3.5 h-3.5" /> {loading ? 'Publishing…' : isReadyToPublish ? 'Publish question' : `Publish (${completenessPercent}%)`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1828,25 +2167,29 @@ export const QuestionCreatorView = ({
             <p>Write the problem, set the rules, and check what students will see before you publish.</p>
 
             <div className="tf-btns">
-              <button
-                ref={publishBtnRef}
-                type="button"
-                onClick={() => handleSaveQuestion('published')}
-                disabled={loading}
-                title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete)`}
-                className={`tf-btn pri ${isReadyToPublish ? 'ready' : ''}`}
-                style={!isReadyToPublish ? { opacity: 0.75 } : {}}
-              >
-                {loading ? 'Publishing…' : isReadyToPublish ? '+ Publish question' : `+ Publish (${completenessPercent}%)`}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveQuestion('draft')}
-                disabled={saveDraftLoading}
-                className="tf-btn gh"
-              >
-                {saveDraftLoading ? 'Saving…' : 'Save draft'}
-              </button>
+              {isEditing ? (
+                <button
+                  ref={publishBtnRef}
+                  type="button"
+                  onClick={() => handleSaveQuestion(initialQuestion?.status || 'published')}
+                  disabled={loading || !title.trim() || !statement.trim()}
+                  title="Save changes to this question"
+                  className="tf-btn pri ready cursor-pointer flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> {loading ? 'Saving…' : 'Save Changes'}
+                </button>
+              ) : (
+                <button
+                  ref={publishBtnRef}
+                  type="button"
+                  onClick={() => handleSaveQuestion('published')}
+                  disabled={!isReadyToPublish || loading}
+                  title={isReadyToPublish ? '100% complete! Ready to publish' : `Requires 100% completeness to publish (${completenessPercent}% complete). Complete all checklist items.`}
+                  className={`tf-btn pri ${isReadyToPublish ? 'ready cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                >
+                  {loading ? 'Publishing…' : isReadyToPublish ? '+ Publish question' : `+ Publish (${completenessPercent}%)`}
+                </button>
+              )}
               {isEditing && (
                 <button
                   type="button"
@@ -1928,10 +2271,10 @@ export const QuestionCreatorView = ({
             <div className="tf-tile">✓</div>
             <div className="tf-cap">Status</div>
             <div className="tf-big" style={{ fontSize: '28px' }}>
-              {isReadyToPublish ? 'Ready' : 'Draft'}
+              {isReadyToPublish ? 'Ready' : 'In Progress'}
             </div>
             <div className={`tf-sub ${isReadyToPublish ? 'g' : ''}`}>
-              {isReadyToPublish ? 'Ready to publish' : 'Not ready to publish'}
+              {isReadyToPublish ? 'Ready to publish' : 'Complete required fields'}
             </div>
           </div>
 
@@ -1979,18 +2322,35 @@ export const QuestionCreatorView = ({
               </button>
             </div>
             {executionMode === 'FUNCTION' && (
-              <div style={{ marginTop: '8px' }}>
-                <input
-                  type="text"
-                  value={functionName}
-                  onChange={(e) => {
-                    setFunctionName(e.target.value);
-                    triggerAutoSave();
-                  }}
-                  placeholder="Function name (e.g. solution)"
-                  className="tf-chp"
-                  style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: '11px' }}
-                />
+              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <div className="tf-cap" style={{ marginBottom: '6px', fontSize: '10px' }}>Data Structure</div>
+                <div className="tf-chips" style={{ flexWrap: 'wrap', gap: '4px' }}>
+                  {DATA_STRUCTURE_OPTIONS.map((ds) => (
+                    <button
+                      key={ds.id}
+                      type="button"
+                      aria-pressed={dataStructure === ds.id}
+                      onClick={() => handleDataStructureChange(ds.id)}
+                      className="tf-chp"
+                      style={{ fontSize: '10px', padding: '3px 8px' }}
+                    >
+                      {ds.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: '8px' }}>
+                  <input
+                    type="text"
+                    value={functionName}
+                    onChange={(e) => {
+                      setFunctionName(e.target.value);
+                      triggerAutoSave();
+                    }}
+                    placeholder="Function name (e.g. solution, reverseList, invertTree)"
+                    className="tf-chp"
+                    style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: '11px' }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -2313,16 +2673,18 @@ export const QuestionCreatorView = ({
                   Reset template
                 </button>
               </div>
-              <textarea
-                id="starter"
-                className="code mono"
-                style={{ minHeight: '340px' }}
-                value={starterCode}
-                onChange={(e) => {
-                  setStarterCode(e.target.value);
-                  triggerAutoSave();
-                }}
-              />
+              <div className="rounded-2xl overflow-hidden border border-[#DDE1DA] shadow-inner bg-[#131416]">
+                <CodeEditor
+                  height="340px"
+                  value={starterCode}
+                  onChange={(val) => {
+                    setStarterCode(val || '');
+                    triggerAutoSave();
+                  }}
+                  language={language}
+                  theme="vs-dark"
+                />
+              </div>
             </div>
           )}
 
@@ -2347,23 +2709,24 @@ export const QuestionCreatorView = ({
                   Reset template
                 </button>
               </div>
-              <textarea
-                id="ref"
-                className="code mono"
-                style={{ minHeight: '340px' }}
-                placeholder="Paste the verified reference solution here."
-                value={referenceSolution}
-                onChange={(e) => {
-                  setReferenceSolution(e.target.value);
-                  triggerAutoSave();
-                }}
-              />
+              <div className="rounded-2xl overflow-hidden border border-[#DDE1DA] shadow-inner bg-[#131416]">
+                <CodeEditor
+                  height="340px"
+                  value={referenceSolution}
+                  onChange={(val) => {
+                    setReferenceSolution(val || '');
+                    triggerAutoSave();
+                  }}
+                  language={language}
+                  theme="vs-dark"
+                />
+              </div>
             </div>
           )}
         </section>
 
         {/* RIGHT COLUMN: Student Live Preview */}
-        <section className="tf-card tf-col right-col rise" style={{ '--k': 8 }} aria-label="Student preview">
+        <section id="pv-section" className="tf-card tf-col right-col rise" style={{ '--k': 8 }} aria-label="Student preview">
           <div className="hd">
             <h3 style={{ margin: 0 }}>Student preview</h3>
             <span className="pill v">Live</span>
@@ -2407,7 +2770,6 @@ export const QuestionCreatorView = ({
                   <span className="pill v">
                     {SUPPORTED_LANGS.find((l) => l.id === language)?.label || language}
                   </span>
-                  <span className="pill ok">Verified</span>
                 </div>
                 <h2>{title.trim() || 'Untitled question'}</h2>
 

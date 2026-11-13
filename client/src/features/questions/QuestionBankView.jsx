@@ -295,10 +295,20 @@ export const QuestionBankView = ({
   onNavigate,
   onSelectQuestion,
   onEditQuestion,
-  initialSearch = ''
+  initialSearch = '',
+  currentUser
 }) => {
   const heroRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Check whether the user is logged into an authentic account vs unauthenticated / dummy demo
+  const isDummyAccount = useMemo(() => {
+    if (!currentUser) return false;
+    const email = (currentUser.email || '').toLowerCase();
+    return email === 'teacher@testforge.edu' || email === 'student@testforge.edu';
+  }, [currentUser]);
+
+  const isAuthenticatedUser = Boolean(currentUser && !isDummyAccount);
 
   // Filter & Search states
   const [search, setSearch] = useState(initialSearch);
@@ -315,9 +325,12 @@ export const QuestionBankView = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Normalize questions array with fallback demo questions & concise summary
+  // Normalize questions array: Authentic logged-in users get real-time database records ONLY!
   const normalizedQuestions = useMemo(() => {
-    const source = questions && questions.length > 0 ? questions : DEFAULT_QUESTIONS;
+    const source = isAuthenticatedUser
+      ? (Array.isArray(questions) ? questions : [])
+      : (questions && questions.length > 0 ? questions : DEFAULT_QUESTIONS);
+
     return source.map((q, idx) => {
       const diffStr = q.difficulty || 'Medium';
       const diffCode =
@@ -371,11 +384,24 @@ export const QuestionBankView = ({
           { op: 'off-by-one on loop', status: 'survived' }
         ],
         isVerified: q.isVerified !== false,
+        executionMode: q.executionMode || 'FUNCTION',
+        dataStructure: q.dataStructure || 'ARRAY',
         createdAt: q.createdAt || '10/22/2026',
+        ownerId: q.ownerId || q.raw?.ownerId || q.createdBy || null,
         raw: q
       };
     });
   }, [questions]);
+
+  // Real "My Questions" count for authenticated user
+  const myQuestionsCount = useMemo(() => {
+    const myId = currentUser?._id || currentUser?.id;
+    if (!myId) return 0;
+    return normalizedQuestions.filter((q) => {
+      const qOwner = q.ownerId || q.raw?.ownerId;
+      return qOwner && String(qOwner) === String(myId);
+    }).length;
+  }, [normalizedQuestions, currentUser]);
 
   // Set default selected question
   useEffect(() => {
@@ -395,15 +421,17 @@ export const QuestionBankView = ({
         map.set(tag, (map.get(tag) || 0) + 1);
       });
     });
-    // Ensure default topics if small set
-    if (!map.has('Array')) map.set('Array', 4);
-    if (!map.has('Algorithms')) map.set('Algorithms', 3);
-    if (!map.has('Python')) map.set('Python', 1);
-    if (!map.has('List')) map.set('List', 1);
-    if (!map.has('Sorting')) map.set('Sorting', 1);
+    // Ensure default demo topics ONLY when unauthenticated or dummy demo mode with 0 topics
+    if (!isAuthenticatedUser && map.size === 0) {
+      map.set('Array', 4);
+      map.set('Algorithms', 3);
+      map.set('Python', 1);
+      map.set('List', 1);
+      map.set('Sorting', 1);
+    }
 
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
-  }, [normalizedQuestions]);
+  }, [normalizedQuestions, isAuthenticatedUser]);
 
   // Difficulty counts
   const difficultyCounts = useMemo(() => {
@@ -418,10 +446,6 @@ export const QuestionBankView = ({
     return { easy, medium, hard };
   }, [normalizedQuestions]);
 
-  const verifiedCount = useMemo(() => {
-    return normalizedQuestions.filter((q) => q.isVerified).length;
-  }, [normalizedQuestions]);
-
   const runtimesList = useMemo(() => {
     const langs = new Set(normalizedQuestions.map((q) => q.language));
     return ['Java', 'JS', 'Python', 'C++'].filter((l) =>
@@ -433,8 +457,11 @@ export const QuestionBankView = ({
   const filteredQuestions = useMemo(() => {
     return normalizedQuestions.filter((q) => {
       // Collection filter
-      if (activeCollection === 'unv' && q.isVerified) return false;
-      if (activeCollection === 'ver' && !q.isVerified) return false;
+      if (activeCollection === 'mine') {
+        const myId = currentUser?._id || currentUser?.id;
+        const qOwner = q.ownerId || q.raw?.ownerId;
+        if (!myId || !qOwner || String(qOwner) !== String(myId)) return false;
+      }
 
       // Difficulty filter
       if (difficultyFilter && q.difficulty !== difficultyFilter) return false;
@@ -569,6 +596,7 @@ export const QuestionBankView = ({
   };
 
   const totalCount = normalizedQuestions.length;
+  const verifiedCount = normalizedQuestions.filter((q) => q.isVerified).length;
   const verifiedPercentage = totalCount > 0 ? Math.round((verifiedCount / totalCount) * 100) : 100;
 
   // Staggered characters for the title "Question Bank"
@@ -1566,30 +1594,17 @@ export const QuestionBankView = ({
             </div>
           </div>
 
-          {/* Card 2: Verified */}
+          {/* Card 2: Active Topics */}
           <div className="st rise" style={{ '--k': 3 }}>
-            <svg className="ring" viewBox="0 0 38 38">
-              <circle className="bg" cx="19" cy="19" r="16" />
-              <circle
-                className="fg"
-                cx="19"
-                cy="19"
-                r="16"
-                transform="rotate(-90 19 19)"
-                style={{
-                  '--dash-target': `${100.5 * (1 - verifiedPercentage / 100)}`
-                }}
-              />
-            </svg>
             <div className="ic" style={{ background: 'var(--lime)', color: '#121212' }}>
-              ⛉
+              ✦
             </div>
             <div>
-              <small>Verified</small>
+              <small>Active Topics</small>
               <div className="n">
-                <AnimatedCount value={verifiedCount} />
+                <AnimatedCount value={topicCounts.length} />
               </div>
-              <em className="g">{verifiedPercentage}% verified</em>
+              <em className="g">{topicCounts.length} distinct domains</em>
             </div>
           </div>
 
@@ -1666,9 +1681,7 @@ export const QuestionBankView = ({
           <div id="cols" className="flex flex-col gap-1.5">
             {[
               { id: 'all', label: '▤ All Questions', count: totalCount },
-              { id: 'mine', label: '◎ My Questions', count: totalCount },
-              { id: 'ver', label: '✓ Verified', count: verifiedCount },
-              { id: 'unv', label: '! Unverified', count: totalCount - verifiedCount },
+              { id: 'mine', label: '◎ My Questions', count: myQuestionsCount },
               { id: 'rec', label: '◷ Recently Added', count: Math.min(totalCount, 8) }
             ].map((col) => (
               <button
@@ -1765,7 +1778,28 @@ export const QuestionBankView = ({
               </div>
               <div id="rows">
                 {filteredQuestions.length === 0 ? (
-                  <div className="em">No questions match. Try clearing a filter.</div>
+                  <div className="py-14 px-6 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#f1f1ee] flex items-center justify-center mx-auto text-[#73736c]">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-bold text-[#121212]">
+                      {normalizedQuestions.length === 0 ? 'No questions in database' : 'No matching questions'}
+                    </div>
+                    <div className="text-xs text-[#73736c] max-w-xs mx-auto">
+                      {normalizedQuestions.length === 0
+                        ? 'Author your first coding assessment question to populate your Question Bank.'
+                        : 'Try adjusting your search query, difficulty filters, or topic tags.'}
+                    </div>
+                    {normalizedQuestions.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigate && onNavigate('create')}
+                        className="px-4 py-2 rounded-full bg-[#121212] text-white text-xs font-bold hover:bg-black cursor-pointer inline-flex items-center gap-1.5 shadow-sm mt-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> + Create First Question
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   filteredQuestions.map((q, k) => {
                     const isSelected = activeQuestion?._id === q._id;
@@ -1784,6 +1818,11 @@ export const QuestionBankView = ({
 
                         {/* 2. Tags Chips */}
                         <div className="tg">
+                          {q.dataStructure && q.dataStructure !== 'ARRAY' && (
+                            <span style={{ background: '#E6F4EA', color: '#137333', fontWeight: 'bold' }}>
+                              {q.dataStructure === 'LINKED_LIST' ? 'ListNode' : 'TreeNode'}
+                            </span>
+                          )}
                           {q.tags.slice(0, 2).map((tag) => (
                             <span key={tag}>#{tag}</span>
                           ))}
@@ -1829,7 +1868,7 @@ export const QuestionBankView = ({
         </section>
 
         {/* COLUMN 3: STICKY QUESTION DETAILS INSPECTOR */}
-        {activeQuestion && (
+        {activeQuestion ? (
           <aside className="pn dt rise" style={{ '--k': 8 }}>
             <div className="hd">
               <i>✦</i>Question Details
@@ -1844,7 +1883,6 @@ export const QuestionBankView = ({
                 {activeQuestion.difficultyLabel}
               </span>
               <span>{activeQuestion.language.toUpperCase()}</span>
-              <span style={{ background: '#e4f7e6', color: '#14532d' }}>✓ Verified</span>
             </div>
 
             <div className="dtabs">
@@ -1968,6 +2006,16 @@ export const QuestionBankView = ({
               >
                 🗑 Delete
               </button>
+            </div>
+          </aside>
+        ) : (
+          <aside className="pn dt rise flex flex-col items-center justify-center text-center p-8 text-[#73736c]" style={{ '--k': 8 }}>
+            <div className="w-12 h-12 rounded-2xl bg-[#f1f1ee] flex items-center justify-center mb-3 text-[#121212]">
+              <Code2 className="w-6 h-6" />
+            </div>
+            <div className="text-sm font-bold text-[#121212]">Question Inspector</div>
+            <div className="text-xs text-[#8a8a85] mt-1.5 max-w-xs leading-relaxed">
+              Select or author a question to inspect test cases, starter code, and reference solutions.
             </div>
           </aside>
         )}

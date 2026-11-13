@@ -26,12 +26,18 @@ import {
 /* ─── Type Definitions ───────────────────────────────────────────────────────── */
 
 export interface HeroScrollProps {
+  eyebrowBadge?: string;
+  line1?: string;
+  line2?: string;
+  line3Prefix?: string;
+  rotatingWords?: string[];
   headline?: React.ReactNode;
   subtext?: string;
   primaryCtaLabel?: string;
   onPrimaryCta?: () => void;
   secondaryCtaLabel?: string;
   onSecondaryCta?: () => void;
+  bottomTagline?: React.ReactNode;
   onExplore?: () => void;
   onNavigateModule?: (module: 'bank' | 'create' | 'tests' | 'mutation' | 'paper' | 'exams') => void;
   children?: React.ReactNode;
@@ -110,15 +116,27 @@ const createRevealItem = (shouldReduce: boolean): Variants => ({
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
 
-const ROTATING_TEACHER_HERO_WORDS = ['mastery.', 'insights.', 'learning.', 'outcomes.', 'growth.'];
+const DEFAULT_TEACHER_HERO_WORDS = [
+  'assessments.',
+  'evaluations.',
+  'standards.',
+  'curriculum.',
+  'integrity.',
+];
 
 export const HeroScroll: React.FC<HeroScrollProps> = ({
+  eyebrowBadge = 'Teacher workspace',
+  line1 = 'Author tests.',
+  line2 = 'Enforce integrity.',
+  line3Prefix = 'Elevate your ',
+  rotatingWords = DEFAULT_TEACHER_HERO_WORDS,
   headline,
-  subtext = 'Create exams, manage question banks and monitor student performance, all from one workspace.',
-  primaryCtaLabel = 'Create Assessment',
+  subtext = 'Create multi-language coding challenges and MCQs, harden test suites with AST mutation, and evaluate student submissions in a zero-leak sandbox.',
+  primaryCtaLabel = '+ Create Question →',
   onPrimaryCta,
-  secondaryCtaLabel = 'Explore ↓',
+  secondaryCtaLabel = 'Question Bank ↓',
   onSecondaryCta,
+  bottomTagline,
   onExplore,
   onNavigateModule,
   children,
@@ -126,30 +144,23 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 }) => {
   const shouldReduceMotion = Boolean(useReducedMotion());
 
-  /* Rotating Teacher Headline word */
+  /* Rotating Teacher Headline word with exit/enter animation */
+  const activeWords = rotatingWords && rotatingWords.length > 0 ? rotatingWords : DEFAULT_TEACHER_HERO_WORDS;
   const [teacherWordIdx, setTeacherWordIdx] = useState(0);
   const [isWordPaused, setIsWordPaused] = useState(false);
-
-  /* Nav frosted glassmorphism on scroll */
-  const [navScrolled, setNavScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY || document.documentElement.scrollTop;
-      setNavScrolled(scrollY > 40);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const [wordVisible, setWordVisible] = useState(true);
 
   useEffect(() => {
     if (shouldReduceMotion || isWordPaused) return;
     const interval = setInterval(() => {
-      setTeacherWordIdx((prev) => (prev + 1) % ROTATING_TEACHER_HERO_WORDS.length);
+      setWordVisible(false);
+      setTimeout(() => {
+        setTeacherWordIdx((prev) => (prev + 1) % activeWords.length);
+        setWordVisible(true);
+      }, 300);
     }, 2800);
     return () => clearInterval(interval);
-  }, [shouldReduceMotion, isWordPaused]);
+  }, [shouldReduceMotion, isWordPaused, activeWords.length]);
 
   /* 3D Scene Parallax State */
   const [sceneRot, setSceneRot] = useState({ rx: 9, ry: -20 });
@@ -188,79 +199,10 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
     }
   }, [onExplore]);
 
-  /* ── Interactive Particle Canvas (Shard Particles with Pointer Swirl) ───── */
+  /* ── Interactive Pointer Tracking & Glowing Lime Cursor Ring ─────────────── */
   useEffect(() => {
     if (shouldReduceMotion) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let isVisible = true;
-    let width = 0;
-    let height = 0;
-    let particles: ShardParticle[] = [];
-    const RAD = 120;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    const initParticles = (w: number, h: number) => {
-      const count = Math.min(800, Math.floor((w * h) / 2300));
-      const arr: ShardParticle[] = [];
-
-      for (let i = 0; i < count; i++) {
-        arr.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          s: Math.random() * 1.5 + 0.6,
-          vx: (Math.random() - 0.5) * 0.2,
-          vy: (Math.random() - 0.5) * 0.2,
-          c: Math.random() > 0.7 ? '240,245,255' : '120,122,128',
-          a: Math.random() * 0.4 + 0.15,
-          r: Math.random() * 6.283,
-          rs: (Math.random() - 0.5) * 0.05,
-          g: 0,
-        });
-      }
-      particles = arr;
-    };
-
-    const handleResize = () => {
-      const rect = canvas.getBoundingClientRect();
-      width = rect.width;
-      height = rect.height;
-
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#0B0C0E';
-      ctx.fillRect(0, 0, width, height);
-
-      initParticles(width, height);
-    };
-
-    const resizeObserver = new ResizeObserver(() => {
-      handleResize();
-    });
-    resizeObserver.observe(canvas);
-    handleResize();
-
-    /* Intersection observer to pause simulation loop when out of view */
-    const intersectionObserver = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        isVisible = entry ? entry.isIntersecting : false;
-      },
-      { threshold: 0.05 }
-    );
-    if (heroRef.current) {
-      intersectionObserver.observe(heroRef.current);
-    }
-
-    /* Mouse move tracking on hero */
     const handleMouseMove = (e: MouseEvent) => {
       const heroEl = heroRef.current;
       if (!heroEl) return;
@@ -293,7 +235,9 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 
       const target = e.target as HTMLElement | null;
       if (target) {
-        const isInteractive = Boolean(target.closest('button, a, input, select, textarea, [role="button"], .clickable'));
+        const isInteractive = Boolean(
+          target.closest('button, a, input, select, textarea, [role="button"], .clickable')
+        );
         setIsHoveringInteractive(isInteractive);
       }
     };
@@ -308,87 +252,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('mouseleave', handleMouseLeave);
 
-    const render = () => {
-      if (!isVisible) {
-        animationFrameId = requestAnimationFrame(render);
-        return;
-      }
-
-      ctx.fillStyle = 'rgba(11, 12, 14, 0.18)';
-      ctx.fillRect(0, 0, width, height);
-
-      const cursor = cursorRef.current;
-      const count = particles.length;
-
-      for (let i = 0; i < count; i++) {
-        const p = particles[i];
-
-        if (cursor.x !== null && cursor.y !== null) {
-          const dx = cursor.x - p.x;
-          const dy = cursor.y - p.y;
-          const dist = Math.hypot(dx, dy);
-
-          if (dist < RAD && dist > 0) {
-            const f = (RAD - dist) / RAD;
-            // Subtle magnetic pull and gentle swirl (reduced glow/clustering)
-            p.vx += (dx / dist) * f * 0.03 + (dy / dist) * f * 0.2;
-            p.vy += (dy / dist) * f * 0.03 - (dx / dist) * f * 0.2;
-            p.g = f * 0.32;
-          } else {
-            p.g *= 0.92;
-          }
-        } else {
-          p.g *= 0.92;
-        }
-
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.95;
-        p.vy *= 0.95;
-        p.vx += (Math.random() - 0.5) * 0.04;
-        p.vy += (Math.random() - 0.5) * 0.04;
-        p.r += p.rs + (Math.abs(p.vx) + Math.abs(p.vy)) * 0.05;
-
-        if (p.x < -20) p.x = width + 20;
-        if (p.x > width + 20) p.x = -20;
-        if (p.y < -20) p.y = height + 20;
-        if (p.y > height + 20) p.y = -20;
-
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.r);
-
-        const alpha = Math.min(p.a + p.g, 0.95);
-        ctx.fillStyle =
-          p.g > 0.25 ? `rgba(237, 255, 114, ${alpha})` : `rgba(${p.c}, ${alpha})`;
-
-        if (p.g > 0.45) {
-          ctx.shadowBlur = 3;
-          ctx.shadowColor = `rgba(237, 255, 114, 0.35)`;
-        } else {
-          ctx.shadowBlur = 0;
-        }
-
-        const s = p.s;
-        ctx.beginPath();
-        ctx.moveTo(0, -s * 2.5);
-        ctx.lineTo(s, 0);
-        ctx.lineTo(0, s * 2.5);
-        ctx.lineTo(-s, 0);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    animationFrameId = requestAnimationFrame(render);
-
     return () => {
-      cancelAnimationFrame(animationFrameId);
-      resizeObserver.disconnect();
-      intersectionObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
     };
@@ -408,64 +272,8 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
         minHeight: '180svh',
       }}
     >
-      {/* ── TOP NAV (FIXED AT VIEWPORT TOP, FROSTED ON SCROLL, NEVER COVERS SIDEPANEL) ── */}
-      <nav
-        aria-label="Teacher Dashboard Navigation"
-        className={`fixed top-0 left-0 md:left-[104px] right-0 z-40 flex items-center justify-between px-6 sm:px-10 lg:px-14 py-4 transition-all duration-300 ${
-          navScrolled
-            ? 'bg-[#0B0C0E]/75 backdrop-blur-md border-b border-white/[0.08] shadow-lg'
-            : 'bg-transparent'
-        }`}
-        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
-      >
-        {/* Logo (Pushed to the Left, cleanly clearing the 78px sidebar which ends at 92px) */}
-        <a
-          href="#top"
-          onClick={(e) => {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] rounded-xl px-1 py-1"
-        >
-          <div className="w-8 h-8 rounded-xl bg-[#e8ff5a] text-[#121212] flex items-center justify-center font-black text-xs tracking-tight shadow-md shadow-[#e8ff5a]/20 group-hover:scale-105 transition-transform">
-            TF
-          </div>
-          <span className="text-white font-bold text-base sm:text-lg tracking-tight">
-            TestForge
-          </span>
-        </a>
-
-        {/* Glass Pill Links with Fixed Content: Features, Overview, Create Assessment */}
-        <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3.5 py-1.5 shadow-lg shadow-black/20">
-          <a
-            href="#features"
-            onClick={(e) => {
-              e.preventDefault();
-              handleScrollToContent();
-            }}
-            className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a]"
-          >
-            Features
-          </a>
-          <button
-            type="button"
-            onClick={handleScrollToContent}
-            className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            onClick={onPrimaryCta || handleScrollToContent}
-            className="text-xs font-semibold text-[#121212] bg-[#e8ff5a] hover:bg-[#d6ec4e] px-4 py-1.5 rounded-full transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
-          >
-            Create Assessment
-          </button>
-        </div>
-      </nav>
-
       {/* ── STICKY HERO CONTAINER (100svh height, sticky top: 0, z-10) ───────── */}
-      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default">
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default lg:cursor-none">
         <motion.div
           ref={heroRef}
           style={{
@@ -474,7 +282,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
             borderRadius: shouldReduceMotion ? 0 : heroRadius,
             background: '#191A1D',
           }}
-          className="relative h-full w-full overflow-hidden flex flex-col justify-between select-none bg-[#191A1D]"
+          className="relative h-full w-full overflow-hidden flex flex-col justify-between select-none bg-[#191A1D] cursor-default lg:cursor-none"
         >
           {/* Custom Glowing Lime Cursor Ring (matching Main Landing Page) */}
           <div
@@ -493,30 +301,93 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           {/* Particle Background Canvas matching Student Dashboard Hero */}
           <AsmrBackground />
 
-          {/* Top spacer maintaining vertical layout alignment under the fixed nav */}
-          <div className="h-16 shrink-0" />
+          {/* ── TOP HEADER (FIXED ON HERO, DOES NOT FLOAT OVER DASHBOARD) ────────── */}
+          <div
+            className="w-full px-6 sm:px-12 lg:px-16 pt-6 sm:pt-8 flex items-center justify-between z-20 relative select-none shrink-0"
+            style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
+          >
+            {/* Logo */}
+            <a
+              href="#top"
+              onClick={(e) => {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] rounded-xl px-1 py-1"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#e8ff5a] text-[#121212] flex items-center justify-center font-black text-xs tracking-tight shadow-md shadow-[#e8ff5a]/20 group-hover:scale-105 transition-transform">
+                TF
+              </div>
+              <span className="text-white font-bold text-base sm:text-lg tracking-tight">
+                TestForge
+              </span>
+            </a>
+
+            {/* Glass Pill Links for Teacher Workspace */}
+            <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3.5 py-1.5 shadow-lg shadow-black/20">
+              <button
+                type="button"
+                onClick={() => onNavigateModule?.('bank')}
+                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+              >
+                Question Bank
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateModule?.('paper')}
+                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+              >
+                Paper Designer
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigateModule?.('exams')}
+                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+              >
+                Live Exams
+              </button>
+              <button
+                type="button"
+                onClick={onPrimaryCta || (() => onNavigateModule?.('create'))}
+                className="text-xs font-semibold text-[#121212] bg-[#e8ff5a] hover:bg-[#d6ec4e] px-4 py-1.5 rounded-full transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+              >
+                + New Question
+              </button>
+            </div>
+          </div>
 
           {/* ── TWO-COLUMN HERO CONTENT: LEFT ALIGNED CONTENT + RIGHT 3D STAGE ── */}
           <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-14 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-            {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs */}
+            {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs (Educator Focused) */}
             <motion.div
               variants={heroVariants}
               initial="hidden"
               animate="visible"
               className="lg:col-span-7 xl:col-span-8 flex flex-col items-start text-left space-y-6"
             >
-              {/* Main Headline (prominent & bold, stable 2-line layout, size tuned so rotating words never shift line breaks) */}
+              {/* Eyebrow Pill for Educator / Teacher Workspace */}
+              <motion.div
+                variants={itemVariants}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EDFF72]/10 border border-[#EDFF72]/28 text-[#EDFF72] text-xs font-semibold tracking-wide"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EDFF72] animate-pulse" />
+                <span>{eyebrowBadge}</span>
+              </motion.div>
+
+              {/* Main Headline (Teacher Focused with Dynamic Animated Word Rotation) */}
               <motion.h1
                 variants={itemVariants}
-                className="text-4xl sm:text-6xl lg:text-[3.85rem] font-bold tracking-tight leading-[1.08] text-left text-white"
+                aria-label={`${line1} ${line2} ${line3Prefix} ${activeWords[teacherWordIdx]}`}
+                className="text-4xl sm:text-6xl lg:text-[3.9rem] font-bold tracking-tight leading-[1.04] text-left text-white"
               >
                 {headline ? (
                   headline
                 ) : (
                   <>
-                    <span className="block">Author smarter tests.</span>
+                    <span className="block">{line1}</span>
+                    <span className="block">{line2}</span>
                     <span className="block whitespace-nowrap">
-                      <span className="text-white/95">Unlock deeper </span>
+                      <span>{line3Prefix}</span>
                       <span
                         role="button"
                         tabIndex={0}
@@ -525,16 +396,22 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                         onMouseEnter={() => setIsWordPaused(true)}
                         onMouseLeave={() => setIsWordPaused(false)}
                         title={isWordPaused ? "Click to resume rotation" : "Click or hover to pause rotation"}
-                        className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)] inline-block min-w-[5.5ch] transition-all duration-300 cursor-pointer"
+                        style={{
+                          opacity: wordVisible ? 1 : 0,
+                          transform: wordVisible ? 'translateY(0px) scale(1)' : 'translateY(14px) scale(0.96)',
+                          transition: 'opacity 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1)',
+                          display: 'inline-block',
+                        }}
+                        className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)] min-w-[5ch] cursor-pointer"
                       >
-                        {ROTATING_TEACHER_HERO_WORDS[teacherWordIdx]}
+                        {activeWords[teacherWordIdx]}
                       </span>
                     </span>
                   </>
                 )}
               </motion.h1>
 
-              {/* Subtext (left-aligned) */}
+              {/* Subtext */}
               <motion.p
                 variants={itemVariants}
                 className="text-base sm:text-lg text-[#A4A7A1] font-normal leading-relaxed text-left max-w-xl"
@@ -542,10 +419,10 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                 {subtext}
               </motion.p>
 
-              {/* Action Buttons (left-aligned) */}
+              {/* Action Buttons */}
               <motion.div
                 variants={itemVariants}
-                className="flex flex-wrap items-center justify-start gap-4 pt-2"
+                className="flex flex-wrap items-center justify-start gap-4 pt-1"
               >
                 <button
                   type="button"
@@ -563,9 +440,21 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                   <span>{secondaryCtaLabel}</span>
                 </button>
               </motion.div>
+
+              {/* Bottom Tagline */}
+              <motion.div
+                variants={itemVariants}
+                className="text-xs font-mono text-[#777D78] tracking-tight pt-1"
+              >
+                {bottomTagline || (
+                  <>
+                    Multi-Language Sandbox <span className="text-[#EDFF72]">·</span> AST Mutation Testing <span className="text-[#EDFF72]">·</span> Zero-Leak Security <span className="text-[#EDFF72]">·</span> Automated Grading
+                  </>
+                )}
+              </motion.div>
             </motion.div>
 
-            {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (Slightly reduced size for optimal balance) */}
+            {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (matching Student Portal) */}
             <div className="lg:col-span-5 xl:col-span-4 h-[350px] sm:h-[420px] relative flex items-center justify-center [perspective:1500px]">
               <style>{`
                 @keyframes teacherBobbing {
@@ -595,7 +484,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                 }}
                 className="relative h-[340px] w-full max-w-[420px] scale-90 sm:scale-95 origin-center"
               >
-                {/* Layer 1: AI Question Generator Card (Z = 35) */}
+                {/* Layer 1: Cohort Proctoring & Telemetry Card (Z = 35) */}
                 <div
                   style={{
                     transform: 'translateZ(35px)',
@@ -604,48 +493,44 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                   className="absolute left-0 top-2 w-[295px] rounded-2xl border border-white/10 bg-[#191A1D]/90 backdrop-blur-xl p-5 text-white shadow-2xl"
                 >
                   <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#A4A7A1]">
-                    <span>AI Question Generator</span>
+                    <span>Cohort Proctoring</span>
                     <span className="rounded-full bg-[#EDFF72] px-2.5 py-0.5 font-bold text-[10px] text-[#111]">
-                      READY
+                      48 / 50 Active
                     </span>
                   </div>
                   <div className="mt-2.5 text-base font-semibold text-white">
-                    Topic: Arrays &amp; Vectors
+                    Data Structures Midterm
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-[#EDFF72]">
-                      Medium
+                      0 Flagged Leaks
                     </span>
                     <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-white/70">
-                      MCQ
-                    </span>
-                    <span className="rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] font-mono text-white/70">
-                      Coding
+                      Isolated Sandbox
                     </span>
                   </div>
                 </div>
 
-                {/* Layer 2: Evaluator Status Card (Z = 85) */}
+                {/* Layer 2: AST Mutation Engine Card (Z = 85) */}
                 <div
                   style={{
                     transform: 'translateZ(85px)',
                     animation: 'teacherBobbing 6s ease-in-out infinite 1.5s',
                   }}
-                  className="absolute -right-2 top-8 w-[230px] rounded-2xl border border-[#EDFF72]/30 bg-[#EDFF72] p-5 text-[#111] shadow-[0_20px_50px_rgba(237,255,114,0.25)]"
+                  className="absolute -right-2 top-8 w-[240px] rounded-2xl border border-[#EDFF72]/30 bg-[#EDFF72] p-5 text-[#111] shadow-[0_20px_50px_rgba(237,255,114,0.25)]"
                 >
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold opacity-75">
-                    Evaluator Status
+                    Mutation Lab
                   </span>
-                  <div className="mt-1.5 flex items-baseline gap-2">
-                    <span className="font-mono text-4xl font-extrabold tracking-tight">100%</span>
-                    <span className="text-xs font-semibold">Automated</span>
+                  <div className="mt-1 text-base font-bold tracking-tight">
+                    100% Deterministic
                   </div>
-                  <div className="mt-1.5 flex items-center gap-1 text-xs font-medium opacity-90">
-                    <span>✓ All test cases valid</span>
+                  <div className="mt-1.5 flex items-center gap-1 text-[11px] font-mono opacity-90">
+                    <span>8 / 8 Mutants Killed · 4 Langs</span>
                   </div>
                 </div>
 
-                {/* Layer 3: solution.js Monospace Card (Z = 130) */}
+                {/* Layer 3: Automated Sandbox Grader (Z = 130) */}
                 <div
                   style={{
                     transform: 'translateZ(130px)',
@@ -654,14 +539,13 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                   className="absolute bottom-2 left-3 w-[300px] rounded-2xl border border-white/10 bg-[#121316]/95 p-4 font-mono text-xs text-white/90 shadow-2xl backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between border-b border-white/10 pb-2 text-[11px] text-white/40">
-                    <span>solution.js</span>
-                    <span className="text-[#EDFF72]">2/2 passed</span>
+                    <span>Automated Sandbox</span>
+                    <span className="text-[#EDFF72]">✓ Zero-Leak Active</span>
                   </div>
                   <pre className="mt-2 text-[11px] leading-relaxed text-white/80">
                     <code>
-                      <span className="text-[#EDFF72]">const</span> evaluate = (test) =&gt; &#123;<br />
-                      &nbsp;&nbsp;<span className="text-white/50">return</span> test.verifyAll();<br />
-                      &#125;;
+                      <span className="text-[#EDFF72]">pipeline.evaluate(candidate)</span><br />
+                      <span className="text-white/50">&gt; Memory: 14MB · Time: 12ms · Passed</span>
                     </code>
                   </pre>
                 </div>
@@ -683,12 +567,12 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                       animation: 'teacherCubeSpin 16s linear infinite',
                     }}
                   >
-                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'translateZ(43px)' }}>TF</div>
-                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(90deg) translateZ(43px)' }}>✓</div>
-                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateY(180deg) translateZ(43px)' }}>A+</div>
-                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(-90deg) translateZ(43px)' }}>✦</div>
-                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateX(90deg) translateZ(43px)' }}>#</div>
-                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateX(-90deg) translateZ(43px)' }}>⚡</div>
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'translateZ(43px)' }}>T</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(90deg) translateZ(43px)' }}>F</div>
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateY(180deg) translateZ(43px)' }}>✓</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateY(-90deg) translateZ(43px)' }}>100</div>
+                    <div className="teacher-cube-face bg-[#EDFF72] text-[#111]" style={{ transform: 'rotateX(90deg) translateZ(43px)' }}>✦</div>
+                    <div className="teacher-cube-face bg-white text-[#111]" style={{ transform: 'rotateX(-90deg) translateZ(43px)' }}>&lt;/&gt;</div>
                   </div>
                 </div>
               </div>

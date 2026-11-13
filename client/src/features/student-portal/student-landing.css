@@ -43,33 +43,24 @@
   pointer-events: none;
 }
 
-/* Top Nav */
-.tf-student-portal-page nav.top-nav {
-  position: fixed;
+/* Top Header on Hero (Fixed on Hero Section, does not float over dashboard) */
+.tf-student-portal-page .hero-top-bar {
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 40;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) clamp(16px, 4vw, 56px) 14px 64px;
-  transition: background 0.3s, backdrop-filter 0.3s, border-color 0.3s, left 0.3s;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) clamp(20px, 6vw, 90px) 14px;
 }
 
 @media (min-width: 768px) {
-  .tf-student-portal-page nav.top-nav {
-    left: 104px;
-    padding-left: clamp(14px, 2.5vw, 36px);
-    padding-right: clamp(16px, 4vw, 56px);
+  .tf-student-portal-page .hero-top-bar {
+    padding-left: clamp(24px, 6vw, 90px);
+    padding-right: clamp(24px, 6vw, 90px);
   }
-}
-
-.tf-student-portal-page nav.top-nav.scrolled {
-  background: rgba(11, 12, 14, 0.74);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .tf-student-portal-page .logo {

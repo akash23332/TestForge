@@ -58,8 +58,6 @@ export const BentoTopHeader = ({
     switch (activeTab) {
       case 'dashboard':
         return 'Dashboard';
-      case 'students':
-        return 'Students';
       case 'bank':
         return 'Question Bank';
       case 'create':
@@ -74,8 +72,6 @@ export const BentoTopHeader = ({
         return 'Paper Designer';
       case 'exams':
         return 'Examinations';
-      case 'analytics':
-        return 'Analytics Studio';
       default:
         return 'Workspace';
     }
@@ -169,16 +165,6 @@ export const BentoTopHeader = ({
             </div>
           )}
         </div>
-
-        {/* Notification Bell with unread dot */}
-        <button
-          type="button"
-          title="Notifications"
-          className="relative w-8 h-8 rounded-full bg-white border border-[#DDE1DA] flex items-center justify-center text-[#171819] hover:bg-[#F8F9F7] shadow-2xs cursor-pointer transition-transform hover:scale-105 active:scale-95"
-        >
-          <Bell className="w-3.5 h-3.5 text-[#777D78]" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#EDFF72] border border-[#191A1D]" />
-        </button>
 
         {/* Faculty Profile Dropdown Button matching screenshot */}
         <button

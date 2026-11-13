@@ -29,6 +29,7 @@ export const sanitizeQuestionForStudent = (question, maxMarks = 10) => {
     constraints: question.constraints || '',
     difficulty: question.difficulty,
     executionMode: question.executionMode || 'STDIN',
+    dataStructure: question.dataStructure || 'ARRAY',
     functionName: question.functionName || 'solution',
     functionSignature: question.functionSignature || null,
     supportedLanguages: question.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
