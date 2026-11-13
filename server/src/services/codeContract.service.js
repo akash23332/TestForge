@@ -172,14 +172,22 @@ ${code}
 if __name__ == '__main__':
     try:
         raw_input = sys.stdin.read().strip()
-        if not raw_input:
-            args = []
-        else:
-            try:
-                parsed = json.loads(raw_input)
-                args = parsed if isinstance(parsed, list) else [parsed]
-            except Exception:
-                args = [line for line in raw_input.split('\\n') if line]
+        args = []
+        if raw_input:
+            lines = [l.strip() for l in raw_input.split('\\n') if l.strip()]
+            for line in lines:
+                try:
+                    args.append(json.loads(line))
+                except Exception:
+                    tokens = line.split()
+                    try:
+                        num_tokens = [int(t) for t in tokens]
+                        if len(num_tokens) > 1:
+                            args.extend(num_tokens)
+                        else:
+                            args.append(line)
+                    except Exception:
+                        args.append(line)
 
         if 'Solution' in globals():
             sol_inst = Solution()
@@ -218,11 +226,18 @@ ${code}
     const rawInput = fs.readFileSync(0, 'utf-8').trim();
     let args = [];
     if (rawInput) {
-      try {
-        const parsed = JSON.parse(rawInput);
-        args = Array.isArray(parsed) ? parsed : [parsed];
-      } catch (e) {
-        args = rawInput.split('\\n').filter(Boolean);
+      const lines = rawInput.split('\\n').map((l) => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        try {
+          args.push(JSON.parse(line));
+        } catch {
+          const numTokens = line.split(/\\s+/).map(Number);
+          if (numTokens.length > 1 && numTokens.every((n) => !isNaN(n))) {
+            args.push(...numTokens);
+          } else {
+            args.push(line);
+          }
+        }
       }
     }
     const fn = typeof ${fn} === 'function' ? ${fn} : (typeof solution === 'function' ? solution : null);
@@ -278,7 +293,8 @@ public class Main {
 
             Class<?>[] pTypes = targetMethod.getParameterTypes();
             Object[] invokeArgs = new Object[pTypes.length];
-            String[] tokens = rawInput.isEmpty() ? new String[0] : rawInput.split("[\\\\r\\\\n]+");
+            // Split tokens by any whitespace or newline
+            String[] tokens = rawInput.isEmpty() ? new String[0] : rawInput.trim().split("\\\\s+");
 
             for (int i = 0; i < pTypes.length; i++) {
                 String token = i < tokens.length ? tokens[i].trim() : "";
@@ -350,15 +366,15 @@ ${code}
 int main() {
     try {
         Solution sol;
-        vector<string> lines;
-        string line;
-        while (getline(cin, line)) {
-            if (!line.empty()) lines.push_back(line);
+        vector<string> tokens;
+        string tok;
+        while (cin >> tok) {
+            tokens.push_back(tok);
         }
 
         // Generic integer invocation fallback
-        int a = lines.size() > 0 ? stoi(lines[0]) : 0;
-        int b = lines.size() > 1 ? stoi(lines[1]) : 0;
+        int a = tokens.size() > 0 ? stoi(tokens[0]) : 0;
+        int b = tokens.size() > 1 ? stoi(tokens[1]) : 0;
         auto res = sol.${fn}(a, b);
         cout << res << "\\n";
         return 0;

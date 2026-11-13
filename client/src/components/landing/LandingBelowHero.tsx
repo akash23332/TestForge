@@ -102,7 +102,7 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -80, scale: 0.95 }}
             transition={{ duration: 0.35, ease: [0.2, 0.7, 0.2, 1] }}
-            className="hidden md:block fixed left-3.5 top-3.5 z-40 select-none"
+            className="hidden md:block fixed left-3.5 top-3.5 z-50 select-none"
           >
             <BentoSidebar
               activeTab="dashboard"

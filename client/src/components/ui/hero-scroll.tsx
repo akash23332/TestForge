@@ -130,6 +130,19 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
   const [teacherWordIdx, setTeacherWordIdx] = useState(0);
   const [isWordPaused, setIsWordPaused] = useState(false);
 
+  /* Nav frosted glassmorphism on scroll */
+  const [navScrolled, setNavScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      setNavScrolled(scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     if (shouldReduceMotion || isWordPaused) return;
     const interval = setInterval(() => {
@@ -395,6 +408,62 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
         minHeight: '180svh',
       }}
     >
+      {/* ── TOP NAV (FIXED AT VIEWPORT TOP, FROSTED ON SCROLL, NEVER COVERS SIDEPANEL) ── */}
+      <nav
+        aria-label="Teacher Dashboard Navigation"
+        className={`fixed top-0 left-0 md:left-[104px] right-0 z-40 flex items-center justify-between px-6 sm:px-10 lg:px-14 py-4 transition-all duration-300 ${
+          navScrolled
+            ? 'bg-[#0B0C0E]/75 backdrop-blur-md border-b border-white/[0.08] shadow-lg'
+            : 'bg-transparent'
+        }`}
+        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+      >
+        {/* Logo (Pushed to the Left, cleanly clearing the 78px sidebar which ends at 92px) */}
+        <a
+          href="#top"
+          onClick={(e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] rounded-xl px-1 py-1"
+        >
+          <div className="w-8 h-8 rounded-xl bg-[#e8ff5a] text-[#121212] flex items-center justify-center font-black text-xs tracking-tight shadow-md shadow-[#e8ff5a]/20 group-hover:scale-105 transition-transform">
+            TF
+          </div>
+          <span className="text-white font-bold text-base sm:text-lg tracking-tight">
+            TestForge
+          </span>
+        </a>
+
+        {/* Glass Pill Links with Fixed Content: Features, Overview, Create Assessment */}
+        <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3.5 py-1.5 shadow-lg shadow-black/20">
+          <a
+            href="#features"
+            onClick={(e) => {
+              e.preventDefault();
+              handleScrollToContent();
+            }}
+            className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a]"
+          >
+            Features
+          </a>
+          <button
+            type="button"
+            onClick={handleScrollToContent}
+            className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={onPrimaryCta || handleScrollToContent}
+            className="text-xs font-semibold text-[#121212] bg-[#e8ff5a] hover:bg-[#d6ec4e] px-4 py-1.5 rounded-full transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
+          >
+            Create Assessment
+          </button>
+        </div>
+      </nav>
+
       {/* ── STICKY HERO CONTAINER (100svh height, sticky top: 0, z-10) ───────── */}
       <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default">
         <motion.div
@@ -424,46 +493,8 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           {/* Particle Background Canvas matching Student Dashboard Hero */}
           <AsmrBackground />
 
-          {/* ── TOP NAV (ABSOLUTE) ────────────────────────────────────────── */}
-          <nav
-            aria-label="Hero navigation"
-            className="relative z-20 w-full px-6 sm:px-12 lg:px-16 pt-6 sm:pt-8 flex items-center justify-between"
-            style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
-          >
-            {/* Logo (Pushed to the Left) */}
-            <a
-              href="#top"
-              className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] rounded-xl px-1 py-1"
-            >
-              <div className="w-9 h-9 rounded-xl bg-[#e8ff5a] text-[#121212] flex items-center justify-center font-black text-sm tracking-tight shadow-md shadow-[#e8ff5a]/20 group-hover:scale-105 transition-transform">
-                TF
-              </div>
-              <span className="text-white font-bold text-lg sm:text-xl tracking-tight">
-                TestForge
-              </span>
-            </a>
-
-            {/* Glass Pill Links (Pushed to the Right) */}
-            <div className="hidden sm:flex items-center gap-2 bg-white/[0.05] border border-white/[0.12] backdrop-blur-md rounded-full px-3.5 py-1.5 shadow-lg shadow-black/20">
-              <a
-                href="#features"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleScrollToContent();
-                }}
-                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a]"
-              >
-                Features
-              </a>
-              <button
-                type="button"
-                onClick={onPrimaryCta || handleScrollToContent}
-                className="text-xs font-semibold text-[#121212] bg-[#e8ff5a] hover:bg-[#d6ec4e] px-4 py-1.5 rounded-full transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
-              >
-                Get started
-              </button>
-            </div>
-          </nav>
+          {/* Top spacer maintaining vertical layout alignment under the fixed nav */}
+          <div className="h-16 shrink-0" />
 
           {/* ── TWO-COLUMN HERO CONTENT: LEFT ALIGNED CONTENT + RIGHT 3D STAGE ── */}
           <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-14 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
