@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, KeyRound, Sparkles, Shield, GraduationCap, Check } from 'lucide-react';
 
+const ROTATING_HERO_WORDS = ['Better outcomes.', 'Smarter results.', 'Deeper insights.', 'Faster mastery.'];
+
 export const HeroSection = ({
   onJoinTest,
   onExplorePlatform,
@@ -10,9 +12,26 @@ export const HeroSection = ({
   const heroRef = useRef(null);
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
+  const cursorRingRef = useRef(null);
 
   // Parallax rotation for 3D stage
   const [sceneRot, setSceneRot] = useState({ rx: 9, ry: -20 });
+  const [cursorVisible, setCursorVisible] = useState(false);
+  const [isHoveringInteractive, setIsHoveringInteractive] = useState(false);
+
+  // Rotating headline word with accessibility pause control & reduced-motion support
+  const [wordIndex, setWordIndex] = useState(0);
+  const [isRotatingPaused, setIsRotatingPaused] = useState(false);
+
+  useEffect(() => {
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced || isRotatingPaused) return;
+
+    const timer = setInterval(() => {
+      setWordIndex((prev) => (prev + 1) % ROTATING_HERO_WORDS.length);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, [isRotatingPaused]);
 
   // Interactive Particle Canvas (Plexus / Constellation Network + Pointer Repel)
   useEffect(() => {
@@ -122,27 +141,11 @@ export const HeroSection = ({
               const dist = Math.sqrt(distSq);
               const alpha = Math.pow(1 - dist / maxLinkDistance, 1.15) * 0.45;
 
-              let isNearCursor = false;
-              if (cursor.x !== null && cursor.y !== null) {
-                const d1x = p1.x - cursor.x;
-                const d1y = p1.y - cursor.y;
-                const d2x = p2.x - cursor.x;
-                const d2y = p2.y - cursor.y;
-                if (
-                  d1x * d1x + d1y * d1y < repelRadius * repelRadius ||
-                  d2x * d2x + d2y * d2y < repelRadius * repelRadius
-                ) {
-                  isNearCursor = true;
-                }
-              }
-
               ctx.beginPath();
               ctx.moveTo(p1.x, p1.y);
               ctx.lineTo(p2.x, p2.y);
-              ctx.strokeStyle = isNearCursor
-                ? `rgba(255, 255, 255, ${Math.min(0.9, alpha * 2.4)})`
-                : `rgba(237, 255, 114, ${alpha})`;
-              ctx.lineWidth = isNearCursor ? 1.6 : 1.0;
+              ctx.strokeStyle = `rgba(237, 255, 114, ${alpha})`;
+              ctx.lineWidth = 1.0;
               ctx.stroke();
             }
           }
@@ -171,12 +174,25 @@ export const HeroSection = ({
       const ry = ((e.clientX - r.left) / r.width - 0.5) * -28 - 6;
       const rx = ((e.clientY - r.top) / r.height - 0.5) * -16 + 8;
       setSceneRot({ rx, ry });
+
+      if (cursorRingRef.current) {
+        cursorRingRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        setCursorVisible(true);
+      }
+
+      const target = e.target;
+      if (target) {
+        const interactive = Boolean(target.closest('button, a, input, select, textarea, [role="button"], .clickable'));
+        setIsHoveringInteractive(interactive);
+      }
     };
 
     const handlePointerLeave = () => {
       cursor.x = null;
       cursor.y = null;
       setSceneRot({ rx: 9, ry: -20 });
+      setCursorVisible(false);
+      setIsHoveringInteractive(false);
     };
 
     resize();
@@ -210,8 +226,21 @@ export const HeroSection = ({
     <header
       id="top"
       ref={heroRef}
-      className="relative min-h-[100svh] w-full overflow-hidden bg-[#0B0C0E] text-white flex items-center justify-center px-4 sm:px-8 lg:px-14 pt-24 pb-16 isolate select-none"
+      className="relative min-h-[100svh] w-full overflow-hidden bg-[#0B0C0E] text-white flex items-center justify-center px-4 sm:px-8 lg:px-14 pt-24 pb-16 isolate select-none cursor-default lg:cursor-none"
     >
+      {/* Custom Cursor Ring */}
+      <div
+        ref={cursorRingRef}
+        aria-hidden="true"
+        className={`pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out z-[9999] lg:block ${
+          cursorVisible ? 'opacity-100' : 'opacity-0'
+        } ${
+          isHoveringInteractive
+            ? 'size-14 -ml-7 -mt-7 border-[#EDFF72]'
+            : 'size-[34px] -ml-[17px] -mt-[17px]'
+        }`}
+        style={{ willChange: 'transform' }}
+      />
       {/* Decorative Canvas Background */}
       <canvas
         ref={canvasRef}
@@ -229,14 +258,23 @@ export const HeroSection = ({
         }}
       />
 
-      {/* Hero Content: Centered Layout */}
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center space-y-6 z-10 py-12">
-        {/* Main Headline */}
+      {/* Hero Content: Centered Layout (Scaled up 10% so 90% laptop view matches 100% full scale) */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center space-y-6 z-10 py-12 transform scale-105 sm:scale-110 origin-center transition-transform duration-300">
+        {/* Main Headline with dynamic rotating last phrase */}
         <h1 className="text-4xl sm:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-white leading-[1.06] max-w-4xl">
           Smarter assessments.{' '}
           <span className="text-white/95">Stronger learning.{' '}</span>
-          <em className="not-italic text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)]">
-            Better outcomes.
+          <em
+            role="button"
+            tabIndex={0}
+            aria-label="Pause rotating headline"
+            onClick={() => setIsRotatingPaused((prev) => !prev)}
+            onMouseEnter={() => setIsRotatingPaused(true)}
+            onMouseLeave={() => setIsRotatingPaused(false)}
+            title={isRotatingPaused ? "Click to resume rotation" : "Click or hover to pause rotation"}
+            className="not-italic text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)] inline-block transition-all duration-300 cursor-pointer"
+          >
+            {ROTATING_HERO_WORDS[wordIndex]}
           </em>
         </h1>
 

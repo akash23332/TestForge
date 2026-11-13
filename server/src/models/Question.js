@@ -31,6 +31,37 @@ const questionSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    executionMode: {
+      type: String,
+      enum: ['FUNCTION', 'STDIN'],
+      default: 'STDIN',
+      index: true
+    },
+    functionName: {
+      type: String,
+      default: 'solution',
+      trim: true
+    },
+    functionSignature: {
+      parameters: {
+        type: [
+          {
+            name: { type: String, default: '' },
+            type: { type: String, default: 'any' }
+          }
+        ],
+        default: []
+      },
+      returnType: {
+        type: String,
+        default: 'void'
+      }
+    },
+    supportedLanguages: {
+      type: [String],
+      enum: ['javascript', 'python', 'java', 'cpp'],
+      default: ['javascript', 'python', 'java', 'cpp']
+    },
     language: {
       type: String,
       enum: ['javascript', 'python', 'java', 'cpp'],
@@ -53,14 +84,55 @@ const questionSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    starterCodes: {
+      type: Map,
+      of: String,
+      default: {}
+    },
     referenceSolution: {
       type: String,
       default: ''
+    },
+    referenceSolutions: {
+      type: Map,
+      of: String,
+      default: {}
     },
     status: {
       type: String,
       enum: ['draft', 'published', 'archived'],
       default: 'draft'
+    },
+    validationSummary: {
+      referenceSolutionStatus: {
+        type: String,
+        enum: ['PASS', 'FAIL', 'PENDING'],
+        default: 'PENDING'
+      },
+      testCaseValidity: {
+        type: String,
+        enum: ['VALID', 'INVALID', 'PENDING'],
+        default: 'PENDING'
+      },
+      expectedOutputStatus: {
+        type: String,
+        enum: ['VERIFIED', 'UNVERIFIED', 'MISMATCH', 'PENDING'],
+        default: 'PENDING'
+      },
+      testQualityStatus: {
+        type: String,
+        enum: ['ADEQUATE', 'NEEDS_IMPROVEMENT', 'PENDING'],
+        default: 'PENDING'
+      },
+      publishingStatus: {
+        type: String,
+        enum: ['READY', 'NOT_READY'],
+        default: 'NOT_READY'
+      },
+      lastValidatedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   {

@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
 import { config } from '../config/env.js';
+import { wrapCodeForExecution } from './codeContract.service.js';
 
 let _activeRegistry = null;
 
@@ -1271,7 +1272,9 @@ export const validateSingleTestCase = async ({
     };
   }
 
-  if (testCase.input === undefined || testCase.input === null || String(testCase.input).trim() === '') {
+  const isCustomInput = testCase.category === 'custom';
+
+  if (!isCustomInput && (testCase.input === undefined || testCase.input === null || String(testCase.input).trim() === '')) {
     return {
       testCaseId: testCase._id,
       category: testCase.category,
@@ -1286,7 +1289,7 @@ export const validateSingleTestCase = async ({
     };
   }
 
-  if (testCase.expectedOutput === undefined || testCase.expectedOutput === null || String(testCase.expectedOutput).trim() === '') {
+  if (!isCustomInput && (testCase.expectedOutput === undefined || testCase.expectedOutput === null || String(testCase.expectedOutput).trim() === '')) {
     return {
       testCaseId: testCase._id,
       category: testCase.category,
@@ -1308,9 +1311,17 @@ export const validateSingleTestCase = async ({
   const activeProvider = provider || getActiveProvider();
   let execResult;
   if (activeProvider) {
+    const wrappedCode = wrapCodeForExecution({
+      code,
+      language: lang,
+      executionMode: questionContext.executionMode || 'STDIN',
+      functionName: questionContext.functionName || 'solution',
+      parameters: questionContext.parameters || []
+    });
+
     execResult = await activeProvider.executeCode({
       language: lang,
-      code,
+      code: wrappedCode,
       inputArgs: parsedArgs,
       timeoutMs,
       questionContext,
@@ -1428,8 +1439,25 @@ export const validateSingleTestCase = async ({
     };
   }
 
+  const formattedActual = typeof execResult.output === 'object' && execResult.output !== null ? JSON.stringify(execResult.output) : String(execResult.output ?? '');
+
+  if (isCustomInput) {
+    const isSuccess = execResult.status === 'success';
+    return {
+      testCaseId: null,
+      category: 'custom',
+      visibility: 'public',
+      input: testCase.input ?? '',
+      expectedOutput: null,
+      actualOutput: formattedActual,
+      status: execResult.status,
+      passed: isSuccess,
+      error: execResult.error,
+      runtimeMs: execResult.runtimeMs || 0
+    };
+  }
+
   const matches = compareOutputs(execResult.output, testCase.expectedOutput, questionContext);
-  const formattedActual = typeof execResult.output === 'object' ? JSON.stringify(execResult.output) : String(execResult.output);
 
   return {
     testCaseId: testCase._id,

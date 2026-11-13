@@ -6,6 +6,7 @@ import {
   useReducedMotion,
   Variants,
 } from 'framer-motion';
+import { AsmrBackground } from './asmr-background';
 import {
   Sparkles,
   ArrowDown,
@@ -109,6 +110,8 @@ const createRevealItem = (shouldReduce: boolean): Variants => ({
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
 
+const ROTATING_TEACHER_HERO_WORDS = ['mastery.', 'insights.', 'learning.', 'outcomes.', 'growth.'];
+
 export const HeroScroll: React.FC<HeroScrollProps> = ({
   headline,
   subtext = 'Create exams, manage question banks and monitor student performance, all from one workspace.',
@@ -123,14 +126,29 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 }) => {
   const shouldReduceMotion = Boolean(useReducedMotion());
 
+  /* Rotating Teacher Headline word */
+  const [teacherWordIdx, setTeacherWordIdx] = useState(0);
+  const [isWordPaused, setIsWordPaused] = useState(false);
+
+  useEffect(() => {
+    if (shouldReduceMotion || isWordPaused) return;
+    const interval = setInterval(() => {
+      setTeacherWordIdx((prev) => (prev + 1) % ROTATING_TEACHER_HERO_WORDS.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, [shouldReduceMotion, isWordPaused]);
+
   /* 3D Scene Parallax State */
   const [sceneRot, setSceneRot] = useState({ rx: 9, ry: -20 });
+  const [cursorRingVisible, setCursorRingVisible] = useState(false);
+  const [isHoveringInteractive, setIsHoveringInteractive] = useState(false);
 
   /* Scroll Progress Tracking for the sticky hero exit */
   const trackRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<CursorState>({ x: null, y: null });
+  const cursorRingRef = useRef<HTMLDivElement>(null);
 
   const { scrollYProgress } = useScroll({
     target: trackRef,
@@ -172,7 +190,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
     let width = 0;
     let height = 0;
     let particles: ShardParticle[] = [];
-    const RAD = 260;
+    const RAD = 120;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -240,11 +258,24 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
       const ry = ((e.clientX - rect.left) / rect.width - 0.5) * -28 - 6;
       const rx = ((e.clientY - rect.top) / rect.height - 0.5) * -16 + 8;
       setSceneRot({ rx, ry });
+
+      if (cursorRingRef.current) {
+        cursorRingRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        setCursorRingVisible(true);
+      }
+
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const isInteractive = Boolean(target.closest('button, a, input, select, textarea, [role="button"], .clickable'));
+        setIsHoveringInteractive(isInteractive);
+      }
     };
 
     const handleMouseLeave = () => {
       cursorRef.current = { x: null, y: null };
       setSceneRot({ rx: 9, ry: -20 });
+      setCursorRingVisible(false);
+      setIsHoveringInteractive(false);
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
@@ -272,9 +303,10 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
 
           if (dist < RAD && dist > 0) {
             const f = (RAD - dist) / RAD;
-            p.vx += (dx / dist) * f * 0.12 + (dy / dist) * f * 0.7;
-            p.vy += (dy / dist) * f * 0.12 - (dy / dist) * f * 0.7;
-            p.g = f * 0.7;
+            // Subtle magnetic pull and gentle swirl (reduced glow/clustering)
+            p.vx += (dx / dist) * f * 0.03 + (dy / dist) * f * 0.2;
+            p.vy += (dy / dist) * f * 0.03 - (dx / dist) * f * 0.2;
+            p.g = f * 0.32;
           } else {
             p.g *= 0.92;
           }
@@ -303,9 +335,11 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
         ctx.fillStyle =
           p.g > 0.25 ? `rgba(237, 255, 114, ${alpha})` : `rgba(${p.c}, ${alpha})`;
 
-        if (p.g > 0.4) {
-          ctx.shadowBlur = 8 * p.g;
-          ctx.shadowColor = `rgba(237, 255, 114, ${p.g})`;
+        if (p.g > 0.45) {
+          ctx.shadowBlur = 3;
+          ctx.shadowColor = `rgba(237, 255, 114, 0.35)`;
+        } else {
+          ctx.shadowBlur = 0;
         }
 
         const s = p.s;
@@ -348,24 +382,38 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
       }}
     >
       {/* ── STICKY HERO CONTAINER (100svh height, sticky top: 0, z-10) ───────── */}
-      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between">
+      <div className="sticky top-0 h-[100svh] w-full overflow-hidden z-10 flex flex-col justify-between cursor-default lg:cursor-none">
+        {/* Custom Cursor Ring (Image 2 style) */}
+        <div
+          ref={cursorRingRef}
+          aria-hidden="true"
+          className={`pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out z-[9999] lg:block ${
+            cursorRingVisible ? 'opacity-100' : 'opacity-0'
+          } ${
+            isHoveringInteractive
+              ? 'size-14 -ml-7 -mt-7 border-[#EDFF72]'
+              : 'size-[34px] -ml-[17px] -mt-[17px]'
+          }`}
+          style={{ willChange: 'transform' }}
+        />
+
         <motion.div
           ref={heroRef}
           style={{
             scale: shouldReduceMotion ? 1 : heroScale,
             opacity: shouldReduceMotion ? 1 : heroOpacity,
             borderRadius: shouldReduceMotion ? 0 : heroRadius,
-            /* Radial lime glow behind headline centered at (50%, 45%) */
-            background:
-              'radial-gradient(circle at 50% 45%, rgba(232,255,90,0.14) 0%, rgba(18,18,18,0) 65%), #121212',
+            background: '#191A1D',
           }}
-          className="relative h-full w-full overflow-hidden flex flex-col justify-between select-none"
+          className="relative h-full w-full overflow-hidden flex flex-col justify-between select-none bg-[#191A1D]"
         >
-          {/* Canvas Particle Network Layer */}
-          <canvas
-            ref={canvasRef}
+          {/* Particle Background Canvas matching Student Dashboard Hero */}
+          <AsmrBackground />
+
+          {/* Soft lime radial glow behind 3D scene matching Student Dashboard Hero */}
+          <div
             aria-hidden="true"
-            className="absolute inset-0 w-full h-full pointer-events-none z-0"
+            className="pointer-events-none absolute right-[5vw] top-[18%] h-[500px] w-[500px] rounded-full bg-[#EDFF72] opacity-[0.07] blur-[150px] z-0"
           />
 
           {/* ── TOP NAV (ABSOLUTE) ────────────────────────────────────────── */}
@@ -410,26 +458,38 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           </nav>
 
           {/* ── TWO-COLUMN HERO CONTENT: LEFT ALIGNED CONTENT + RIGHT 3D STAGE ── */}
-          <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-16 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+          <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-14 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
             {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs */}
             <motion.div
               variants={heroVariants}
               initial="hidden"
               animate="visible"
-              className="lg:col-span-7 flex flex-col items-start text-left space-y-6"
+              className="lg:col-span-7 xl:col-span-8 flex flex-col items-start text-left space-y-6"
             >
-              {/* Main Headline (prominent & left-aligned) */}
+              {/* Main Headline (prominent & bold, stable 2-line layout, size tuned so rotating words never shift line breaks) */}
               <motion.h1
                 variants={itemVariants}
-                className="text-4xl sm:text-6xl lg:text-[4.2rem] font-bold tracking-tight leading-[1.04] text-left text-white"
+                className="text-4xl sm:text-6xl lg:text-[3.85rem] font-bold tracking-tight leading-[1.08] text-left text-white"
               >
                 {headline ? (
                   headline
                 ) : (
                   <>
-                    Forge smarter{' '}
-                    <span className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)]">
-                      assessments.
+                    <span className="block">Author smarter tests.</span>
+                    <span className="block whitespace-nowrap">
+                      <span className="text-white/95">Unlock deeper </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Pause rotating headline"
+                        onClick={() => setIsWordPaused((prev) => !prev)}
+                        onMouseEnter={() => setIsWordPaused(true)}
+                        onMouseLeave={() => setIsWordPaused(false)}
+                        title={isWordPaused ? "Click to resume rotation" : "Click or hover to pause rotation"}
+                        className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)] inline-block min-w-[5.5ch] transition-all duration-300 cursor-pointer"
+                      >
+                        {ROTATING_TEACHER_HERO_WORDS[teacherWordIdx]}
+                      </span>
                     </span>
                   </>
                 )}
@@ -466,8 +526,8 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               </motion.div>
             </motion.div>
 
-            {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (Scaled Up) */}
-            <div className="lg:col-span-5 h-[380px] sm:h-[460px] relative flex items-center justify-center [perspective:1500px]">
+            {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (Slightly reduced size for optimal balance) */}
+            <div className="lg:col-span-5 xl:col-span-4 h-[350px] sm:h-[420px] relative flex items-center justify-center [perspective:1500px]">
               <style>{`
                 @keyframes teacherBobbing {
                   0%, 100% { transform: translateY(0px); }
@@ -494,7 +554,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                   transition: 'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1)',
                   transformStyle: 'preserve-3d',
                 }}
-                className="relative h-[360px] w-full max-w-[460px]"
+                className="relative h-[340px] w-full max-w-[420px] scale-90 sm:scale-95 origin-center"
               >
                 {/* Layer 1: AI Question Generator Card (Z = 35) */}
                 <div

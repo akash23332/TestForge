@@ -302,6 +302,17 @@ export const TestCaseStudioView = ({
     };
   }, [testCases]);
 
+  // Derived 5-Status Teacher Validation Dashboard (Requirements 4 & 5)
+  const refStatus = validationReport?.referenceSolutionStatus || currentQ?.validationSummary?.referenceSolutionStatus || 'PENDING';
+  const caseValidity = validationReport?.testCaseValidity || currentQ?.validationSummary?.testCaseValidity || 'PENDING';
+  const outStatus = validationReport?.expectedOutputStatus || currentQ?.validationSummary?.expectedOutputStatus || 'PENDING';
+  const qualStatus = validationReport?.testQualityStatus
+    ? (validationReport.testQualityStatus === 'ADEQUATE' ? 'ADEQUATE' : 'NEEDS IMPROVEMENT')
+    : (currentQ?.validationSummary?.testQualityStatus
+      ? (currentQ.validationSummary.testQualityStatus === 'ADEQUATE' ? 'ADEQUATE' : 'NEEDS IMPROVEMENT')
+      : 'PENDING');
+  const pubStatus = validationReport?.publishingStatus || currentQ?.validationSummary?.publishingStatus || 'NOT_READY';
+
   // Open Add Modal
   const openAddModal = (presetCategory = 'sample', presetVisibility = 'public') => {
     setEditingTestCase(null);
@@ -401,17 +412,26 @@ export const TestCaseStudioView = ({
     if (!currentQ?._id) return;
     setSingleValidatingId(testId);
     try {
-      const res = await api.post(`/questions/${currentQ._id}/tests/${testId}/run`);
-      showToast(`Result: ${res.data?.data?.status || 'Executed successfully'}`);
+      const res = await api.post(`/questions/${currentQ._id}/tests/${testId}/run`, {
+        language: currentQ.language
+      });
+      const data = res.data?.data;
+      if (data?.passed) {
+        showToast('✓ Test Case Verified against reference solution');
+      } else if (data?.computedOutput !== undefined && data?.computedOutput !== data?.expectedOutput) {
+        showToast('⚠ Output Mismatch: Reference solution produced different output');
+      } else {
+        showToast(data?.error || 'Execution completed with issues');
+      }
       await fetchTests();
-    } catch {
-      showToast('Execution finished: Output matches specification');
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Execution error during test run');
     } finally {
       setSingleValidatingId(null);
     }
   };
 
-  // Run full validation suite
+  // Run full validation suite (Requirement 1: Never mark validation successful if tests were skipped or execution failed)
   const handleRunFullValidation = async () => {
     if (!currentQ?._id || testCases.length === 0) {
       showToast('No test cases to run in this suite');
@@ -419,21 +439,35 @@ export const TestCaseStudioView = ({
     }
     setValidating(true);
     try {
-      const res = await api.post(`/questions/${currentQ._id}/validate-suite`);
-      setValidationReport(res.data?.data || null);
-      showToast('Suite execution complete — 100% test pass rate');
-      await fetchTests();
-    } catch {
-      // Mock graceful completed report if sandbox offline
-      setValidationReport({
-        total: testCases.length,
-        passed: testCases.length,
-        failed: 0,
-        averageLatencyMs: 34
+      const res = await api.post(`/questions/${currentQ._id}/validate-suite`, {
+        language: currentQ.language
       });
-      showToast('Full suite validated successfully');
+      const data = res.data?.data;
+      setValidationReport(data);
+      if (data?.canPublish) {
+        showToast('✓ Suite Verified: All test cases passed, Question is READY to publish!');
+      } else {
+        showToast(`Validation complete: ${data?.blockingErrors?.length || 0} blocking issue(s) detected`);
+      }
+      await fetchTests();
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error?.message || err.message || 'Validation execution failed';
+      showToast(`Validation Failed: ${errorMsg}`);
     } finally {
       setValidating(false);
+    }
+  };
+
+  // Require teacher approval before changing expected outputs (Requirement 3)
+  const handleAcceptComputedOutput = async (testId) => {
+    if (!currentQ?._id || !testId) return;
+    if (!window.confirm('Accept the reference solution computed output as the official expected output for this test case?')) return;
+    try {
+      await api.post(`/questions/${currentQ._id}/tests/${testId}/accept-computed`);
+      showToast('✓ Expected output updated to computed output');
+      await fetchTests();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update expected output');
     }
   };
 
@@ -1200,6 +1234,133 @@ export const TestCaseStudioView = ({
       </div>
 
       {/* ────────────────────────────────────────────────────────────────────────────
+          TEACHER VALIDATION DASHBOARD (Requirement 5)
+          Separate validation statuses: Reference Solution, Test Case Validity,
+          Expected Output, Test Quality, and Publishing Status
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Status 1: Reference Solution */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#DDE1DA] shadow-xs flex flex-col justify-between min-h-[96px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Reference Solution</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                refStatus === 'PASS' ? 'bg-emerald-500' : refStatus === 'FAIL' ? 'bg-rose-500' : 'bg-slate-300'
+              }`} />
+            </div>
+            <div className={`text-base font-black ${
+              refStatus === 'PASS' ? 'text-emerald-700' : refStatus === 'FAIL' ? 'text-rose-700' : 'text-slate-600'
+            }`}>
+              {refStatus}
+            </div>
+            <span className="text-[10px] text-[#777D78]">
+              {refStatus === 'PASS' ? 'All test cases executed OK' : refStatus === 'FAIL' ? 'Execution or runtime error' : 'Validation not run yet'}
+            </span>
+          </div>
+
+          {/* Status 2: Test Case Validity */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#DDE1DA] shadow-xs flex flex-col justify-between min-h-[96px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Test Case Validity</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                caseValidity === 'VALID' ? 'bg-emerald-500' : caseValidity === 'INVALID' ? 'bg-rose-500' : 'bg-slate-300'
+              }`} />
+            </div>
+            <div className={`text-base font-black ${
+              caseValidity === 'VALID' ? 'text-emerald-700' : caseValidity === 'INVALID' ? 'text-rose-700' : 'text-slate-600'
+            }`}>
+              {caseValidity}
+            </div>
+            <span className="text-[10px] text-[#777D78]">
+              {caseValidity === 'VALID' ? 'Input format & bounds clean' : caseValidity === 'INVALID' ? 'Malformed or out-of-bounds' : 'Validation pending'}
+            </span>
+          </div>
+
+          {/* Status 3: Expected Output */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#DDE1DA] shadow-xs flex flex-col justify-between min-h-[96px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Expected Output</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                outStatus === 'VERIFIED' ? 'bg-emerald-500' : outStatus === 'MISMATCH' ? 'bg-amber-500' : 'bg-slate-300'
+              }`} />
+            </div>
+            <div className={`text-base font-black ${
+              outStatus === 'VERIFIED' ? 'text-emerald-700' : outStatus === 'MISMATCH' ? 'text-amber-700' : 'text-slate-600'
+            }`}>
+              {outStatus}
+            </div>
+            <span className="text-[10px] text-[#777D78]">
+              {outStatus === 'VERIFIED' ? 'Matches reference output' : outStatus === 'MISMATCH' ? 'Output mismatch detected' : 'No execution oracle'}
+            </span>
+          </div>
+
+          {/* Status 4: Test Quality */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#DDE1DA] shadow-xs flex flex-col justify-between min-h-[96px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Test Quality</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                qualStatus === 'ADEQUATE' ? 'bg-emerald-500' : qualStatus === 'NEEDS IMPROVEMENT' ? 'bg-amber-500' : 'bg-slate-300'
+              }`} />
+            </div>
+            <div className={`text-sm font-black ${
+              qualStatus === 'ADEQUATE' ? 'text-emerald-700' : qualStatus === 'NEEDS IMPROVEMENT' ? 'text-amber-700' : 'text-slate-600'
+            }`}>
+              {qualStatus}
+            </div>
+            <span className="text-[10px] text-[#777D78]">
+              {qualStatus === 'ADEQUATE' ? 'Covers edge & boundary cases' : 'Missing edge/hidden coverage'}
+            </span>
+          </div>
+
+          {/* Status 5: Publishing Status */}
+          <div className={`p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between min-h-[96px] ${
+            pubStatus === 'READY' ? 'bg-emerald-50/80 border-emerald-300' : 'bg-rose-50/80 border-rose-300'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Publishing Status</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${pubStatus === 'READY' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            </div>
+            <div className={`text-base font-black ${pubStatus === 'READY' ? 'text-emerald-800' : 'text-rose-800'}`}>
+              {pubStatus}
+            </div>
+            <span className="text-[10px] text-[#777D78]">
+              {pubStatus === 'READY' ? 'All criteria satisfied' : 'Resolve blocking errors'}
+            </span>
+          </div>
+        </div>
+
+        {/* Blocking Errors Banner (Requirement 4 & 6) */}
+        {validationReport?.blockingErrors?.length > 0 && (
+          <div className="mt-3 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 shadow-xs">
+            <div className="flex items-center gap-2 font-bold text-xs text-rose-800 mb-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Blocking Errors ({validationReport.blockingErrors.length}) — Question Cannot Be Published:</span>
+            </div>
+            <ul className="list-disc list-inside text-xs space-y-1 text-rose-800 font-medium">
+              {validationReport.blockingErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Improvement Warnings Banner (Requirement 4) */}
+        {validationReport?.warnings?.length > 0 && (
+          <div className="mt-2.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 shadow-xs">
+            <div className="flex items-center gap-2 font-bold text-xs text-amber-800 mb-1">
+              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Quality Improvement Warnings ({validationReport.warnings.length}):</span>
+            </div>
+            <ul className="list-disc list-inside text-xs space-y-0.5 text-amber-800 font-medium">
+              {validationReport.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
           MAIN BODY: 3-COLUMN WORKSPACE
           Col 1: Test Cases Navigator | Col 2: Active Test Spec & I/O | Col 3: Telemetry & Runner
           ──────────────────────────────────────────────────────────────────────────── */}
@@ -1443,6 +1604,58 @@ export const TestCaseStudioView = ({
                 </div>
               </div>
 
+              {/* Computed Reference Output & Mismatch Resolver (Requirement 3) */}
+              {activeTestCase.computedOutput !== undefined && activeTestCase.computedOutput !== null && (
+                <div className={`p-3.5 rounded-2xl border ${
+                  String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim()
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : 'bg-amber-50 border-amber-300 text-amber-950'
+                }`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5" />
+                      <span>Computed Reference Solution Output</span>
+                    </label>
+                    {String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim() ? (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> VERIFIED MATCH
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> OUTPUT MISMATCH
+                      </span>
+                    )}
+                  </div>
+                  <div className="code-box min-h-[60px] text-xs">
+                    {activeTestCase.computedOutput}
+                  </div>
+                  {String(activeTestCase.computedOutput).trim() !== String(activeTestCase.expectedOutput || '').trim() && (
+                    <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
+                      <p className="text-[11px] text-amber-900 font-medium m-0">
+                        Teacher approval required before replacing expected output with reference solution output.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptComputedOutput(activeTestCase._id)}
+                        className="self-start sm:self-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                      >
+                        Accept Computed Output
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Execution / Compiler Error Banner */}
+              {activeTestCase.lastError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 font-mono text-xs whitespace-pre-wrap">
+                  <div className="font-bold flex items-center gap-1.5 mb-1 text-rose-800">
+                    <XCircle className="w-4 h-4 text-rose-600" /> Reference Solution Execution Error:
+                  </div>
+                  <div>{activeTestCase.lastError}</div>
+                </div>
+              )}
+
               {/* Explanation notes */}
               {activeTestCase.explanation && (
                 <div className="p-3.5 bg-[#F2F3F0] rounded-2xl border border-[#DDE1DA]">
@@ -1495,16 +1708,52 @@ export const TestCaseStudioView = ({
               </div>
             </div>
 
-            {/* Validation Report Banner */}
+            {/* Test Quality & Validation Report (Requirement 4) */}
             {validationReport && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs font-bold text-emerald-900">Suite Passed Verification</span>
+              <div className="p-4 rounded-2xl bg-white border border-[#DDE1DA] space-y-3 shadow-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-[#DDE1DA]">
+                  <span className="text-xs font-bold text-[#171819] flex items-center gap-1.5">
+                    <BarChart3 className="w-4 h-4 text-emerald-600" /> Test Quality Analysis
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    validationReport.canPublish
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {validationReport.publishingStatus || (validationReport.canPublish ? 'READY' : 'NOT READY')}
+                  </span>
                 </div>
-                <p className="text-[11px] text-emerald-800 m-0">
-                  {validationReport.passed || testCases.length} of {validationReport.total || testCases.length} cases verified without variance.
-                </p>
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="p-2 rounded-xl bg-[#F2F3F0]">
+                    <span className="text-[#777D78] block text-[10px]">TOTAL CASES</span>
+                    <span className="font-bold text-[#171819]">{validationReport.metrics?.total ?? testCases.length}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-900">
+                    <span className="text-emerald-700 block text-[10px]">VALID CASES</span>
+                    <span className="font-bold">{validationReport.metrics?.valid ?? (validationReport.metrics?.total || testCases.length)}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#F2F3F0]">
+                    <span className="text-[#777D78] block text-[10px]">DUPLICATES</span>
+                    <span className="font-bold text-[#171819]">{validationReport.metrics?.duplicates ?? 0}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-900">
+                    <span className="text-amber-700 block text-[10px]">MISMATCHES</span>
+                    <span className="font-bold">{validationReport.metrics?.mismatches ?? 0}</span>
+                  </div>
+                </div>
+
+                {validationReport.canPublish ? (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Reference solution and test suite verified. Question is ready to publish!</span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Publishing blocked until all blocking errors and output mismatches are resolved.</span>
+                  </div>
+                )}
               </div>
             )}
 

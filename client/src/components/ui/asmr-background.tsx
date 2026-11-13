@@ -223,21 +223,12 @@ export const AsmrBackground: React.FC<AsmrBackgroundProps> = ({ className }) => 
         if (p.y < -20) p.y = height + 20;
         else if (p.y > height + 20) p.y = -20;
 
-        // Color and glow calculations
+        // Color and glow calculations (Clean particles without blurry cursor glow)
+        ctx.shadowBlur = 0;
         if (p.glow > 0.05) {
-          // Near pointer: turns electric lime rgba(237, 255, 114)
-          const limeAlpha = Math.min(1, p.baseAlpha + p.glow * 0.7);
+          const limeAlpha = Math.min(0.85, p.baseAlpha + p.glow * 0.25);
           ctx.fillStyle = `rgba(237, 255, 114, ${limeAlpha})`;
-
-          // shadowBlur only when glow > 0.4
-          if (p.glow > 0.4) {
-            ctx.shadowColor = 'rgba(237, 255, 114, 0.9)';
-            ctx.shadowBlur = 10 * p.glow;
-          } else {
-            ctx.shadowBlur = 0;
-          }
         } else {
-          ctx.shadowBlur = 0;
           const alpha = p.baseAlpha;
           ctx.fillStyle = p.isGlass
             ? `rgba(240, 245, 255, ${alpha})`
@@ -260,9 +251,9 @@ export const AsmrBackground: React.FC<AsmrBackgroundProps> = ({ className }) => 
       pointer.y = y;
       pointer.active = true;
 
-      // Update custom cursor ring position
+      // Update custom cursor ring position using viewport coordinates for fixed container
       if (cursorRef.current && isFinePointer && window.innerWidth >= 860 && !prefersReducedMotion) {
-        cursorRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        cursorRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
         setCursorVisible(true);
       }
 
@@ -347,14 +338,14 @@ export const AsmrBackground: React.FC<AsmrBackgroundProps> = ({ className }) => 
         style={{ zIndex: -2 }}
       />
 
-      {/* Custom Cursor Ring: 34px base ring, grows to 56px over buttons and links */}
+      {/* Custom Cursor Ring: 34px base ring, grows to 54px over buttons and links (Image 2 style) */}
       <div
         ref={cursorRef}
         aria-hidden="true"
         className={cn(
-          "pointer-events-none fixed top-0 left-0 hidden rounded-full border border-[#EDFF72]/60 mix-blend-screen transition-[width,height,opacity] duration-150 ease-out lg:block",
+          "pointer-events-none fixed top-0 left-0 hidden rounded-full border-[1.5px] border-[#EDFF72] transition-[width,height,opacity] duration-150 ease-out lg:block",
           cursorVisible ? "opacity-100" : "opacity-0",
-          isHoveringInteractive ? "size-14 -ml-7 -mt-7 border-[#EDFF72]/90" : "size-[34px] -ml-[17px] -mt-[17px]"
+          isHoveringInteractive ? "size-14 -ml-7 -mt-7 border-[#EDFF72]" : "size-[34px] -ml-[17px] -mt-[17px]"
         )}
         style={{
           zIndex: 9999,

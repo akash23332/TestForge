@@ -10,6 +10,7 @@ import {
   getAttemptState,
   autosaveAnswer,
   runSampleTests,
+  runCustomInput,
   submitQuestion,
   getSubmissionStatus,
   finalizeExam,
@@ -46,6 +47,9 @@ router.post('/:attemptId/save', requireAttemptAccess, autosaveAnswer);
 
 // Run sample tests against student code (Protected & Rate Limited)
 router.post('/:attemptId/run', requireAttemptAccess, executionRateLimiter, runSampleTests);
+
+// Run student code with custom stdin input (Protected & Rate Limited)
+router.post('/:attemptId/custom-run', requireAttemptAccess, executionRateLimiter, runCustomInput);
 
 // Submit code for a question (Protected & Rate Limited)
 router.post('/:attemptId/submit-question', requireAttemptAccess, submissionRateLimiter, submitQuestion);

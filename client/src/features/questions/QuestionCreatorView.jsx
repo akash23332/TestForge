@@ -52,83 +52,177 @@ const AnimatedCount = ({ value, duration = 900 }) => {
   return <>{display}</>;
 };
 
-// Default code templates per language
-export const LANGUAGE_TEMPLATES = {
-  java: {
-    name: 'Java',
-    starterCode: `class Solution {
-    public int[] solution(int[] nums, int target) {
-        // Implement your solution here
-        return new int[]{};
+// Standardized code templates per execution mode and language
+export const STANDARDIZED_TEMPLATES = {
+  FUNCTION: {
+    javascript: {
+      name: 'JavaScript',
+      starterCode: `function solution(a, b) {
+  // Write your code here
+}
+`,
+      referenceSolution: `function solution(a, b) {
+  return a + b;
+}
+`
+    },
+    python: {
+      name: 'Python',
+      starterCode: `def solution(a, b):
+    # Write your code here
+    pass
+`,
+      referenceSolution: `def solution(a, b):
+    return a + b
+`
+    },
+    java: {
+      name: 'Java',
+      starterCode: `class Solution {
+    public int solution(int a, int b) {
+        // Write your code here
+        return 0;
     }
-}`,
-    referenceSolution: `class Solution {
-    public int[] solution(int[] nums, int target) {
-        java.util.Map<Integer, Integer> map = new java.util.HashMap<>();
-        for (int i = 0; i < nums.length; i++) {
-            int complement = target - nums[i];
-            if (map.containsKey(complement)) {
-                return new int[]{map.get(complement), i};
-            }
-            map.put(nums[i], i);
-        }
-        return new int[]{};
+}
+`,
+      referenceSolution: `class Solution {
+    public int solution(int a, int b) {
+        return a + b;
     }
-}`
-  },
-  javascript: {
-    name: 'JavaScript',
-    starterCode: `function firstUnique(s) {
-  // your code here
-}`,
-    referenceSolution: `function firstUnique(s) {
-  const freq = {};
-  for (const c of s) freq[c] = (freq[c] || 0) + 1;
-  for (const c of s) {
-    if (freq[c] === 1) return c;
-  }
-  return "#";
-}`
-  },
-  python: {
-    name: 'Python',
-    starterCode: `def solution(nums, target):
-    # Implement your solution here
-    pass`,
-    referenceSolution: `def solution(nums, target):
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return [seen[complement], i]
-        seen[num] = i
-    return []`
-  },
-  cpp: {
-    name: 'C++',
-    starterCode: `class Solution {
+}
+`
+    },
+    cpp: {
+      name: 'C++',
+      starterCode: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
 public:
-    std::vector<int> solution(std::vector<int>& nums, int target) {
-        // Implement your solution here
-        return {};
+    int solution(int a, int b) {
+        // Write your code here
+        return 0;
     }
-};`,
-    referenceSolution: `class Solution {
+};
+`,
+      referenceSolution: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
 public:
-    std::vector<int> solution(std::vector<int>& nums, int target) {
-        std::unordered_map<int, int> map;
-        for (int i = 0; i < nums.size(); ++i) {
-            int complement = target - nums[i];
-            if (map.find(complement) != map.end()) {
-                return {map[complement], i};
-            }
-            map[nums[i]] = i;
-        }
-        return {};
+    int solution(int a, int b) {
+        return a + b;
     }
-};`
+};
+`
+    }
+  },
+  STDIN: {
+    javascript: {
+      name: 'JavaScript',
+      starterCode: `const fs = require('fs');
+
+function main() {
+  const input = fs.readFileSync('/dev/stdin', 'utf-8');
+  // Write your code here
+}
+
+main();
+`,
+      referenceSolution: `const fs = require('fs');
+
+function main() {
+  const input = fs.readFileSync('/dev/stdin', 'utf-8').trim();
+  if (!input) return;
+  const [a, b] = input.split(/\\s+/).map(Number);
+  console.log(a + b);
+}
+
+main();
+`
+    },
+    python: {
+      name: 'Python',
+      starterCode: `import sys
+
+def main():
+    lines = sys.stdin.read().split()
+    if not lines:
+        return
+    # Write your code here
+
+if __name__ == '__main__':
+    main()
+`,
+      referenceSolution: `import sys
+
+def main():
+    lines = sys.stdin.read().split()
+    if not lines:
+        return
+    a, b = map(int, lines[:2])
+    print(a + b)
+
+if __name__ == '__main__':
+    main()
+`
+    },
+    java: {
+      name: 'Java',
+      starterCode: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Write your code here
+    }
+}
+`,
+      referenceSolution: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        if (sc.hasNextInt()) {
+            int a = sc.nextInt();
+            int b = sc.nextInt();
+            System.out.println(a + b);
+        }
+    }
+}
+`
+    },
+    cpp: {
+      name: 'C++',
+      starterCode: `#include <iostream>
+using namespace std;
+
+int main() {
+    // Write your code here
+    return 0;
+}
+`,
+      referenceSolution: `#include <iostream>
+using namespace std;
+
+int main() {
+    int a, b;
+    if (cin >> a >> b) {
+        cout << (a + b) << endl;
+    }
+    return 0;
+}
+`
+    }
   }
 };
+
+export const getStandardTemplate = (mode, lang) => {
+  const m = mode === 'STDIN' ? 'STDIN' : 'FUNCTION';
+  return STANDARDIZED_TEMPLATES[m]?.[lang] || STANDARDIZED_TEMPLATES.FUNCTION[lang];
+};
+
+export const LANGUAGE_TEMPLATES = STANDARDIZED_TEMPLATES.FUNCTION;
 
 const SUPPORTED_LANGS = [
   { id: 'java', label: 'Java' },
@@ -179,6 +273,8 @@ export const QuestionCreatorView = ({
 
   // 4. Configuration Fields
   const [language, setLanguage] = useState(initialQuestion?.language || 'javascript');
+  const [executionMode, setExecutionMode] = useState(initialQuestion?.executionMode || 'FUNCTION');
+  const [functionName, setFunctionName] = useState(initialQuestion?.functionName || 'solution');
   const [difficulty, setDifficulty] = useState(initialQuestion?.difficulty || 'Medium');
   const [topics, setTopics] = useState(() => {
     if (Array.isArray(initialQuestion?.tags) && initialQuestion.tags.length > 0) {
@@ -190,10 +286,10 @@ export const QuestionCreatorView = ({
 
   // 5. Code Editors
   const [starterCode, setStarterCode] = useState(
-    initialQuestion?.starterCode || LANGUAGE_TEMPLATES[initialQuestion?.language || 'javascript']?.starterCode || ''
+    initialQuestion?.starterCode || getStandardTemplate(initialQuestion?.executionMode || 'FUNCTION', initialQuestion?.language || 'javascript')?.starterCode || ''
   );
   const [referenceSolution, setReferenceSolution] = useState(
-    initialQuestion?.referenceSolution || LANGUAGE_TEMPLATES[initialQuestion?.language || 'javascript']?.referenceSolution || ''
+    initialQuestion?.referenceSolution || getStandardTemplate(initialQuestion?.executionMode || 'FUNCTION', initialQuestion?.language || 'javascript')?.referenceSolution || ''
   );
 
   // 6. UI Status States
@@ -246,6 +342,8 @@ export const QuestionCreatorView = ({
       setConstraints(initialQuestion.constraints || '');
       setExplanation(initialQuestion.explanation || '');
       setLanguage(initialQuestion.language || 'javascript');
+      if (initialQuestion.executionMode) setExecutionMode(initialQuestion.executionMode);
+      if (initialQuestion.functionName) setFunctionName(initialQuestion.functionName);
       setDifficulty(initialQuestion.difficulty || 'Medium');
       if (Array.isArray(initialQuestion.tags)) setTopics(initialQuestion.tags);
       if (initialQuestion.starterCode) setStarterCode(initialQuestion.starterCode);
@@ -256,21 +354,43 @@ export const QuestionCreatorView = ({
     }
   }, [initialQuestion?._id]);
 
+  // Check if code matches standard templates
+  const isDefaultCode = (code) => {
+    if (!code || !code.trim()) return true;
+    const trimmed = code.trim();
+    for (const m of Object.values(STANDARDIZED_TEMPLATES)) {
+      for (const t of Object.values(m)) {
+        if (t.starterCode?.trim() === trimmed || t.referenceSolution?.trim() === trimmed) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   // Language Change Sync
   const handleLanguageChange = (newLangId) => {
     setLanguage(newLangId);
-    const tpl = LANGUAGE_TEMPLATES[newLangId];
+    const tpl = getStandardTemplate(executionMode, newLangId);
     if (tpl) {
-      if (
-        !starterCode.trim() ||
-        Object.values(LANGUAGE_TEMPLATES).some((t) => t.starterCode.trim() === starterCode.trim())
-      ) {
+      if (isDefaultCode(starterCode)) {
         setStarterCode(tpl.starterCode);
       }
-      if (
-        !referenceSolution.trim() ||
-        Object.values(LANGUAGE_TEMPLATES).some((t) => t.referenceSolution.trim() === referenceSolution.trim())
-      ) {
+      if (isDefaultCode(referenceSolution)) {
+        setReferenceSolution(tpl.referenceSolution);
+      }
+    }
+  };
+
+  // Mode Change Sync
+  const handleModeChange = (newMode) => {
+    setExecutionMode(newMode);
+    const tpl = getStandardTemplate(newMode, language);
+    if (tpl) {
+      if (isDefaultCode(starterCode)) {
+        setStarterCode(tpl.starterCode);
+      }
+      if (isDefaultCode(referenceSolution)) {
         setReferenceSolution(tpl.referenceSolution);
       }
     }
@@ -533,6 +653,8 @@ export const QuestionCreatorView = ({
         statement: finalStatement,
         constraints: constraints.trim(),
         language,
+        executionMode,
+        ...(executionMode === 'FUNCTION' && { functionName: (functionName || 'solution').trim() }),
         difficulty,
         tags: topics,
         examples: examples.map((ex) => ({
@@ -540,8 +662,8 @@ export const QuestionCreatorView = ({
           output: ex.output || 'Sample Output',
           explanation: ex.explanation || ''
         })),
-        starterCode: starterCode || LANGUAGE_TEMPLATES[language]?.starterCode || '',
-        referenceSolution: referenceSolution || LANGUAGE_TEMPLATES[language]?.referenceSolution || '',
+        starterCode: starterCode || getStandardTemplate(executionMode, language)?.starterCode || '',
+        referenceSolution: referenceSolution || getStandardTemplate(executionMode, language)?.referenceSolution || '',
         status: targetStatus,
         ...(currentUser && { ownerId: currentUser.id || currentUser._id })
       };
@@ -1723,6 +1845,47 @@ export const QuestionCreatorView = ({
             </div>
           </div>
 
+          {/* Card 3.5: Execution Mode Toggle */}
+          <div className="tf-card tf-mini rise" style={{ '--k': 4.5 }}>
+            <div className="tf-tile">⚙</div>
+            <div className="tf-cap">Execution Mode</div>
+            <div className="tf-chips">
+              <button
+                type="button"
+                aria-pressed={executionMode === 'FUNCTION'}
+                onClick={() => handleModeChange('FUNCTION')}
+                className="tf-chp"
+                title="Function mode: Student implements a named function"
+              >
+                Function
+              </button>
+              <button
+                type="button"
+                aria-pressed={executionMode === 'STDIN'}
+                onClick={() => handleModeChange('STDIN')}
+                className="tf-chp"
+                title="STDIN mode: Student writes a program reading stdin"
+              >
+                STDIN
+              </button>
+            </div>
+            {executionMode === 'FUNCTION' && (
+              <div style={{ marginTop: '8px' }}>
+                <input
+                  type="text"
+                  value={functionName}
+                  onChange={(e) => {
+                    setFunctionName(e.target.value);
+                    triggerAutoSave();
+                  }}
+                  placeholder="Function name (e.g. solution)"
+                  className="tf-chp"
+                  style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: '11px' }}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Card 4: Difficulty Selector */}
           <div className="tf-card tf-mini rise" style={{ '--k': 5 }}>
             <div className="tf-tile">≡</div>
@@ -2032,7 +2195,7 @@ export const QuestionCreatorView = ({
                   type="button"
                   className="link text-xs"
                   onClick={() => {
-                    const tpl = LANGUAGE_TEMPLATES[language];
+                    const tpl = getStandardTemplate(executionMode, language);
                     if (tpl) setStarterCode(tpl.starterCode);
                     triggerAutoSave();
                     showToast('Reset to default language template');
@@ -2066,7 +2229,7 @@ export const QuestionCreatorView = ({
                   type="button"
                   className="link text-xs"
                   onClick={() => {
-                    const tpl = LANGUAGE_TEMPLATES[language];
+                    const tpl = getStandardTemplate(executionMode, language);
                     if (tpl) setReferenceSolution(tpl.referenceSolution);
                     triggerAutoSave();
                     showToast('Reset to default reference solution');

@@ -21,12 +21,15 @@ const envSchema = Joi.object({
   LLM_API_KEY: Joi.string().optional().allow(''),
   REDIS_URL: Joi.string().optional().allow('').default('redis://127.0.0.1:6379'),
   VALKEY_URL: Joi.string().optional().allow(''),
-  EXECUTION_PROVIDER: Joi.string().valid('mock', 'local', 'render_sandbox').default(
+  EXECUTION_PROVIDER: Joi.string().valid('mock', 'local', 'render_sandbox', 'onlinecompiler').default(
     process.env.NODE_ENV === 'production' ? 'mock' : 'mock'
   ),
   ALLOW_LOCAL_EXECUTION: Joi.boolean().default(false),
   RENDER_SANDBOX_ENDPOINT: Joi.string().uri().optional().allow(''),
-  RENDER_SANDBOX_API_KEY: Joi.string().optional().allow('')
+  RENDER_SANDBOX_API_KEY: Joi.string().optional().allow(''),
+  ONLINE_COMPILER_ENDPOINT: Joi.string().uri().optional().allow('').default('https://api.onlinecompiler.io/api/run-code-sync/'),
+  ONLINE_COMPILER_API_KEY: Joi.string().optional().allow(''),
+  ONLINE_COMPILER_TIMEOUT_MS: Joi.number().optional().default(10000)
 }).unknown(true);
 
 const { error, value: envVars } = envSchema.validate(process.env, { abortEarly: false });
@@ -74,7 +77,10 @@ export const config = {
     provider: envVars.EXECUTION_PROVIDER,
     allowLocal: Boolean(envVars.ALLOW_LOCAL_EXECUTION),
     sandboxEndpoint: envVars.RENDER_SANDBOX_ENDPOINT || null,
-    sandboxApiKey: envVars.RENDER_SANDBOX_API_KEY || null
+    sandboxApiKey: envVars.RENDER_SANDBOX_API_KEY || null,
+    onlineCompilerEndpoint: envVars.ONLINE_COMPILER_ENDPOINT || 'https://api.onlinecompiler.io/api/run-code-sync/',
+    onlineCompilerApiKey: envVars.ONLINE_COMPILER_API_KEY || null,
+    onlineCompilerTimeoutMs: envVars.ONLINE_COMPILER_TIMEOUT_MS || 10000
   }
 };
 

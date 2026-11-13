@@ -36,6 +36,14 @@ const testCaseSchema = new mongoose.Schema(
       enum: ['public', 'hidden'],
       default: 'public',
       index: true
+    },
+    computedOutput: {
+      type: String,
+      default: null
+    },
+    lastError: {
+      type: String,
+      default: null
     }
   },
   {

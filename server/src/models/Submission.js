@@ -79,9 +79,13 @@ const submissionSchema = new mongoose.Schema(
     },
     runType: {
       type: String,
-      enum: ['SAMPLE', 'SUBMISSION'],
+      enum: ['SAMPLE', 'SUBMISSION', 'CUSTOM_INPUT'],
       default: 'SUBMISSION',
       index: true
+    },
+    customInput: {
+      type: String,
+      default: null
     },
     status: {
       type: String,

@@ -48,11 +48,30 @@ export const App = () => {
     }
   });
 
+  const [studentSubTab, setStudentSubTab] = useState('dashboard');
+
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const savedUser = localStorage.getItem('testforge_user');
-      if (savedUser) {
-        const u = JSON.parse(savedUser);
+      const u = savedUser ? JSON.parse(savedUser) : null;
+      const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+
+      if (pathname === '/join' || pathname === '/student/join' || pathname === '/test/join') {
+        return 'join-test';
+      }
+      if (pathname === '/student/login') {
+        return 'login';
+      }
+      if (pathname === '/teacher/login') {
+        return 'login';
+      }
+      if (pathname === '/student' || pathname.startsWith('/student/')) {
+        if (u && u.role?.toLowerCase() === 'student') {
+          return 'student-dashboard';
+        }
+        return 'login';
+      }
+      if (u) {
         if (u.role?.toLowerCase() === 'student') return 'student-dashboard';
         return 'dashboard';
       }
@@ -60,7 +79,81 @@ export const App = () => {
     return 'landing';
   });
 
-  const [authRole, setAuthRole] = useState('teacher');
+  const [authRole, setAuthRole] = useState(() => {
+    const p = window.location.pathname.toLowerCase();
+    return p.includes('student') ? 'student' : 'teacher';
+  });
+
+  // URL route parser and synchronizer
+  useEffect(() => {
+    const parseRoute = () => {
+      const path = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+
+      if (path === '/' || path === '/landing') {
+        setActiveTab('landing');
+        return;
+      }
+
+      if (path === '/join' || path === '/student/join' || path === '/test/join') {
+        setActiveTab('join-test');
+        return;
+      }
+
+      if (path === '/student/login') {
+        setAuthRole('student');
+        setActiveTab('login');
+        return;
+      }
+
+      if (path === '/teacher/login') {
+        setAuthRole('teacher');
+        setActiveTab('login');
+        return;
+      }
+
+      if (path === '/student' || path.startsWith('/student/')) {
+        const isStudent = currentUser && currentUser.role?.toLowerCase() === 'student';
+        if (!isStudent) {
+          // Route guard: unauthenticated or wrong role goes to student login
+          setAuthRole('student');
+          setActiveTab('login');
+          return;
+        }
+
+        const seg = path.replace('/student/', '').replace(/^\/student$/, '');
+        let targetSub = 'dashboard';
+        if (seg === 'overview') targetSub = 'overview';
+        else if (seg === 'dashboard' || !seg) targetSub = 'dashboard';
+        else if (seg === 'tests' || seg === 'my-tests') targetSub = 'my-tests';
+        else if (seg === 'join-test' || seg === 'join') targetSub = 'join-test';
+        else if (seg === 'upcoming' || seg === 'upcoming-tests') targetSub = 'upcoming-tests';
+        else if (seg === 'history' || seg === 'test-history') targetSub = 'test-history';
+        else if (seg === 'analytics') targetSub = 'analytics';
+        else if (seg === 'learning') targetSub = 'learning';
+        else if (seg === 'profile' || seg === 'settings') targetSub = 'profile';
+
+        setStudentSubTab(targetSub);
+        setActiveTab('student-dashboard');
+        return;
+      }
+
+      if (path === '/dashboard') {
+        if (currentUser && currentUser.role?.toLowerCase() !== 'student') {
+          setActiveTab('dashboard');
+        } else if (currentUser && currentUser.role?.toLowerCase() === 'student') {
+          setActiveTab('student-dashboard');
+        } else {
+          setAuthRole('teacher');
+          setActiveTab('login');
+        }
+      }
+    };
+
+    parseRoute();
+    window.addEventListener('popstate', parseRoute);
+    return () => window.removeEventListener('popstate', parseRoute);
+  }, [currentUser]);
+
   const [questions, setQuestions] = useState([]);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [editingQuestion, setEditingQuestion] = useState(null);
@@ -95,12 +188,16 @@ export const App = () => {
   const handleLogout = () => {
     localStorage.removeItem('testforge_token');
     localStorage.removeItem('testforge_user');
+    localStorage.removeItem('testforge_student_session');
+    localStorage.removeItem('testforge_attempt_token');
     setCurrentUser(null);
     setSelectedQuestion(null);
     setQuestions([]);
     setEditingQuestion(null);
     setIsProfileOpen(false);
     setActiveTab('landing');
+    setStudentSubTab('dashboard');
+    window.history.pushState(null, '', '/');
   };
 
   const fetchQuestions = async () => {
@@ -187,53 +284,42 @@ export const App = () => {
           setGuestExamCode(code);
         }}
         onNavigateStudentPortal={() => {
-          setActiveTab('student-landing');
+          if (currentUser && currentUser.role?.toLowerCase() === 'student') {
+            setActiveTab('student-dashboard');
+            setStudentSubTab('dashboard');
+            window.history.pushState(null, '', '/student/dashboard');
+          } else {
+            setAuthRole('student');
+            setActiveTab('login');
+            window.history.pushState(null, '', '/student/login');
+          }
         }}
         onNavigateTeacherLogin={() => {
           setAuthRole('teacher');
           setActiveTab('login');
+          window.history.pushState(null, '', '/teacher/login');
         }}
         onNavigateStudentLogin={() => {
           setAuthRole('student');
           setActiveTab('login');
+          window.history.pushState(null, '', '/student/login');
         }}
       />
     );
   }
 
-  // 2. Public Student Landing Page (Preserved 3D Experience & Dedicated Student Entry)
+  // 2. Direct Redirect if student-landing is triggered
   if (activeTab === 'student-landing') {
-    return (
-      <StudentLandingView
-        onEnterPortal={() => {
-          if (currentUser) {
-            if (currentUser.role?.toLowerCase() === 'student') {
-              setActiveTab('student-dashboard');
-            } else {
-              setActiveTab('dashboard');
-            }
-          } else {
-            setAuthRole('student');
-            setActiveTab('login');
-          }
-        }}
-        onJoinWithCode={(code) => {
-          if (code && typeof code === 'string' && code.trim()) {
-            setGuestExamCode(code.trim().toUpperCase());
-          } else {
-            const promptCode = window.prompt('Enter your assessment access code (e.g. TF-DSA01):');
-            if (promptCode && promptCode.trim()) {
-              setGuestExamCode(promptCode.trim().toUpperCase());
-            }
-          }
-        }}
-        onSignIn={() => {
-          setAuthRole('student');
-          setActiveTab('login');
-        }}
-        onNavigateHome={() => setActiveTab('landing')}
-      />
-    );
+    if (currentUser && currentUser.role?.toLowerCase() === 'student') {
+      setActiveTab('student-dashboard');
+      setStudentSubTab('dashboard');
+      window.history.pushState(null, '', '/student/dashboard');
+    } else {
+      setAuthRole('student');
+      setActiveTab('login');
+      window.history.pushState(null, '', '/student/login');
+    }
+    return null;
   }
 
   // 3. Dedicated AuthPage (Teacher / Student Login)
@@ -249,13 +335,22 @@ export const App = () => {
             const r = (user?.role || '').toLowerCase();
             if (r === 'student') {
               setActiveTab('student-dashboard');
+              setStudentSubTab('dashboard');
+              window.history.pushState(null, '', '/student/dashboard');
             } else {
               setActiveTab('dashboard');
+              window.history.pushState(null, '', '/dashboard');
               fetchQuestions();
             }
           }}
-          onNavigateLanding={() => setActiveTab('landing')}
-          onNavigateHome={() => setActiveTab('landing')}
+          onNavigateLanding={() => {
+            setActiveTab('landing');
+            window.history.pushState(null, '', '/');
+          }}
+          onNavigateHome={() => {
+            setActiveTab('landing');
+            window.history.pushState(null, '', '/');
+          }}
         />
       </div>
     );
@@ -266,6 +361,13 @@ export const App = () => {
     return (
       <StudentDashboardView
         currentUser={currentUser}
+        initialTab={studentSubTab}
+        onNavigateTab={(tabId, path) => {
+          setStudentSubTab(tabId);
+          if (path) {
+            window.history.pushState(null, '', path);
+          }
+        }}
         onSignOut={handleLogout}
       />
     );

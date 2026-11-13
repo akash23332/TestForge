@@ -3,6 +3,7 @@ import { TestCase } from '../models/TestCase.js';
 import { User } from '../models/User.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { validateQuestionSuite } from '../services/testValidation.service.js';
 
 export const createQuestion = async (req, res, next) => {
   try {
@@ -14,6 +15,12 @@ export const createQuestion = async (req, res, next) => {
       } else {
         throw ApiError.unauthorized('User must be authenticated to create a question.');
       }
+    }
+
+    if (req.body.status === 'published') {
+      throw ApiError.badRequest(
+        'Questions must be saved as draft and validated against test cases in Test Studio before publishing.'
+      );
     }
 
     const question = await Question.create({
@@ -36,11 +43,16 @@ export const sanitizeQuestionAllowlist = (q) => ({
   title: q.title,
   statement: q.statement,
   constraints: q.constraints || '',
+  executionMode: q.executionMode || 'STDIN',
+  functionName: q.functionName || 'solution',
+  functionSignature: q.functionSignature || null,
+  supportedLanguages: q.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
   language: q.language || 'javascript',
   difficulty: q.difficulty || 'Medium',
   tags: q.tags || [],
   examples: q.examples || [],
   starterCode: q.starterCode || '',
+  starterCodes: q.starterCodes ? (q.starterCodes instanceof Map ? Object.fromEntries(q.starterCodes) : q.starterCodes) : {},
   createdAt: q.createdAt,
   updatedAt: q.updatedAt
 });
@@ -80,7 +92,7 @@ export const getQuestions = async (req, res, next) => {
     const isAuthorizedFaculty = isTeacher || isAdmin;
     let query = Question.find(filter).sort(sort).skip(skip).limit(Number(limit));
     if (!isAuthorizedFaculty) {
-      query = query.select('-referenceSolution');
+      query = query.select('-referenceSolution -referenceSolutions');
     }
 
     const [questions, total] = await Promise.all([
@@ -131,7 +143,7 @@ export const getQuestionStudentView = async (req, res, next) => {
   try {
     const { id } = req.params;
     const question = await Question.findById(id)
-      .select('-referenceSolution -status')
+      .select('-referenceSolution -referenceSolutions -status')
       .lean();
 
     if (!question) {
@@ -151,10 +163,15 @@ export const getQuestionStudentView = async (req, res, next) => {
       title: question.title,
       statement: question.statement,
       constraints: question.constraints,
+      executionMode: question.executionMode || 'STDIN',
+      functionName: question.functionName || 'solution',
+      functionSignature: question.functionSignature || null,
+      supportedLanguages: question.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
       language: question.language,
       difficulty: question.difficulty,
       examples: question.examples,
       starterCode: question.starterCode,
+      starterCodes: question.starterCodes || {},
       publicTestCases: publicTests
     };
 
@@ -179,6 +196,20 @@ export const updateQuestion = async (req, res, next) => {
 
     if (!isOwnerOrAdmin) {
       throw ApiError.forbidden('You do not have permission to update this question.');
+    }
+
+    // Strict Publishing Gate (Requirement 6)
+    if (req.body.status === 'published') {
+      const suiteReport = await validateQuestionSuite({
+        questionId: id,
+        language: req.body.language || question.language,
+        user: req.user
+      });
+      if (!suiteReport.canPublish) {
+        throw ApiError.badRequest(
+          `Question cannot be published. Unresolved issues: ${suiteReport.blockingErrors.join('; ')}`
+        );
+      }
     }
 
     Object.assign(question, req.body);

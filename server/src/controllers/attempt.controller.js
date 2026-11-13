@@ -20,7 +20,7 @@ import { clearUnresolvedRemoteExecution } from '../services/queue/executionRecov
 /**
  * Sanitizes coding question for student: strictly removes reference solutions
  */
-const sanitizeQuestionForStudent = (question, maxMarks = 10) => {
+export const sanitizeQuestionForStudent = (question, maxMarks = 10) => {
   return {
     _id: question._id,
     type: 'coding',
@@ -28,9 +28,14 @@ const sanitizeQuestionForStudent = (question, maxMarks = 10) => {
     statement: question.statement,
     constraints: question.constraints || '',
     difficulty: question.difficulty,
+    executionMode: question.executionMode || 'STDIN',
+    functionName: question.functionName || 'solution',
+    functionSignature: question.functionSignature || null,
+    supportedLanguages: question.supportedLanguages || ['javascript', 'python', 'java', 'cpp'],
     language: question.language || 'javascript',
     tags: question.tags || [],
     starterCode: question.starterCode || '',
+    starterCodes: question.starterCodes ? (question.starterCodes instanceof Map ? Object.fromEntries(question.starterCodes) : question.starterCodes) : {},
     examples: question.examples || [],
     maxMarks
   };
@@ -489,6 +494,88 @@ export const runSampleTests = async (req, res, next) => {
 };
 
 /**
+ * Run student code with custom stdin input (for STDIN-mode questions)
+ */
+export const runCustomInput = async (req, res, next) => {
+  try {
+    const { attemptId } = req.params;
+    const { questionId, code, language, customInput } = req.body;
+
+    const attempt = await ExamAttempt.findById(attemptId);
+    if (!attempt || attempt.status !== 'IN_PROGRESS') {
+      throw ApiError.badRequest('Exam session is not active.');
+    }
+
+    if (Date.now() > new Date(attempt.expiresAt).getTime()) {
+      attempt.status = 'TIMED_OUT';
+      await attempt.save();
+      throw ApiError.badRequest('Time expired.');
+    }
+
+    const question = await Question.findById(questionId).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found.');
+    }
+
+    // Safety guard: FUNCTION mode questions cannot use raw stdin
+    if (question.executionMode === 'FUNCTION') {
+      throw ApiError.badRequest(
+        'Custom stdin execution is not available for FUNCTION-mode questions. Please test your code against sample test cases using the Run button.'
+      );
+    }
+
+    // Input bounds validation
+    if (code && code.length > 65536) {
+      throw ApiError.badRequest('Submitted code exceeds maximum size limit (64KB).');
+    }
+    if (customInput && customInput.length > 65536) {
+      throw ApiError.badRequest('Custom input exceeds maximum size limit (64KB).');
+    }
+
+    // 1. Create authoritative Submission record in MongoDB
+    const submission = await Submission.create({
+      attemptId,
+      questionId,
+      code: code || '',
+      language: language || question.language || 'javascript',
+      runType: 'CUSTOM_INPUT',
+      customInput: customInput !== undefined && customInput !== null ? String(customInput) : '',
+      status: 'QUEUED',
+      verdict: 'PENDING'
+    });
+
+    // 2. Enqueue execution job in BullMQ
+    const job = await enqueueExecutionJob({
+      submissionId: submission._id,
+      attemptId,
+      questionId,
+      runType: 'CUSTOM_INPUT',
+      language: submission.language,
+      studentEmail: attempt.candidateInfo?.email || ''
+    });
+
+    submission.jobId = job.id;
+    await submission.save();
+
+    // 3. Return 202 immediately with submissionId and pollUrl
+    return ApiResponse.success(
+      res,
+      202,
+      {
+        submissionId: submission._id,
+        status: 'QUEUED',
+        jobId: job.id,
+        runType: 'CUSTOM_INPUT',
+        pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
+      },
+      'Custom input execution queued successfully.'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Submit question solution: handles both MCQ questions and Coding problems
  */
 export const submitQuestion = async (req, res, next) => {
@@ -715,6 +802,9 @@ export const getSubmissionStatus = async (req, res, next) => {
         runType: submission.runType,
         totalTests: submission.totalTests || 0,
         passedTests: submission.passedTests || 0,
+        allPassed: (submission.totalTests > 0) && (submission.passedTests === submission.totalTests),
+        passedCount: submission.passedTests || 0,
+        totalCount: submission.totalTests || 0,
         scoreAwarded: isGraded ? (submission.scoreAwarded ?? 0) : null,
         maxMarks: submission.maxMarks || 10,
         errorMessage: submission.errorMessage || null,

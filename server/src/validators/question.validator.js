@@ -12,6 +12,20 @@ export const validateCreateQuestion = (req, res, next) => {
       'string.min': 'Statement must be at least 10 characters long.'
     }),
     constraints: Joi.string().allow('').default(''),
+    executionMode: Joi.string().valid('FUNCTION', 'STDIN').default('STDIN'),
+    functionName: Joi.string().trim().allow('').default('solution'),
+    functionSignature: Joi.object({
+      parameters: Joi.array().items(
+        Joi.object({
+          name: Joi.string().allow(''),
+          type: Joi.string().allow('')
+        })
+      ).default([]),
+      returnType: Joi.string().allow('').default('void')
+    }).optional(),
+    supportedLanguages: Joi.array().items(
+      Joi.string().valid('javascript', 'python', 'java', 'cpp')
+    ).default(['javascript', 'python', 'java', 'cpp']),
     language: Joi.string().valid('javascript', 'python', 'java', 'cpp').default('javascript'),
     difficulty: Joi.string().valid('Easy', 'Medium', 'Hard').default('Medium'),
     tags: Joi.array().items(Joi.string().trim()).default([]),
@@ -23,7 +37,9 @@ export const validateCreateQuestion = (req, res, next) => {
       })
     ).default([]),
     starterCode: Joi.string().allow('').default(''),
+    starterCodes: Joi.object().pattern(Joi.string(), Joi.string().allow('')).optional().default({}),
     referenceSolution: Joi.string().allow('').default(''),
+    referenceSolutions: Joi.object().pattern(Joi.string(), Joi.string().allow('')).optional().default({}),
     status: Joi.string().valid('draft', 'published', 'archived').default('draft'),
     ownerId: Joi.string().optional().allow('')
   }).unknown(true);

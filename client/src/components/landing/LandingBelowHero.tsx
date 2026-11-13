@@ -54,12 +54,6 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
     restDelta: 0.001,
   });
 
-  // 2. High-Intensity Cursor Glow Blob (Desktop fine pointer only, lerp 0.12)
-  const [cursorPos, setCursorPos] = useState({ x: -400, y: -400 });
-  const [targetPos, setTargetPos] = useState({ x: -400, y: -400 });
-  const [isDesktopFine, setIsDesktopFine] = useState(false);
-  const [prefersReduced, setPrefersReduced] = useState(false);
-
   // 3. Fixed Side Panel visibility: hidden on hero section, permanently fixed when scrolled down
   const [showFixedSidebar, setShowFixedSidebar] = useState(false);
 
@@ -80,39 +74,6 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const fineCheck = window.matchMedia('(pointer: fine)').matches;
-      const reducedCheck = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      setIsDesktopFine(fineCheck);
-      setPrefersReduced(reducedCheck);
-
-      if (!fineCheck || reducedCheck) return;
-
-      const handlePointerMove = (e: MouseEvent) => {
-        setTargetPos({ x: e.clientX, y: e.clientY });
-      };
-
-      window.addEventListener('mousemove', handlePointerMove, { passive: true });
-
-      let rAFId: number;
-      const loop = () => {
-        setCursorPos((prev) => ({
-          x: prev.x + (targetPos.x - prev.x) * 0.12,
-          y: prev.y + (targetPos.y - prev.y) * 0.12,
-        }));
-        rAFId = requestAnimationFrame(loop);
-      };
-
-      rAFId = requestAnimationFrame(loop);
-
-      return () => {
-        window.removeEventListener('mousemove', handlePointerMove);
-        cancelAnimationFrame(rAFId);
-      };
-    }
-  }, [targetPos.x, targetPos.y]);
-
   const navLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'bank', label: 'Question Bank', icon: BookOpen },
@@ -132,22 +93,6 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
         className="fixed top-0 left-0 right-0 h-[3px] bg-[#e8ff5a] origin-left z-50 pointer-events-none shadow-[0_0_8px_#e8ff5a]"
         aria-hidden="true"
       />
-
-      {/* ── High-Intensity Luminous Lime Cursor Glow Blob (Desktop only) ── */}
-      {isDesktopFine && !prefersReduced && (
-        <div
-          style={{
-            transform: `translate3d(${cursorPos.x - 260}px, ${cursorPos.y - 260}px, 0)`,
-          }}
-          className="fixed top-0 left-0 w-[520px] h-[520px] rounded-full pointer-events-none z-40 will-change-transform"
-          aria-hidden="true"
-        >
-          {/* Outer expansive luminous lime halo */}
-          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(232,255,90,0.52)_0%,rgba(232,255,90,0.28)_38%,rgba(232,255,90,0.08)_65%,transparent_75%)] blur-3xl" />
-          {/* Inner intense glowing core */}
-          <div className="absolute inset-[100px] rounded-full bg-[radial-gradient(circle_at_center,rgba(232,255,90,0.85)_0%,rgba(232,255,90,0.5)_45%,transparent_75%)] blur-xl" />
-        </div>
-      )}
 
       {/* ── FIXED SIDE PANEL (Disappears in Hero, stays FIXED on screen as you scroll down) ── */}
       <AnimatePresence>

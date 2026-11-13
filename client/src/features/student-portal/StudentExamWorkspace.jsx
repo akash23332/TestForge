@@ -28,47 +28,89 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-const LANGUAGE_TEMPLATES = {
-  javascript: `/**
- * Complete the solution below.
- * Language: JavaScript (Node.js 22)
- */
-function solution(input) {
+const STANDARDIZED_TEMPLATES = {
+  FUNCTION: {
+    javascript: `function solution(a, b) {
   // Write your code here
-  return input;
 }
 `,
-  python: `"""
-Complete the solution below.
-Language: Python 3.12
-"""
-def solution(nums, target=None):
+    python: `def solution(a, b):
     # Write your code here
     pass
 `,
-  java: `/**
- * Complete the solution below.
- * Language: Java (OpenJDK 17)
- */
-public class Solution {
-    public static void main(String[] args) {
-        // Write your solution here
+    java: `class Solution {
+    public int solution(int a, int b) {
+        // Write your code here
+        return 0;
     }
 }
 `,
-  cpp: `/**
- * Complete the solution below.
- * Language: C++ (GCC 20)
- */
-#include <iostream>
+    cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    int solution(int a, int b) {
+        // Write your code here
+        return 0;
+    }
+};
+`
+  },
+  STDIN: {
+    javascript: `const fs = require('fs');
+
+function main() {
+  const input = fs.readFileSync(0, 'utf-8').trim();
+  // Read input from stdin and print output to stdout
+}
+
+main();
+`,
+    python: `import sys
+
+def main():
+    # Read input from stdin and print output to stdout
+    pass
+
+if __name__ == '__main__':
+    main()
+`,
+    java: `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Read input from stdin and print output to stdout
+        sc.close();
+    }
+}
+`,
+    cpp: `#include <bits/stdc++.h>
 using namespace std;
 
 int main() {
-    // Write your solution here
+    // Read input from stdin and print output to stdout
     return 0;
 }
 `
+  }
 };
+
+const resolveStarterCode = (question, lang) => {
+  if (!question) return STANDARDIZED_TEMPLATES.STDIN[lang] || '';
+  const mode = question.executionMode === 'FUNCTION' ? 'FUNCTION' : 'STDIN';
+  if (question.starterCodes && question.starterCodes[lang]) {
+    return question.starterCodes[lang];
+  }
+  if (question.starterCode && question.language === lang) {
+    return question.starterCode;
+  }
+  return STANDARDIZED_TEMPLATES[mode]?.[lang] || STANDARDIZED_TEMPLATES.STDIN[lang] || '';
+};
+
+// Backward-compatible alias for existing references
+const LANGUAGE_TEMPLATES = STANDARDIZED_TEMPLATES.STDIN;
 
 export const StudentExamWorkspace = ({
   sessionData,
@@ -87,8 +129,13 @@ export const StudentExamWorkspace = ({
     questions[0]?.language || 'javascript'
   );
   const [currentCode, setCurrentCode] = useState(
-    initialAnswers[questions[0]?._id]?.code || questions[0]?.starterCode || LANGUAGE_TEMPLATES[questions[0]?.language || 'javascript']
+    initialAnswers[questions[0]?._id]?.code || resolveStarterCode(questions[0], questions[0]?.language || 'javascript')
   );
+
+  // Custom Input State
+  const [customInput, setCustomInput] = useState('');
+  const [customResults, setCustomResults] = useState(null);
+  const [isExecutingCustom, setIsExecutingCustom] = useState(false);
 
   // MCQ state
   const [selectedOption, setSelectedOption] = useState(
@@ -114,7 +161,7 @@ export const StudentExamWorkspace = ({
   const [isExecuting, setIsExecuting] = useState(false);
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [executionStatusMessage, setExecutionStatusMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('samples'); // 'samples' | 'evaluation'
+  const [activeTab, setActiveTab] = useState('samples'); // 'samples' | 'evaluation' | 'custom'
   const [sampleResults, setSampleResults] = useState(null);
   const [submissionResults, setSubmissionResults] = useState(null);
   const [isTestDrawerExpanded, setIsTestDrawerExpanded] = useState(true);
@@ -144,13 +191,15 @@ export const StudentExamWorkspace = ({
         setCurrentCode(existing.code);
         setSelectedLanguage(existing.language || currentQuestion.language || 'javascript');
       } else {
-        const fallback = currentQuestion.starterCode || LANGUAGE_TEMPLATES[currentQuestion.language || 'javascript'];
+        const lang = currentQuestion.language || 'javascript';
+        const fallback = resolveStarterCode(currentQuestion, lang);
         setCurrentCode(fallback);
-        setSelectedLanguage(currentQuestion.language || 'javascript');
+        setSelectedLanguage(lang);
       }
     }
     setSampleResults(null);
     setSubmissionResults(null);
+    setCustomResults(null);
   }, [currentIndex, currentQuestion._id]);
 
   // ── Resizable Split-Pane Handler (Left/Right) ─────────────────────────────
@@ -458,6 +507,49 @@ export const StudentExamWorkspace = ({
       });
     } finally {
       setIsExecuting(false);
+      setExecutionStatusMessage('');
+    }
+  };
+
+  // ── Run Custom Input (Coding STDIN Only) ───────────────────────────────────
+  const handleRunCustomInput = async () => {
+    if (!currentQuestion._id || isMcq || isExecuting || isSubmittingQuestion || isExecutingCustom) return;
+    setIsExecutingCustom(true);
+    setExecutionStatusMessage('Queuing custom input execution...');
+    setActiveTab('custom');
+    setIsTestDrawerExpanded(true);
+
+    try {
+      const res = await api.post(`/attempts/${attempt._id}/custom-run`, {
+        questionId: currentQuestion._id,
+        code: currentCode,
+        language: selectedLanguage,
+        customInput
+      });
+      const data = res.data?.data;
+      if (data?.status === 'QUEUED' || data?.status === 'RUNNING') {
+        setExecutionStatusMessage(data.status === 'RUNNING' ? 'Executing custom input in worker...' : 'Queued for execution...');
+        const finalResult = await pollSubmissionStatus(attempt._id, data.submissionId, setExecutionStatusMessage);
+        setCustomResults(finalResult);
+      } else {
+        setCustomResults(data);
+      }
+    } catch (err) {
+      setCustomResults({
+        status: 'ERROR',
+        verdict: 'ERROR',
+        testResults: [
+          {
+            input: customInput,
+            actualOutput: '',
+            passed: false,
+            error: err.response?.data?.message || err.message || 'Custom execution error encountered.'
+          }
+        ],
+        errorMessage: err.response?.data?.message || err.message
+      });
+    } finally {
+      setIsExecutingCustom(false);
       setExecutionStatusMessage('');
     }
   };
@@ -982,13 +1074,14 @@ export const StudentExamWorkspace = ({
                       value={selectedLanguage}
                       onChange={(e) => {
                         const lang = e.target.value;
+                        const prevTemplate = resolveStarterCode(currentQuestion, selectedLanguage);
                         setSelectedLanguage(lang);
                         if (
                           !currentCode ||
-                          currentCode === LANGUAGE_TEMPLATES[selectedLanguage] ||
+                          currentCode === prevTemplate ||
                           currentCode.trim().length === 0
                         ) {
-                          setCurrentCode(LANGUAGE_TEMPLATES[lang] || '');
+                          setCurrentCode(resolveStarterCode(currentQuestion, lang));
                         }
                       }}
                       className="bg-[#FFFFFF] border border-[#DDE1DA] text-[#171819] text-xs font-medium rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#191A1D] cursor-pointer"
@@ -999,11 +1092,23 @@ export const StudentExamWorkspace = ({
                       <option value="cpp">C++ (GCC 20)</option>
                     </select>
 
+                    {/* Execution Mode Badge */}
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                        currentQuestion.executionMode === 'FUNCTION'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }`}
+                      title={currentQuestion.executionMode === 'FUNCTION' ? 'Function mode: implement the declared function' : 'Standard I/O mode: read stdin and write stdout'}
+                    >
+                      {currentQuestion.executionMode === 'FUNCTION' ? 'FUNCTION' : 'STDIN'}
+                    </span>
+
                     <button
                       type="button"
                       onClick={() => {
                         if (confirm('Reset code to starter template? Your current edits will be cleared.')) {
-                          const fallback = currentQuestion.starterCode || LANGUAGE_TEMPLATES[selectedLanguage];
+                          const fallback = resolveStarterCode(currentQuestion, selectedLanguage);
                           setCurrentCode(fallback);
                           triggerAutosave(fallback, selectedLanguage, selectedOption, answers[currentQuestion._id]?.isMarkedForReview || false);
                         }
@@ -1117,6 +1222,24 @@ export const StudentExamWorkspace = ({
                               ? 'bg-emerald-500'
                               : 'bg-amber-500'
                           }`} />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('custom');
+                          setIsTestDrawerExpanded(true);
+                        }}
+                        className={`h-10 px-3 font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                          activeTab === 'custom'
+                            ? 'border-[#191A1D] text-[#171819]'
+                            : 'border-transparent text-[#777D78] hover:text-[#171819]'
+                        }`}
+                      >
+                        <span>Custom Input</span>
+                        {customResults && (
+                          <span className={`w-2 h-2 rounded-full ${customResults.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                         )}
                       </button>
                     </div>
@@ -1278,6 +1401,102 @@ export const StudentExamWorkspace = ({
                           ) : (
                             <div className="text-[#777D78] py-6 text-center">
                               Click <strong>"Submit"</strong> to evaluate against the grading suite and save your score.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {activeTab === 'custom' && (
+                        <div className="space-y-3">
+                          {currentQuestion.executionMode === 'FUNCTION' ? (
+                            <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900">
+                              <div className="font-semibold text-xs mb-1 flex items-center gap-1.5 text-purple-800">
+                                <HelpCircle className="h-4 w-4" /> FUNCTION Mode Active
+                              </div>
+                              <p className="text-xs text-purple-700">
+                                Custom standard input (stdin) is disabled for Function-mode questions.
+                                Your function is evaluated directly by the judge harness using test case arguments.
+                                Use <strong>"Run"</strong> to test your implementation against sample inputs.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
+                                <div className="text-xs font-semibold text-[#171819]">
+                                  Standard Input (stdin):
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleRunCustomInput}
+                                  disabled={isExecutingCustom || isExecuting || isSubmittingQuestion}
+                                  className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#191A1D] text-white hover:bg-black font-semibold text-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  {isExecutingCustom ? (
+                                    <>
+                                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      <span>Executing...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-3.5 w-3.5 fill-current" />
+                                      <span>Run Custom Input</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
+                              <textarea
+                                value={customInput}
+                                onChange={(e) => setCustomInput(e.target.value)}
+                                placeholder="Enter custom standard input to pass to your program..."
+                                rows={3}
+                                className="w-full p-2.5 rounded-xl border border-[#DDE1DA] font-mono text-xs text-[#171819] bg-[#F5F6F3] focus:bg-white focus:outline-none focus:border-[#191A1D] transition-colors resize-y"
+                              />
+
+                              {isExecutingCustom ? (
+                                <div className="flex items-center justify-center text-[#777D78] gap-2 py-4">
+                                  <div className="w-4 h-4 border-2 border-[#191A1D] border-t-transparent rounded-full animate-spin" />
+                                  <span>{executionStatusMessage || 'Executing custom input...'}</span>
+                                </div>
+                              ) : customResults ? (
+                                <div className="p-3 rounded-xl border border-[#DDE1DA] bg-[#FDFDFD] space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                      customResults.status === 'COMPLETED'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    }`}>
+                                      Status: {customResults.status || customResults.verdict}
+                                    </span>
+                                    {customResults.runtimeMs !== undefined && (
+                                      <span className="text-[11px] text-[#777D78]">
+                                        Runtime: {customResults.runtimeMs}ms
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {(customResults.errorMessage || customResults.testResults?.[0]?.error) && (
+                                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-mono whitespace-pre-wrap">
+                                      {customResults.errorMessage || customResults.testResults?.[0]?.error}
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <span className="text-[11px] font-semibold text-[#777D78] block mb-1">
+                                      Standard Output (stdout):
+                                    </span>
+                                    <pre className="p-2.5 rounded-lg bg-[#191A1D] text-[#EDFF72] font-mono text-xs overflow-x-auto whitespace-pre-wrap max-h-40">
+                                      {customResults.testResults?.[0]?.actualOutput !== undefined && customResults.testResults[0].actualOutput !== ''
+                                        ? customResults.testResults[0].actualOutput
+                                        : '(No standard output produced)'}
+                                    </pre>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-[#777D78] italic text-center py-2">
+                                  Enter input above and click "Run Custom Input" to test program output. Custom runs do not affect your exam score.
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>

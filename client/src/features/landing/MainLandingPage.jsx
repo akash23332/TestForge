@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './Navbar';
 import { HeroSection } from './HeroSection';
-import { AboutSection } from './AboutSection';
-import { FeaturesSection } from './FeaturesSection';
-import { EducatorsSection } from './EducatorsSection';
-import { StudentsSection } from './StudentsSection';
-import { HowItWorksSection } from './HowItWorksSection';
-import { WhyTestForgeSection } from './WhyTestForgeSection';
-import { FAQSection } from './FAQSection';
-import { FinalCTASection } from './FinalCTASection';
-import { Footer } from './Footer';
+import { LandingBelowHero } from './LandingBelowHero';
 import { KeyRound, X, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export const MainLandingPage = ({
@@ -76,7 +68,7 @@ export const MainLandingPage = ({
         onNavigateTeacherLogin={onNavigateTeacherLogin}
       />
 
-      {/* Hero Section */}
+      {/* Hero Section (completely untouched) */}
       <HeroSection
         onJoinTest={handleOpenJoin}
         onExplorePlatform={handleExplorePlatform}
@@ -84,31 +76,12 @@ export const MainLandingPage = ({
         onNavigateStudentPortal={onNavigateStudentPortal}
       />
 
-      {/* Main Content Area (Off-white canvas that rolls over upon scrolling) */}
-      <main className="relative z-10 mt-0 rounded-t-[36px] sm:rounded-t-[44px] bg-[#F2F3F0] px-4 sm:px-8 lg:px-14 shadow-[0_-30px_80px_rgba(0,0,0,0.6)]">
-        <div className="max-w-7xl mx-auto">
-          <AboutSection />
-          <FeaturesSection />
-          <EducatorsSection onNavigateTeacherLogin={onNavigateTeacherLogin} />
-          <StudentsSection
-            onJoinTest={handleOpenJoin}
-            onNavigateStudentPortal={onNavigateStudentPortal}
-          />
-          <HowItWorksSection />
-          <WhyTestForgeSection />
-          <FAQSection />
-          <FinalCTASection
-            onJoinTest={handleOpenJoin}
-            onNavigateTeacherLogin={onNavigateTeacherLogin}
-            onNavigateStudentPortal={onNavigateStudentPortal}
-          />
-          <Footer
-            onJoinTest={handleOpenJoin}
-            onNavigateStudentPortal={onNavigateStudentPortal}
-            onNavigateTeacherLogin={onNavigateTeacherLogin}
-          />
-        </div>
-      </main>
+      {/* Sections Below Hero */}
+      <LandingBelowHero
+        onJoinTest={handleOpenJoin}
+        onNavigateTeacherLogin={onNavigateTeacherLogin}
+        onNavigateStudentPortal={onNavigateStudentPortal}
+      />
 
       {/* Quick Join Test Modal Dialog */}
       {quickJoinOpen && (

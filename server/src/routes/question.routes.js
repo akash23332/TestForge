@@ -12,7 +12,10 @@ import {
   createTestCase,
   updateTestCase,
   deleteTestCase,
-  validateReferenceSolution
+  validateReferenceSolution,
+  validateSingleTestCaseHandler,
+  acceptComputedOutputHandler,
+  getValidationStatusHandler
 } from '../controllers/testCase.controller.js';
 import { runMutations } from '../controllers/mutation.controller.js';
 import {
@@ -37,6 +40,10 @@ router.post('/:id/tests', requireAuth, requireRole('teacher', 'admin'), createTe
 router.patch('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), updateTestCase);
 router.delete('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), deleteTestCase);
 router.post('/:id/validate', requireAuth, requireRole('teacher', 'admin'), validateReferenceSolution);
+router.post('/:id/validate-suite', requireAuth, requireRole('teacher', 'admin'), validateReferenceSolution);
+router.post('/:id/tests/:testId/run', requireAuth, requireRole('teacher', 'admin'), validateSingleTestCaseHandler);
+router.post('/:id/tests/:testId/accept-computed', requireAuth, requireRole('teacher', 'admin'), acceptComputedOutputHandler);
+router.get('/:id/validation-status', requireAuth, requireRole('teacher', 'admin'), getValidationStatusHandler);
 
 // Mutation Testing
 router.post('/:id/mutation-runs', requireAuth, requireRole('teacher', 'admin'), runMutations);

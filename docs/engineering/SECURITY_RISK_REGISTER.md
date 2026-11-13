@@ -1,7 +1,7 @@
 # SECURITY RISK REGISTER: TESTFORGE
 
 **Document ID:** DOC-ENG-005  
-**Version:** 1.6.0  
+**Version:** 1.7.0  
 **Status:** Active Security Risk Registry  
 **Date:** November 13, 2026  
 **Primary Architect:** Antigravity Engineering Agent  
@@ -12,7 +12,9 @@
 
 This register catalogs known architectural, implementation, and operational risks across TestForge. Each risk is evaluated by Impact and Likelihood to produce a Severity Rating (Critical, High, Medium, Low). Risks remain active until independently audited and verified with concrete runtime evidence.
 
-In Milestone R1, hermetic local integration testing with a mock Judge0 server verified client-side credential redaction (`_sanitize`) and Zero-Leak hiding of test case inputs/outputs (`input: null`, `expectedOutput: null`). However, mock testing does not execute untrusted student binaries and provides zero kernel isolation. Finding **SEC-001 remains CRITICAL and UNRESOLVED**.
+In the **Project Cleanup and Infrastructure Simplification Milestone**, all self-hosted Azure ARM64 build pipelines, Isolate wrappers, and Kata blueprints were archived to [`docs/archive/infrastructure/deploy/`](file:///d:/TestForge/docs/archive/infrastructure/deploy/). For portfolio and demonstration deployment, TestForge adopts a hosted code execution provider topology (hosted Judge0 CE / JDoodle API), offloading OS-level containment to the provider. 
+
+However, for self-hosted Docker environments, finding **SEC-001 remains CRITICAL and UNRESOLVED**.
 
 ---
 
@@ -20,7 +22,7 @@ In Milestone R1, hermetic local integration testing with a mock Judge0 server ve
 
 ### RISK R-01 (SEC-001): Privileged Docker Container for Execution Worker
 * **Severity:** **CRITICAL** (Likelihood: High, Impact: Critical)
-* **Affected Component:** `deploy/judge0/docker-compose.yml` (`services.judge0-workers.privileged: true`)
+* **Affected Component:** `deploy/judge0/docker-compose.yml` (`services.judge0-workers.privileged: true`) [Archived]
 * **Description:** Isolate requires root privileges and capability to manipulate Linux cgroups and namespaces, which prompted Judge0 to run containers in Docker privileged mode. Privileged containers disable seccomp, AppArmor, and cap-drop protections, providing direct access to host kernel devices (`/dev`) if any container escape occurs.
 * **Formal Decision Reference:** [`docs/engineering/reports/PRIVILEGED_WORKER_SECURITY_DECISION.md`](file:///D:/TestForge/docs/engineering/reports/PRIVILEGED_WORKER_SECURITY_DECISION.md)
 * **Mitigation in Phase 5.1C-13 & Milestone B:**
@@ -32,7 +34,10 @@ In Milestone R1, hermetic local integration testing with a mock Judge0 server ve
   * In Milestone G2 ([`docs/engineering/reports/MILESTONE_G2_KATA_FEASIBILITY.md`](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_KATA_FEASIBILITY.md)), verified official Microsoft Learn specifications: **Azure does NOT support nested virtualization on ANY ARM-based VM series** (`Bps_v2`, `Dps_v5`, `Epsv5`).
   * In Milestone G2.1 ([`docs/engineering/reports/MILESTONE_G2_1_MSHV_FEASIBILITY.md`](file:///D:/TestForge/docs/engineering/reports/MILESTONE_G2_1_MSHV_FEASIBILITY.md)), audited the Microsoft Hypervisor (MSHV) interface. Proved that `/dev/mshv` is restricted to Hyper-V Root Partitions (hosts) and is completely blocked in Azure IaaS guest VMs (child partitions). AKS also explicitly marks ARM64 as unsupported for Kata MSHV sandboxing.
   * Therefore, hardware microVM isolation on Azure requires migrating to an x86_64 VM with nested virtualization (`Standard_D2as_v5` with AMD EPYC, ~$40–$63/mo) or bare-metal ARM64 hosting.
-* **Status:** **CRITICAL and UNRESOLVED**. Mitigated for Phase C Staging via dedicated disposable single-tenant VM and Option C hardened wrapper jail. Finding SEC-001 remains **CRITICAL and UNRESOLVED** until hardware microVMs (Kata) are deployed on a virtualization-capable host in production. Active hostile-code container escape tests remain strictly prohibited on the current staging host.
+* **Infrastructure Simplification Architecture Shift:**
+  * Self-hosted Azure Docker and VM infrastructure has been archived under `docs/archive/infrastructure/deploy`.
+  * The production portfolio deployment architecture transitions to hosted execution APIs (hosted Judge0 CE or JDoodle) via the existing `RenderSandboxProvider.js` abstraction.
+* **Status:** **CRITICAL and UNRESOLVED** for self-hosted Docker. Self-hosted privileged workers must not be used in multi-tenant production. Finding SEC-001 remains **CRITICAL and UNRESOLVED** until hardware microVMs (Kata) are deployed on a virtualization-capable host in production. Active hostile-code container escape tests remain strictly prohibited on any unisolated host.
 
 ---
 

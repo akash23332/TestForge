@@ -2,7 +2,11 @@ import { TestCase } from '../models/TestCase.js';
 import { Question } from '../models/Question.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
-import { validateSingleTestCase } from '../services/codeRunner.service.js';
+import {
+  validateQuestionSuite,
+  validateSingleTest,
+  acceptComputedOutput
+} from '../services/testValidation.service.js';
 
 const checkQuestionOwner = (question, user) => {
   if (!user) {
@@ -126,7 +130,7 @@ export const deleteTestCase = async (req, res, next) => {
 
 /**
  * Validates reference solution against tests using isolated VM execution.
- * Saves individual verification status back to the database.
+ * Evaluates reference solution, test case validity, output matches, quality and readiness.
  */
 export const validateReferenceSolution = async (req, res, next) => {
   try {
@@ -138,82 +142,39 @@ export const validateReferenceSolution = async (req, res, next) => {
 
     checkQuestionOwner(question, req.user);
 
-    const testCases = await TestCase.find({ questionId: id }).sort('createdAt');
-    if (testCases.length === 0) {
-      return ApiResponse.success(
-        res,
-        200,
-        {
-          questionId: id,
-          totalTests: 0,
-          passedTests: 0,
-          failedTests: 0,
-          status: 'no_tests',
-          results: []
-        },
-        'No test cases configured for this question'
-      );
-    }
+    const targetLang = (req.body?.language || question.language || 'javascript').toLowerCase();
 
-    const refCode = question.referenceSolution || question.starterCode;
+    // Verify reference solution exists before starting
+    let refCode = req.body?.code;
     if (!refCode || !refCode.trim()) {
-      throw ApiError.badRequest('Question does not have a reference solution or starter code configured');
-    }
-
-    const questionContext = {
-      title: question.title,
-      tags: question.tags || [],
-      language: question.language || 'javascript'
-    };
-
-    const results = [];
-    let passedCount = 0;
-    let failedCount = 0;
-
-    for (const tc of testCases) {
-      const execResult = await validateSingleTestCase({
-        code: refCode,
-        testCase: tc,
-        questionContext,
-        timeoutMs: 2000
-      });
-
-      // Map execution status to TestCase verificationStatus enum
-      let dbStatus = 'failed';
-      if (execResult.passed) {
-        dbStatus = 'verified';
-        passedCount++;
-      } else {
-        failedCount++;
+      if (question.referenceSolutions) {
+        refCode = question.referenceSolutions instanceof Map
+          ? question.referenceSolutions.get(targetLang)
+          : question.referenceSolutions[targetLang];
       }
-
-      tc.verificationStatus = dbStatus;
-      await tc.save();
-
-      results.push({
-        testCaseId: tc._id,
-        category: tc.category,
-        visibility: tc.visibility,
-        input: tc.input,
-        expectedOutput: tc.expectedOutput,
-        actualOutput: execResult.actualOutput,
-        passed: execResult.passed,
-        verificationStatus: dbStatus,
-        error: execResult.error,
-        runtimeMs: execResult.runtimeMs
-      });
+      if (!refCode || !refCode.trim()) {
+        if (question.language === targetLang && question.referenceSolution && question.referenceSolution.trim()) {
+          refCode = question.referenceSolution;
+        }
+      }
     }
 
-    // Determine overall question verification status
-    let questionStatus = 'unverified';
-    if (failedCount === 0 && passedCount > 0) {
-      questionStatus = 'verified';
-    } else if (failedCount > 0) {
-      questionStatus = 'failed';
+    if (!refCode || !refCode.trim()) {
+      throw ApiError.badRequest(`Question does not have a reference solution configured for language '${targetLang}'. Missing solutions cannot be validated.`);
     }
 
-    question.isVerified = questionStatus === 'verified';
-    question.status = questionStatus === 'verified' ? 'active' : 'draft';
+    const suiteReport = await validateQuestionSuite({
+      questionId: id,
+      language: targetLang,
+      user: req.user
+    });
+
+    // Update legacy question verification fields for compatibility
+    const questionStatus = suiteReport.referenceSolutionStatus === 'PASS' && suiteReport.testCaseValidity === 'VALID'
+      ? 'verified'
+      : 'failed';
+
+    question.isVerified = suiteReport.referenceSolutionStatus === 'PASS';
     await question.save();
 
     return ApiResponse.success(
@@ -221,14 +182,96 @@ export const validateReferenceSolution = async (req, res, next) => {
       200,
       {
         questionId: id,
-        totalTests: testCases.length,
-        passedTests: passedCount,
-        failedTests: failedCount,
+        ...suiteReport,
+        totalTests: suiteReport.metrics.total,
+        passedTests: suiteReport.metrics.passed,
+        failedTests: suiteReport.metrics.failed,
         questionStatus,
         isVerified: question.isVerified,
-        results
+        results: suiteReport.testCaseResults
       },
-      `Validation complete: ${passedCount}/${testCases.length} tests passed`
+      `Validation complete: ${suiteReport.metrics.passed}/${suiteReport.metrics.total} tests passed (${suiteReport.publishingStatus})`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Validates a single test case against the question's reference solution.
+ */
+export const validateSingleTestCaseHandler = async (req, res, next) => {
+  try {
+    const { id, testId } = req.params;
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    checkQuestionOwner(question, req.user);
+
+    const result = await validateSingleTest({
+      questionId: id,
+      testId,
+      language: req.body?.language,
+      user: req.user
+    });
+
+    return ApiResponse.success(res, 200, result, 'Single test validation complete');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Requires teacher approval before accepting computed reference solution output as expected output.
+ */
+export const acceptComputedOutputHandler = async (req, res, next) => {
+  try {
+    const { id, testId } = req.params;
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    checkQuestionOwner(question, req.user);
+
+    const result = await acceptComputedOutput({
+      questionId: id,
+      testId,
+      user: req.user
+    });
+
+    return ApiResponse.success(res, 200, result, 'Computed output accepted as official expected output');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieves latest question validation and quality summary.
+ */
+export const getValidationStatusHandler = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const question = await Question.findById(id).lean();
+    if (!question) {
+      throw ApiError.notFound('Question not found');
+    }
+
+    checkQuestionOwner(question, req.user);
+
+    return ApiResponse.success(
+      res,
+      200,
+      question.validationSummary || {
+        referenceSolutionStatus: 'PENDING',
+        testCaseValidity: 'PENDING',
+        expectedOutputStatus: 'PENDING',
+        testQualityStatus: 'PENDING',
+        publishingStatus: 'NOT_READY'
+      },
+      'Validation status retrieved'
     );
   } catch (error) {
     next(error);
@@ -240,5 +283,8 @@ export default {
   createTestCase,
   updateTestCase,
   deleteTestCase,
-  validateReferenceSolution
+  validateReferenceSolution,
+  validateSingleTestCaseHandler,
+  acceptComputedOutputHandler,
+  getValidationStatusHandler
 };

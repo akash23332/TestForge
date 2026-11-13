@@ -94,6 +94,8 @@ const TiltContainer = ({ children, className = '' }) => {
   );
 };
 
+const ROTATING_TEACHER_WORDS = ['Workspace', 'Studio', 'Command', 'Engine', 'Platform'];
+
 export const BentoDashboardView = ({
   questions = [],
   onNavigate,
@@ -103,6 +105,20 @@ export const BentoDashboardView = ({
 }) => {
   const [exams, setExams] = useState([]);
   const [loadingExams, setLoadingExams] = useState(false);
+
+  // Rotating headline word with accessibility pause control & reduced-motion support
+  const [teacherWordIndex, setTeacherWordIndex] = useState(0);
+  const [isTeacherRotatingPaused, setIsTeacherRotatingPaused] = useState(false);
+
+  useEffect(() => {
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced || isTeacherRotatingPaused) return;
+
+    const timer = setInterval(() => {
+      setTeacherWordIndex((prev) => (prev + 1) % ROTATING_TEACHER_WORDS.length);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, [isTeacherRotatingPaused]);
 
   // Fetch actual examinations data from backend
   useEffect(() => {
@@ -252,16 +268,27 @@ export const BentoDashboardView = ({
   return (
     <div className="w-full flex flex-col gap-6 font-sans select-none">
       {/* ────────────────────────────────────────────────────────────────────────────
-          1. TESTFORGE WELCOME HERO SECTION
+          1. TESTFORGE WELCOME HERO SECTION (Scaled up 10% so 90% laptop view matches 100% full scale)
           ──────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2 transform scale-100 lg:scale-[1.08] origin-top-left transition-transform duration-300">
         <div className="max-w-2xl">
           <h1 className="text-3xl sm:text-4xl lg:text-[40px] font-extrabold tracking-tight text-[#171819] leading-[1.15]">
             <span>Your Assessment </span>
             <span className="tf-heading-badge lime" title="TestForge Assessment Suite">
               <Sparkles className="w-4 h-4 text-[#171819]" />
+            </span>{' '}
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Pause rotating headline"
+              onClick={() => setIsTeacherRotatingPaused((prev) => !prev)}
+              onMouseEnter={() => setIsTeacherRotatingPaused(true)}
+              onMouseLeave={() => setIsTeacherRotatingPaused(false)}
+              title={isTeacherRotatingPaused ? "Click to resume rotation" : "Click or hover to pause rotation"}
+              className="text-[#171819] inline-block transition-all duration-300 underline decoration-[#EDFF72] decoration-4 underline-offset-4 cursor-pointer"
+            >
+              {ROTATING_TEACHER_WORDS[teacherWordIndex]}
             </span>
-            <span> Workspace</span>
           </h1>
           <p className="mt-2 text-sm sm:text-base text-[#777D78] font-medium leading-relaxed">
             Create assessments, manage questions and monitor student performance from one place.

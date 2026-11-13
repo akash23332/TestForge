@@ -325,12 +325,24 @@ export const processExecutionJob = async (job) => {
       return;
     }
 
-    const testFilter = { questionId };
-    if (runType === 'SAMPLE') {
-      testFilter.$or = [{ visibility: 'public' }, { category: 'sample' }];
+    let testCases = [];
+    if (runType === 'CUSTOM_INPUT') {
+      testCases = [
+        {
+          _id: null,
+          category: 'custom',
+          visibility: 'public',
+          input: submission.customInput !== undefined && submission.customInput !== null ? String(submission.customInput) : '',
+          expectedOutput: null
+        }
+      ];
+    } else {
+      const testFilter = { questionId };
+      if (runType === 'SAMPLE') {
+        testFilter.$or = [{ visibility: 'public' }, { category: 'sample' }];
+      }
+      testCases = await TestCase.find(testFilter).lean();
     }
-
-    const testCases = await TestCase.find(testFilter).lean();
 
     if (!testCases || testCases.length === 0) {
       if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
@@ -421,7 +433,10 @@ export const processExecutionJob = async (job) => {
         testCase: tc,
         questionContext: {
           title: question.title,
-          language: submission.language || question.language
+          language: submission.language || question.language,
+          executionMode: question.executionMode || 'STDIN',
+          functionName: question.functionName || 'solution',
+          parameters: question.functionSignature?.parameters || []
         },
         timeoutMs: 3500,
         provider: activeProvider,
@@ -511,6 +526,10 @@ export const processExecutionJob = async (job) => {
       finalStatus = 'EXECUTION_UNAVAILABLE';
       scoreAwarded = null;
       submission.errorMessage = 'Execution infrastructure temporarily unavailable. Submission preserved for idempotent retry.';
+    } else if (runType === 'CUSTOM_INPUT') {
+      verdict = criticalErrorStatus || 'COMPLETED';
+      finalStatus = criticalErrorStatus || 'COMPLETED';
+      scoreAwarded = null;
     } else {
       const passRatio = totalCount > 0 ? passedCount / totalCount : 0;
       const maxMarks = submission.maxMarks || 10;
@@ -547,7 +566,9 @@ export const processExecutionJob = async (job) => {
             scoreAwarded,
             verdict,
             status: finalStatus,
-            errorMessage: isInfrastructureFailure ? submission.errorMessage : null,
+            errorMessage: isInfrastructureFailure
+              ? submission.errorMessage
+              : (criticalErrorStatus ? (evaluatedResults.find(r => r.error)?.error || submission.errorMessage || null) : null),
             executionLeaseExpiresAt: null,
             'remoteExecution.state': isInfrastructureFailure ? 'EXECUTION_UNAVAILABLE' : 'COMPLETED',
             'remoteExecution.completedAt': new Date()
@@ -571,6 +592,9 @@ export const processExecutionJob = async (job) => {
       submission.scoreAwarded = scoreAwarded;
       submission.verdict = verdict;
       submission.status = finalStatus;
+      submission.errorMessage = isInfrastructureFailure
+        ? submission.errorMessage
+        : (criticalErrorStatus ? (evaluatedResults.find(r => r.error)?.error || submission.errorMessage || null) : null);
       if (typeof submission.save === 'function') {
         await submission.save();
       }
