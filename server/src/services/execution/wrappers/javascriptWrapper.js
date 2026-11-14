@@ -7,26 +7,33 @@ export const buildJavaScriptWrapper = ({
   dataStructure = 'ARRAY',
   returnType = 'void'
 }) => {
+  // Strict metadata precedence: explicit metadata is authoritative.
+  const explicitDS = dataStructure && dataStructure !== 'NONE' && dataStructure !== 'ARRAY';
   const isLinkedList =
     dataStructure === 'LINKED_LIST' ||
-    (returnType && /List[nN]ode/i.test(returnType)) ||
-    (code && /List[nN]ode/i.test(code)) ||
-    (parameters && parameters.some((p) => /List[nN]ode/i.test(p.type || '')));
+    (!explicitDS && (
+      (returnType && /List[nN]ode/i.test(returnType)) ||
+      (parameters && parameters.some((p) => /List[nN]ode/i.test(p.type || '')))
+    ));
 
   const isBinaryTree =
     dataStructure === 'BINARY_TREE' ||
-    (returnType && /Tree[nN]ode/i.test(returnType)) ||
-    (code && /Tree[nN]ode/i.test(code)) ||
-    (parameters && parameters.some((p) => /Tree[nN]ode/i.test(p.type || '')));
+    (!explicitDS && (
+      (returnType && /Tree[nN]ode/i.test(returnType)) ||
+      (parameters && parameters.some((p) => /Tree[nN]ode/i.test(p.type || '')))
+    ));
+
+  const needsListNode = isLinkedList || /\bList[nN]ode\b/i.test(code) || (parameters && parameters.some((p) => /List[nN]ode/i.test(p.type || '')));
+  const needsTreeNode = isBinaryTree || /\bTree[nN]ode\b/i.test(code) || (parameters && parameters.some((p) => /Tree[nN]ode/i.test(p.type || '')));
 
   let typeDefs = '';
-  if (isLinkedList || /\bList[nN]ode\b/i.test(code)) {
+  if (needsListNode) {
     typeDefs += getAdapter('LINKED_LIST').getTypeDeclarations('javascript', { code }) + '\n';
   }
-  if (isBinaryTree || /\bTree[nN]ode\b/i.test(code)) {
+  if (needsTreeNode) {
     typeDefs += getAdapter('BINARY_TREE').getTypeDeclarations('javascript', { code }) + '\n';
   }
-  if (!isLinkedList && !isBinaryTree && dataStructure && dataStructure !== 'ARRAY') {
+  if (!isLinkedList && !isBinaryTree && dataStructure && dataStructure !== 'ARRAY' && dataStructure !== 'NONE') {
     typeDefs += getAdapter(dataStructure).getTypeDeclarations('javascript', { code }) + '\n';
   }
 
@@ -36,46 +43,153 @@ export const buildJavaScriptWrapper = ({
     .replace(/\bListnode\b/g, 'ListNode')
     .replace(/\bTreenode\b/g, 'TreeNode');
 
+  const paramTypes = (parameters || []).map((p) => (p.type || '').trim());
+  const paramNames = (parameters || []).map((p) => (p.name || '').trim());
+
   return `const fs = require('fs');
+
 ${typeDefs}
 
 ${normalizedCode}
 
+function splitSmartArgs(text) {
+  text = (text || '').trim();
+  if (!text) return [];
+  const lines = text.split('\\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    return lines.map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        const num = Number(l);
+        if (!isNaN(num) && l.trim() !== '') return num;
+        if (l.toLowerCase() === 'true') return true;
+        if (l.toLowerCase() === 'false') return false;
+        return l;
+      }
+    });
+  }
+
+  const res = [];
+  let current = '';
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let inQuotes = false;
+  let quoteChar = null;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      current += c;
+      if (c === quoteChar && (i === 0 || text[i - 1] !== '\\\\')) {
+        inQuotes = false;
+      }
+    } else {
+      if (c === '"' || c === "'") {
+        inQuotes = true;
+        quoteChar = c;
+        current += c;
+      } else if (c === '[') {
+        bracketDepth++;
+        current += c;
+      } else if (c === ']') {
+        if (bracketDepth > 0) bracketDepth--;
+        current += c;
+      } else if (c === '{') {
+        braceDepth++;
+        current += c;
+      } else if (c === '}') {
+        if (braceDepth > 0) braceDepth--;
+        current += c;
+      } else if (bracketDepth === 0 && braceDepth === 0 && (c === ',' || /\\s/.test(c))) {
+        let token = current.trim();
+        if (token && token !== '=') {
+          if (token.endsWith('=')) token = token.slice(0, -1).trim();
+          if (token) {
+            try {
+              res.push(JSON.parse(token));
+            } catch {
+              const num = Number(token);
+              if (!isNaN(num) && token.trim() !== '') res.push(num);
+              else if (token.toLowerCase() === 'true') res.push(true);
+              else if (token.toLowerCase() === 'false') res.push(false);
+              else res.push(token);
+            }
+          }
+        }
+        current = '';
+      } else {
+        current += c;
+      }
+    }
+  }
+
+  let lastToken = current.trim();
+  if (lastToken && lastToken !== '=') {
+    if (lastToken.endsWith('=')) lastToken = lastToken.slice(0, -1).trim();
+    if (lastToken) {
+      try {
+        res.push(JSON.parse(lastToken));
+      } catch {
+        const num = Number(lastToken);
+        if (!isNaN(num) && lastToken.trim() !== '') res.push(num);
+        else if (lastToken.toLowerCase() === 'true') res.push(true);
+        else if (lastToken.toLowerCase() === 'false') res.push(false);
+        else res.push(lastToken);
+      }
+    }
+  }
+  return res;
+}
+
 (function() {
   try {
     const rawInput = fs.readFileSync(0, 'utf-8').trim();
-    let args = [];
-    if (rawInput) {
-      const lines = rawInput.split('\\n').map((l) => l.trim()).filter(Boolean);
-      for (const line of lines) {
-        try {
-          args.push(JSON.parse(line));
-        } catch {
-          const numTokens = line.split(/\\s+/).map(Number);
-          if (numTokens.length > 1 && numTokens.every((n) => !isNaN(n))) {
-            args.push(...numTokens);
-          } else {
-            args.push(line);
-          }
+    const args = splitSmartArgs(rawInput);
+
+    const paramTypes = ${JSON.stringify(paramTypes)};
+    const paramNames = ${JSON.stringify(paramNames)};
+
+    const finalArgs = args.map((a, i) => {
+      const pType = (i < paramTypes.length ? paramTypes[i] : '').toLowerCase();
+      const pName = (i < paramNames.length ? paramNames[i] : '').toLowerCase();
+
+      let convertToTree = false;
+      let convertToList = false;
+
+      if (/treenode/i.test(pType) || pType === 'tree') {
+        convertToTree = true;
+      } else if (/listnode|linkedlist/i.test(pType)) {
+        convertToList = true;
+      } else if (/(?:\\[\\]|array|vector|list)/i.test(pType)) {
+        convertToTree = false;
+        convertToList = false;
+      } else {
+        if (i === 0 && ${isBinaryTree ? 'true' : 'false'}) {
+          convertToTree = true;
+        } else if (i === 0 && ${isLinkedList ? 'true' : 'false'}) {
+          convertToList = true;
+        } else if (/root/i.test(pName) && typeof TreeNode !== 'undefined') {
+          convertToTree = true;
+        } else if (/head/i.test(pName) && typeof ListNode !== 'undefined') {
+          convertToList = true;
         }
       }
-    }
 
-    const isLL = ${isLinkedList ? 'true' : "(typeof ListNode !== 'undefined' && (" + (code.includes('ListNode') || code.includes('.next') ? 'true' : 'false') + "))"};
-    const isBT = ${isBinaryTree ? 'true' : "(typeof TreeNode !== 'undefined' && (" + (code.includes('TreeNode') || code.includes('.left') || code.includes('.right') ? 'true' : 'false') + "))"};
-
-    const finalArgs = args.map((a) => {
       if (Array.isArray(a)) {
-        if (isBT && !isLL) {
+        if (convertToTree && typeof TreeNode !== 'undefined') {
           return TreeNode.fromArray(a);
-        } else if (isLL) {
+        } else if (convertToList && typeof ListNode !== 'undefined') {
           return ListNode.fromArray(a);
         }
       }
       return a;
     });
 
-    let targetFn = typeof ${fn} === 'function' ? ${fn} : (typeof solution === 'function' ? solution : null);
+    let targetFn = null;
+    if (typeof ${fn} === 'function') targetFn = ${fn};
+    else if (typeof solution === 'function') targetFn = solution;
+
     if (!targetFn && typeof Solution === 'function') {
       const solInst = new Solution();
       if (typeof solInst['${fn}'] === 'function') {
@@ -96,10 +210,16 @@ ${normalizedCode}
       } else if (typeof ListNode !== 'undefined' && res.next !== undefined && res.val !== undefined) {
         res = ListNode.toArray(res);
       }
-    } else if (res === null && isBT && ('${returnType}'.includes('TreeNode') || '${returnType}' === 'void')) {
-      res = [];
-    } else if (res === null && isLL) {
-      res = [];
+    } else if (res === null) {
+      let isDsRet = false;
+      if (${isBinaryTree ? 'true' : 'false'} || ('${returnType}'.includes('TreeNode') && '${returnType}' !== 'void')) {
+        isDsRet = true;
+      } else if (${isLinkedList ? 'true' : 'false'} || ('${returnType}'.includes('ListNode') && '${returnType}' !== 'void')) {
+        isDsRet = true;
+      }
+      if (isDsRet) {
+        res = [];
+      }
     }
 
     console.log(JSON.stringify(res));

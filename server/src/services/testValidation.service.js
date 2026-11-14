@@ -25,15 +25,27 @@ export const normalizeConstraintText = (str) => {
     .replace(/⁷/g, '^7')
     .replace(/⁸/g, '^8')
     .replace(/⁹/g, '^9')
-    .replace(/\*\*/g, '^');
+    .replace(/\*\*/g, '^')
+    .replace(/×/g, '*')
+    .replace(/\s*\^\s*/g, '^');
 };
 
 /**
- * Parses numeric bounds including power notation (e.g., "10^5", "10⁵", "-10^9", "500").
+ * Parses numeric bounds including power notation (e.g., "10^5", "10⁵", "-10^9", "2 * 10^5", "0.5").
  */
 export const parseConstraintNumber = (str) => {
   if (!str) return NaN;
-  const s = normalizeConstraintText(str.trim().replace(/,/g, ''));
+  let s = normalizeConstraintText(str.trim().replace(/,/g, ''));
+
+  // Handle multiplied powers (e.g., "2 * 10^5", "2*10^5", "1.5 * 10^3")
+  const multMatch = s.match(/^([+-]?\d+(?:\.\d+)?)\s*[*x]\s*(\d+)\^([+-]?\d+)$/i);
+  if (multMatch) {
+    const coeff = Number(multMatch[1]);
+    const base = Number(multMatch[2]);
+    const exp = Number(multMatch[3]);
+    return coeff * Math.pow(base, exp);
+  }
+
   const isNegative = s.startsWith('-');
   const cleanS = isNegative ? s.slice(1).trim() : s;
   const powMatch = cleanS.match(/^(\d+)\^([+-]?\d+)$/);
@@ -47,24 +59,55 @@ export const parseConstraintNumber = (str) => {
 };
 
 /**
- * Determines whether a constraint target represents a sequence/array/string length or count.
+ * Classifies a constraint target into LENGTH, ELEMENT, SCALAR, or UNKNOWN.
+ * Strictly separates array lengths, element values, and scalar parameters.
+ * Never assumes 'k' means length.
  */
-export const isLengthTarget = (targetVar) => {
-  if (!targetVar) return false;
+export const classifyConstraintTarget = (targetVar) => {
+  if (!targetVar || typeof targetVar !== 'string') return 'UNKNOWN';
   const t = targetVar.trim().toLowerCase();
-  return (
+
+  // 1. Length targets: n, m, len, length, size, count, |s|, len(s)
+  if (
     t.includes('|') ||
     t.includes('length') ||
     t.includes('size') ||
     t.includes('.len') ||
-    t.includes('count') ||
-    /^n$/i.test(t) ||
-    /^m$/i.test(t) ||
-    /^k$/i.test(t) ||
+    /\blen\s*\(/i.test(t) ||
+    /\bcount\b/i.test(t) ||
+    /^[nm]$/i.test(t) ||
     /^len$/i.test(t) ||
     /\|\s*[a-z0-9_]+\s*\|/i.test(t)
-  );
+  ) {
+    return 'LENGTH';
+  }
+
+  // 2. Element targets: arr[i], nums[i], s[i], matrix[i][j], element
+  if (
+    /\[\s*[a-z0-9_+-]*\s*\]/i.test(t) ||
+    /\b(?:nums|arr|array|matrix|grid|s)\s*\[/i.test(t) ||
+    /\belement\b/i.test(t)
+  ) {
+    return 'ELEMENT';
+  }
+
+  // 3. Scalar targets: k, target, val, x, y, value (e.g. k in Two Sum)
+  if (
+    /^k$/i.test(t) ||
+    /\b(?:target|val|value|num|x|y|w|h|k)\b/i.test(t) ||
+    /^[a-z_][a-z0-9_]*$/i.test(t)
+  ) {
+    return 'SCALAR';
+  }
+
+  return 'UNKNOWN';
 };
+
+/**
+ * Determines whether a constraint target represents a sequence/array/string length or count.
+ * Complies with rule: Never assume 'k' means length.
+ */
+export const isLengthTarget = (targetVar) => classifyConstraintTarget(targetVar) === 'LENGTH';
 
 /**
  * Parses numeric and length constraints from the question constraints string.
@@ -78,7 +121,7 @@ export const parseConstraints = (constraintsStr) => {
   const rules = [];
   const lines = constraintsStr.split(/\r?\n|;/);
 
-  const numPattern = `[+-]?\\d+(?:\\^[+-]?\\d+)?`;
+  const numPattern = `(?:[+-]?\\d+(?:\\.\\d+)?\\s*[*x]\\s*\\d+\\^[+-]?\\d+|[+-]?\\d+\\^[+-]?\\d+|[+-]?\\d+(?:\\.\\d+)?)`;
   const varPattern = `[a-zA-Z0-9_\\[\\]|\\s,().-]+?`;
 
   const doubleBoundRegex = new RegExp(
@@ -108,8 +151,10 @@ export const parseConstraints = (constraintsStr) => {
       const targetVar = doubleBoundMatch[2].trim();
       const maxVal = parseConstraintNumber(doubleBoundMatch[3]);
       if (!isNaN(minVal) && !isNaN(maxVal)) {
+        const classification = classifyConstraintTarget(targetVar);
         rules.push({
-          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
+          type: classification === 'LENGTH' ? 'LENGTH' : 'VALUE',
+          targetClassification: classification,
           target: targetVar,
           min: minVal,
           max: maxVal,
@@ -125,8 +170,10 @@ export const parseConstraints = (constraintsStr) => {
       const targetVar = minBoundMatch[1].trim();
       const minVal = parseConstraintNumber(minBoundMatch[2]);
       if (!isNaN(minVal)) {
+        const classification = classifyConstraintTarget(targetVar);
         rules.push({
-          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
+          type: classification === 'LENGTH' ? 'LENGTH' : 'VALUE',
+          targetClassification: classification,
           target: targetVar,
           min: minVal,
           max: Infinity,
@@ -142,8 +189,10 @@ export const parseConstraints = (constraintsStr) => {
       const targetVar = maxBoundMatch[1].trim();
       const maxVal = parseConstraintNumber(maxBoundMatch[2]);
       if (!isNaN(maxVal)) {
+        const classification = classifyConstraintTarget(targetVar);
         rules.push({
-          type: isLengthTarget(targetVar) ? 'LENGTH' : 'VALUE',
+          type: classification === 'LENGTH' ? 'LENGTH' : 'VALUE',
+          targetClassification: classification,
           target: targetVar,
           min: -Infinity,
           max: maxVal,
@@ -158,33 +207,49 @@ export const parseConstraints = (constraintsStr) => {
 
 /**
  * Extracts numbers and line/array lengths from test input text.
+ * Separates array elements, scalar numbers, and array lengths cleanly.
  */
 export const extractNumbersAndLengths = (inputStr) => {
-  if (typeof inputStr !== 'string') return { numbers: [], lengths: [], raw: String(inputStr) };
-
-  const numbers = [];
-  const numMatches = inputStr.matchAll(/(?:\b|(?<=\s|^|[\[,(]))([+-]?\d+(?:\.\d+)?)(?:\b|(?=\s|$|[\]),]))/g);
-  for (const m of numMatches) {
-    const val = Number(m[1]);
-    if (!isNaN(val)) numbers.push(val);
+  if (typeof inputStr !== 'string') {
+    return { numbers: [], lengths: [], elementNumbers: [], scalarNumbers: [], lines: [], raw: String(inputStr) };
   }
 
-  const lines = inputStr.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const elementNumbers = [];
   const lengths = [];
+  const lines = inputStr.split(/\r?\n/).filter((l) => l.trim().length > 0);
 
   // Extract JSON/bracketed arrays (e.g. "[12, 35, 1, 10, 34, 1]")
   const arrayMatches = inputStr.match(/\[([\s\S]*?)\]/g);
+  let stringWithoutArrays = inputStr;
+
   if (arrayMatches && arrayMatches.length > 0) {
     for (const arrStr of arrayMatches) {
       try {
         const parsed = JSON.parse(arrStr);
         if (Array.isArray(parsed)) {
           lengths.push(parsed.length);
+          const flatten = (arr) => {
+            for (const item of arr) {
+              if (Array.isArray(item)) {
+                flatten(item);
+              } else if (typeof item === 'number') {
+                elementNumbers.push(item);
+              } else if (typeof item === 'string' && !isNaN(Number(item)) && item.trim() !== '') {
+                elementNumbers.push(Number(item));
+              }
+            }
+          };
+          flatten(parsed);
         }
       } catch {
         const items = arrStr.slice(1, -1).split(',').filter((x) => x.trim().length > 0);
         lengths.push(items.length);
+        for (const item of items) {
+          const n = Number(item.trim());
+          if (!isNaN(n)) elementNumbers.push(n);
+        }
       }
+      stringWithoutArrays = stringWithoutArrays.replace(arrStr, ' ');
     }
   }
 
@@ -195,33 +260,82 @@ export const extractNumbersAndLengths = (inputStr) => {
     }
   }
 
-  return { numbers, lengths, lines };
+  // Extract scalar numbers outside bracketed arrays
+  const scalarNumbers = [];
+  const scalarMatches = stringWithoutArrays.matchAll(/(?:\b|(?<=\s|^|[=,]))([+-]?\d+(?:\.\d+)?)(?:\b|(?=\s|$|[,;]))/g);
+  for (const m of scalarMatches) {
+    const val = Number(m[1]);
+    if (!isNaN(val)) scalarNumbers.push(val);
+  }
+
+  const allNumbers = [...elementNumbers, ...scalarNumbers];
+  if (allNumbers.length === 0) {
+    const fallbackMatches = inputStr.matchAll(/(?:\b|(?<=\s|^|[\[,(]))([+-]?\d+(?:\.\d+)?)(?:\b|(?=\s|$|[\]),]))/g);
+    for (const m of fallbackMatches) {
+      const val = Number(m[1]);
+      if (!isNaN(val)) allNumbers.push(val);
+    }
+  }
+
+  return {
+    numbers: allNumbers,
+    elementNumbers,
+    scalarNumbers,
+    lengths,
+    lines
+  };
 };
 
 /**
  * Validates a single test case input against extracted constraints.
+ * Never applies array-length constraints to individual array elements.
+ * Unconfidently classified constraints generate warnings, not blocking errors.
  */
 export const checkInputAgainstConstraints = (inputStr, rules) => {
   const violations = [];
   if (!rules || rules.length === 0) return violations;
 
-  const { numbers, lengths } = extractNumbersAndLengths(inputStr);
+  const { numbers, lengths, elementNumbers, scalarNumbers } = extractNumbersAndLengths(inputStr);
 
   for (const rule of rules) {
-    if (rule.type === 'VALUE') {
-      for (const num of numbers) {
-        if (rule.min !== -Infinity && num < rule.min) {
-          violations.push(`Input value ${num} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
-        } else if (rule.max !== Infinity && num > rule.max) {
-          violations.push(`Input value ${num} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
-        }
-      }
-    } else if (rule.type === 'LENGTH') {
+    const classification = rule.targetClassification || (rule.type === 'LENGTH' ? 'LENGTH' : 'VALUE');
+
+    if (classification === 'LENGTH') {
+      // Check sequence/array/string lengths ONLY
       for (const len of lengths) {
         if (rule.min !== -Infinity && len < rule.min) {
           violations.push(`Input length ${len} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
         } else if (rule.max !== Infinity && len > rule.max) {
           violations.push(`Input length ${len} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
+        }
+      }
+    } else if (classification === 'ELEMENT') {
+      // Check array elements only
+      const targets = elementNumbers.length > 0 ? elementNumbers : numbers;
+      for (const num of targets) {
+        if (rule.min !== -Infinity && num < rule.min) {
+          violations.push(`Input element ${num} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
+        } else if (rule.max !== Infinity && num > rule.max) {
+          violations.push(`Input element ${num} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
+        }
+      }
+    } else if (classification === 'SCALAR') {
+      // Check scalar parameters (numbers outside arrays or standalone numbers)
+      const targets = scalarNumbers.length > 0 ? scalarNumbers : (elementNumbers.length === 0 ? numbers : []);
+      for (const num of targets) {
+        if (rule.min !== -Infinity && num < rule.min) {
+          violations.push(`Scalar value ${num} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
+        } else if (rule.max !== Infinity && num > rule.max) {
+          violations.push(`Scalar value ${num} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
+        }
+      }
+    } else {
+      // General value constraint fallback
+      for (const num of numbers) {
+        if (rule.min !== -Infinity && num < rule.min) {
+          violations.push(`Input value ${num} is less than minimum constraint (${rule.min}) in rule: "${rule.raw}"`);
+        } else if (rule.max !== Infinity && num > rule.max) {
+          violations.push(`Input value ${num} exceeds maximum constraint (${rule.max}) in rule: "${rule.raw}"`);
         }
       }
     }
@@ -449,11 +563,16 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
       caseErrors.push('Missing or empty expected output.');
     }
 
-    // Check constraints
+    // Check constraints (real verified violations are blocking; unknown target advisories are warnings)
     if (tc.input) {
       const violations = checkInputAgainstConstraints(tc.input, parsedRules);
-      if (violations.length > 0) {
-        caseErrors.push(...violations);
+      for (const v of violations) {
+        if (typeof v === 'object' && v.isWarning) {
+          warnings.push(`Test Case #${idx + 1}: ${v.message}`);
+        } else {
+          const msg = typeof v === 'string' ? v : v.message;
+          caseErrors.push(msg);
+        }
       }
     }
 
@@ -503,15 +622,18 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
           failedCount++;
           executionCriticalError = execResult.error || `Execution failed with status: ${execResult.status}`;
           tc.verificationStatus = 'failed';
+          tc.lastError = executionCriticalError;
         } else if (execResult.passed) {
           passedCount++;
           tc.verificationStatus = 'verified';
+          tc.lastError = null;
         } else {
           // Output mismatch: reference solution produced output that differs from expected output
           failedCount++;
           mismatchCount++;
           isMismatch = true;
           tc.verificationStatus = 'failed';
+          tc.lastError = `Output mismatch. Expected: ${tc.expectedOutput}, got: ${computedOutput}`;
           blockingErrors.push(
             `Test Case #${idx + 1} output mismatch: Expected "${tc.expectedOutput}", reference solution produced "${computedOutput}".`
           );
@@ -520,6 +642,7 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
         failedCount++;
         executionCriticalError = runErr.message || 'Execution error during validation';
         tc.verificationStatus = 'failed';
+        tc.lastError = executionCriticalError;
       }
     } else {
       tc.verificationStatus = isCaseValid ? 'unverified' : 'invalid_test';
@@ -529,7 +652,9 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
     if (computedOutput !== null && computedOutput !== undefined) {
       tc.computedOutput = computedOutput;
     }
-    if (execResult?.error) {
+    if (execResult?.passed) {
+      tc.lastError = null;
+    } else if (execResult?.error) {
       tc.lastError = execResult.error;
     }
     await tc.save();
@@ -694,9 +819,10 @@ export const validateSingleTest = async ({ questionId, testId, language = null, 
   tc.computedOutput = execResult.actualOutput;
   if (execResult.passed) {
     tc.verificationStatus = 'verified';
+    tc.lastError = null;
   } else {
     tc.verificationStatus = 'failed';
-    tc.lastError = execResult.error;
+    tc.lastError = execResult.error || `Output mismatch. Expected: ${tc.expectedOutput}, got: ${execResult.actualOutput}`;
   }
   await tc.save();
 

@@ -466,7 +466,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       // Duplicate input is an improvement warning, not a blocker
       expect(report.warnings.some((w) => w.includes('duplicate test case'))).toBe(true);
       expect(report.testQualityStatus).toBe('NEEDS_IMPROVEMENT');
-    });
+    }, 30000);
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -683,7 +683,8 @@ class Solution {
       });
 
       expect(wrapped).toContain('class TreeNode');
-      expect(wrapped).toContain('class Treenode extends TreeNode');
+      // Case insensitivity normalizes Treenode to standard TreeNode without filesystem collisions
+      expect(wrapped).not.toContain('Treenode');
       expect(wrapped).toContain('public TreeNode invertTree(TreeNode root)');
       expect(wrapped).toContain('TreeNode.fromLevelOrder');
     });

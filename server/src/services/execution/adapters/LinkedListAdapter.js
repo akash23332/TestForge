@@ -69,13 +69,7 @@ using Listnode = ListNode;
     if (language === 'java') {
       const hasUserListNode = /\bclass\s+ListNode\b/.test(code);
       if (hasUserListNode) {
-        return `
-class Listnode extends ListNode {
-    public Listnode() { super(); }
-    public Listnode(int val) { super(val); }
-    public Listnode(int val, ListNode next) { super(val, next); }
-}
-`;
+        return '';
       }
       return `
 class ListNode {
@@ -113,12 +107,6 @@ class ListNode {
         sb.append("]");
         return sb.toString();
     }
-}
-
-class Listnode extends ListNode {
-    public Listnode() { super(); }
-    public Listnode(int val) { super(val); }
-    public Listnode(int val, ListNode next) { super(val, next); }
 }
 `;
     }

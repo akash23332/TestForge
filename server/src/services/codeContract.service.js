@@ -91,6 +91,52 @@ main();
 export const STANDARDIZED_TEMPLATES = DEFAULT_TEMPLATES;
 
 /**
+ * Validates metadata precedence and checks for conflicting declarations
+ * between dataStructure, executionMode, parameters, and returnType.
+ */
+export const validateMetadataContract = ({
+  executionMode = EXECUTION_MODES.STDIN,
+  dataStructure = 'ARRAY',
+  parameters = [],
+  returnType = 'void'
+} = {}) => {
+  const errors = [];
+  const warnings = [];
+
+  const mode = (executionMode || EXECUTION_MODES.STDIN).toUpperCase();
+  const ds = (dataStructure || 'ARRAY').toUpperCase();
+
+  if (mode === EXECUTION_MODES.STDIN && (ds === 'LINKED_LIST' || ds === 'BINARY_TREE')) {
+    warnings.push(`executionMode is STDIN but dataStructure is ${ds}. Data structure adapters are only active in FUNCTION execution mode.`);
+  }
+
+  if (ds === 'LINKED_LIST') {
+    const hasTreeParam = parameters && parameters.some(p => /Tree[nN]ode/i.test(p.type || ''));
+    const hasTreeReturn = /Tree[nN]ode/i.test(returnType || '');
+    if (hasTreeParam || hasTreeReturn) {
+      errors.push(`Conflicting metadata: dataStructure is set to LINKED_LIST but function signature declares TreeNode.`);
+    }
+  } else if (ds === 'BINARY_TREE') {
+    const hasListParam = parameters && parameters.some(p => /List[nN]ode/i.test(p.type || ''));
+    const hasListReturn = /List[nN]ode/i.test(returnType || '');
+    if (hasListParam || hasListReturn) {
+      errors.push(`Conflicting metadata: dataStructure is set to BINARY_TREE but function signature declares ListNode.`);
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    resolvedMetadata: {
+      executionMode: mode,
+      dataStructure: ds,
+      returnType: returnType || 'void'
+    }
+  };
+};
+
+/**
  * Returns starter code for a specific language and execution mode.
  * Prefers question-configured templates, then falls back to standardized defaults.
  */
@@ -194,6 +240,7 @@ export default {
   DEFAULT_TEMPLATES,
   getStarterCode,
   wrapCodeForExecution,
+  validateMetadataContract,
   splitCppParams,
   parseCppParams,
   extractCppFunctionInfo

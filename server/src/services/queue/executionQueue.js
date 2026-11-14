@@ -5,6 +5,7 @@ import { config } from '../../config/env.js';
 export const EXECUTION_QUEUE_NAME = 'code-execution';
 
 let executionQueueInstance = null;
+let isRedisOffline = false;
 
 /**
  * Allows injecting or mocking the queue instance (e.g. for testing).
@@ -35,6 +36,19 @@ export const getExecutionQueue = () => {
       maxRetriesPerRequest: null
     });
 
+    connection.on('error', (err) => {
+      if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+        isRedisOffline = true;
+      }
+      if (config.env !== 'test') {
+        console.warn(`[ExecutionQueue] Redis connection issue: ${err.message}`);
+      }
+    });
+
+    connection.on('connect', () => {
+      isRedisOffline = false;
+    });
+
     executionQueueInstance = new Queue(EXECUTION_QUEUE_NAME, {
       connection,
       defaultJobOptions: {
@@ -55,6 +69,9 @@ export const getExecutionQueue = () => {
     });
 
     executionQueueInstance.on('error', (err) => {
+      if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+        isRedisOffline = true;
+      }
       if (config.env !== 'test') {
         console.warn(`[ExecutionQueue] Redis queue warning: ${err.message}`);
       }
@@ -68,6 +85,9 @@ export const getExecutionQueue = () => {
  * Enqueues an execution or grading job with idempotency and priority scheduling.
  * ZERO LEAK: Only submission IDs and minimal identifiers are placed in the queue payload.
  * Source code, test cases, and solutions are fetched securely from MongoDB inside the worker.
+ * 
+ * If Redis/BullMQ is offline or unavailable (e.g. local dev without Redis),
+ * transparently executes the job asynchronously in-memory.
  * 
  * @param {Object} params
  * @param {string} params.submissionId - MongoDB Submission document ID
@@ -95,21 +115,95 @@ export const enqueueExecutionJob = async ({
   // Idempotent Job ID: prevents duplicate queuing of the same submission document
   const jobId = `exec_${submissionId}`;
 
-  const job = await queue.add(
-    `execute_${runType.toLowerCase()}`,
-    {
-      submissionId: submissionId.toString(),
-      attemptId: attemptId.toString(),
-      questionId: questionId.toString(),
-      runType,
-      language,
-      studentEmail
-    },
-    {
-      jobId,
-      priority
+  const jobPayload = {
+    submissionId: submissionId.toString(),
+    attemptId: attemptId.toString(),
+    questionId: questionId.toString(),
+    runType,
+    language,
+    studentEmail
+  };
+
+  // In test environment with mocked queue instance, preserve existing fast synchronous/mock behavior
+  if ((config.env === 'test' || process.env.NODE_ENV === 'test') && !process.env.USE_REAL_REDIS) {
+    return await queue.add(
+      `execute_${runType.toLowerCase()}`,
+      jobPayload,
+      {
+        jobId,
+        priority
+      }
+    );
+  }
+
+  let job = null;
+  let useInMemoryFallback = false;
+
+  if (isRedisOffline) {
+    useInMemoryFallback = true;
+  } else {
+    try {
+      const addPromise = queue.add(
+        `execute_${runType.toLowerCase()}`,
+        jobPayload,
+        {
+          jobId,
+          priority
+        }
+      );
+      const timeoutPromise = new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error('Redis connection timed out after 500ms')), 500);
+        if (typeof timer.unref === 'function') timer.unref();
+      });
+      job = await Promise.race([addPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn(`[ExecutionQueue] Redis unavailable (${err.message}). Using asynchronous in-memory execution fallback.`);
+      isRedisOffline = true;
+      useInMemoryFallback = true;
     }
-  );
+  }
+
+  if (useInMemoryFallback) {
+    job = {
+      id: jobId,
+      name: `execute_${runType.toLowerCase()}`,
+      data: jobPayload
+    };
+
+    // Asynchronously dispatch execution job so the controller immediately returns HTTP 202
+    setTimeout(async () => {
+      try {
+        const { processExecutionJob } = await import('./executionProcessor.js');
+        await processExecutionJob({
+          id: jobId,
+          name: `execute_${runType.toLowerCase()}`,
+          data: jobPayload
+        });
+      } catch (procErr) {
+        console.error(`[ExecutionQueue Fallback] In-memory job execution error for ${submissionId}:`, procErr.message);
+      }
+    }, 15);
+  } else {
+    // Watchdog: If Redis accepted the job but no standalone worker is running (common in local dev),
+    // check after 2.5s and process in-memory if still QUEUED.
+    setTimeout(async () => {
+      try {
+        const { Submission } = await import('../../models/Submission.js');
+        const sub = await Submission.findById(submissionId).lean();
+        if (sub && sub.status === 'QUEUED') {
+          console.warn(`[ExecutionQueue Watchdog] Job ${jobId} remained QUEUED for 2.5s (no standalone worker active). Triggering local execution processor.`);
+          const { processExecutionJob } = await import('./executionProcessor.js');
+          await processExecutionJob({
+            id: jobId,
+            name: `execute_${runType.toLowerCase()}`,
+            data: jobPayload
+          });
+        }
+      } catch {
+        // Safe watchdog error ignore
+      }
+    }, 2500);
+  }
 
   return job;
 };

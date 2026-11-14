@@ -9,36 +9,47 @@ export const buildJavaWrapper = ({
   dataStructure = 'ARRAY',
   returnType = 'void'
 }) => {
+  // Strict metadata precedence: explicit metadata is authoritative.
+  const explicitDS = dataStructure && dataStructure !== 'NONE' && dataStructure !== 'ARRAY';
   const isLinkedList =
     dataStructure === 'LINKED_LIST' ||
-    (returnType && /List[nN]ode/i.test(returnType)) ||
-    (code && /List[nN]ode/i.test(code)) ||
-    (parameters && parameters.some((p) => /List[nN]ode/i.test(p.type || '')));
+    (!explicitDS && (
+      (returnType && /List[nN]ode/i.test(returnType)) ||
+      (parameters && parameters.some((p) => /List[nN]ode/i.test(p.type || '')))
+    ));
 
   const isBinaryTree =
     dataStructure === 'BINARY_TREE' ||
-    (returnType && /Tree[nN]ode/i.test(returnType)) ||
-    (code && /Tree[nN]ode/i.test(code)) ||
-    (parameters && parameters.some((p) => /Tree[nN]ode/i.test(p.type || '')));
+    (!explicitDS && (
+      (returnType && /Tree[nN]ode/i.test(returnType)) ||
+      (parameters && parameters.some((p) => /Tree[nN]ode/i.test(p.type || '')))
+    ));
+
+  const needsListNode = isLinkedList || /\bList[nN]ode\b/i.test(code) || (parameters && parameters.some(p => /List[nN]ode/i.test(p.type || '')));
+  const needsTreeNode = isBinaryTree || /\bTree[nN]ode\b/i.test(code) || (parameters && parameters.some(p => /Tree[nN]ode/i.test(p.type || '')));
 
   let typeDefs = '';
-  if (isLinkedList || /\bList[nN]ode\b/i.test(code)) {
+  if (needsListNode) {
     typeDefs += getAdapter('LINKED_LIST').getTypeDeclarations('java', { code }) + '\n';
   }
-  if (isBinaryTree || /\bTree[nN]ode\b/i.test(code)) {
+  if (needsTreeNode) {
     typeDefs += getAdapter('BINARY_TREE').getTypeDeclarations('java', { code }) + '\n';
   }
-  if (!isLinkedList && !isBinaryTree && dataStructure && dataStructure !== 'ARRAY') {
+  if (!isLinkedList && !isBinaryTree && dataStructure && dataStructure !== 'ARRAY' && dataStructure !== 'NONE') {
     typeDefs += getAdapter(dataStructure).getTypeDeclarations('java', { code }) + '\n';
   }
 
   const fn = functionName || 'solution';
 
   // Strip redundant public from class Solution and normalize Treenode/Listnode casing
-  const cleanStudentCode = code
+  let cleanStudentCode = code
     .replace(/^\s*public\s+class\s+Solution/m, 'class Solution')
     .replace(/\bListnode\b/g, 'ListNode')
     .replace(/\bTreenode\b/g, 'TreeNode');
+
+  if (!/\b(?:class|interface)\s+\w+/.test(cleanStudentCode)) {
+    cleanStudentCode = `class Solution {\n${cleanStudentCode}\n}`;
+  }
 
   return `import java.util.*;
 import java.io.*;
@@ -102,8 +113,14 @@ public class Main {
             }
 
             for (int i = 0; i < pTypes.length; i++) {
-                String token = i < argsList.size() ? argsList.get(i).trim() : "";
-                invokeArgs[i] = parseJavaArg(pTypes[i], token, rawInput);
+                if (i >= argsList.size()) {
+                    if (pTypes.length > 1) {
+                        throw new IllegalArgumentException("Missing argument for parameter #" + (i + 1) + " of type " + pTypes[i].getSimpleName());
+                    }
+                    invokeArgs[i] = parseJavaArg(pTypes[i], "", true, rawInput);
+                } else {
+                    invokeArgs[i] = parseJavaArg(pTypes[i], argsList.get(i).trim(), pTypes.length == 1, rawInput);
+                }
             }
 
             Object result = targetMethod.invoke(solInst, invokeArgs);
@@ -132,7 +149,7 @@ public class Main {
             char c = input.charAt(i);
             if (inQuotes) {
                 current.append(c);
-                if (c == quoteChar && (i == 0 || input.charAt(i - 1) != '\\\\')) {
+                if (c == quoteChar && (i == 0 || input.charAt(i - 1) != 92)) {
                     inQuotes = false;
                 }
             } else {
@@ -152,7 +169,7 @@ public class Main {
                 } else if (c == '}') {
                     if (braceDepth > 0) braceDepth--;
                     current.append(c);
-                } else if (bracketDepth == 0 && braceDepth == 0 && (Character.isWhitespace(c) || c == ',')) {
+                } else if (bracketDepth == 0 && braceDepth == 0 && (c == ',' || c == '\\n' || Character.isWhitespace(c))) {
                     String token = current.toString().trim();
                     if (!token.isEmpty() && !token.equals("=")) {
                         if (token.endsWith("=")) token = token.substring(0, token.length() - 1).trim();
@@ -172,11 +189,15 @@ public class Main {
         return list;
     }
 
-    private static Object parseJavaArg(Class<?> type, String val, String fullInput) {
-        String inputStr = (val == null || val.isEmpty()) ? fullInput : val;
-        ${isBinaryTree ? `
+    private static Object parseJavaArg(Class<?> type, String val, boolean isSingleParam, String fullInput) {
+        String inputStr = (val != null) ? val.trim() : "";
+        if (inputStr.isEmpty() && isSingleParam && fullInput != null) {
+            inputStr = fullInput.trim();
+        }
+
+        ${needsTreeNode ? `
         if (type.getSimpleName().equalsIgnoreCase("TreeNode")) {
-            String trimmed = inputStr.trim();
+            String trimmed = inputStr;
             if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
                 trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
             }
@@ -194,7 +215,8 @@ public class Main {
             return TreeNode.fromLevelOrder(vals);
         }
         ` : ''}
-        ${isLinkedList ? `
+
+        ${needsListNode ? `
         if (type.getSimpleName().equalsIgnoreCase("ListNode")) {
             String clean = inputStr.replaceAll("[\\\\[\\\\]\\\\s]", "");
             if (clean.isEmpty()) return null;
@@ -204,6 +226,7 @@ public class Main {
             return ListNode.fromArray(arr);
         }
         ` : ''}
+
         if (type == int.class || type == Integer.class) {
             return inputStr.isEmpty() ? 0 : Integer.parseInt(inputStr.replaceAll("[^0-9-]", ""));
         }
@@ -226,6 +249,14 @@ public class Main {
             if (clean.isEmpty()) return new int[0];
             String[] parts = clean.split(",");
             int[] arr = new int[parts.length];
+            for (int i = 0; i < parts.length; i++) arr[i] = Integer.parseInt(parts[i].trim());
+            return arr;
+        }
+        if (type == Integer[].class) {
+            String clean = inputStr.replaceAll("[\\\\[\\\\]\\\\s]", "");
+            if (clean.isEmpty()) return new Integer[0];
+            String[] parts = clean.split(",");
+            Integer[] arr = new Integer[parts.length];
             for (int i = 0; i < parts.length; i++) arr[i] = Integer.parseInt(parts[i].trim());
             return arr;
         }
@@ -289,16 +320,19 @@ public class Main {
     private static void printJavaResult(Object res, Method targetMethod) {
         if (res == null) {
             boolean isDataStructureReturn = false;
-            ${isLinkedList ? `if (targetMethod != null && targetMethod.getReturnType().getSimpleName().equalsIgnoreCase("ListNode")) isDataStructureReturn = true;` : ''}
-            ${isBinaryTree ? `if (targetMethod != null && targetMethod.getReturnType().getSimpleName().equalsIgnoreCase("TreeNode")) isDataStructureReturn = true;` : ''}
+            if (targetMethod != null) {
+                String ret = targetMethod.getReturnType().getSimpleName();
+                ${needsListNode ? `if (ret.equalsIgnoreCase("ListNode")) isDataStructureReturn = true;` : ''}
+                ${needsTreeNode ? `if (ret.equalsIgnoreCase("TreeNode")) isDataStructureReturn = true;` : ''}
+            }
             if (isDataStructureReturn) {
                 System.out.println("[]");
             } else {
                 System.out.println("null");
             }
-        ${isBinaryTree ? `} else if (res.getClass().getSimpleName().equalsIgnoreCase("TreeNode")) {
+        ${needsTreeNode ? `} else if (res.getClass().getSimpleName().equalsIgnoreCase("TreeNode")) {
             System.out.println(TreeNode.toLevelOrderString((TreeNode) res, ${MAX_TREE_NODES}));` : ''}
-        ${isLinkedList ? `} else if (res.getClass().getSimpleName().equalsIgnoreCase("ListNode")) {
+        ${needsListNode ? `} else if (res.getClass().getSimpleName().equalsIgnoreCase("ListNode")) {
             System.out.println(ListNode.toListString((ListNode) res, ${MAX_LINKED_LIST_NODES}));` : ''}
         } else if (res instanceof List) {
             List<?> list = (List<?>) res;

@@ -422,8 +422,22 @@ export const TestCaseStudioView = ({
       const data = res.data?.data;
       if (data?.passed) {
         showToast('✓ Test Case Verified against reference solution');
+        setTestCases((prev) =>
+          prev.map((t) =>
+            t._id === testId
+              ? { ...t, verificationStatus: 'verified', computedOutput: data.computedOutput, lastError: null }
+              : t
+          )
+        );
       } else if (data?.computedOutput !== undefined && data?.computedOutput !== data?.expectedOutput) {
         showToast('⚠ Output Mismatch: Reference solution produced different output');
+        setTestCases((prev) =>
+          prev.map((t) =>
+            t._id === testId
+              ? { ...t, verificationStatus: 'failed', computedOutput: data.computedOutput, lastError: data.error }
+              : t
+          )
+        );
       } else {
         showToast(data?.error || 'Execution completed with issues');
       }
@@ -448,6 +462,22 @@ export const TestCaseStudioView = ({
       });
       const data = res.data?.data;
       setValidationReport(data);
+      if (data?.testCaseResults) {
+        setTestCases((prev) =>
+          prev.map((t) => {
+            const r = data.testCaseResults.find((cr) => String(cr.testCaseId) === String(t._id));
+            if (r) {
+              return {
+                ...t,
+                verificationStatus: r.status,
+                computedOutput: r.computedOutput,
+                lastError: r.passed ? null : (r.error || t.lastError)
+              };
+            }
+            return t;
+          })
+        );
+      }
       if (data?.canPublish) {
         showToast('✓ Suite Verified: All test cases passed, Question is READY to publish!');
       } else {
@@ -1688,7 +1718,7 @@ export const TestCaseStudioView = ({
               )}
 
               {/* Execution / Compiler Error Banner */}
-              {activeTestCase.lastError && (
+              {activeTestCase.lastError && activeTestCase.verificationStatus !== 'verified' && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 font-mono text-xs whitespace-pre-wrap">
                   <div className="font-bold flex items-center gap-1.5 mb-1 text-rose-800">
                     <XCircle className="w-4 h-4 text-rose-600" /> Reference Solution Execution Error:

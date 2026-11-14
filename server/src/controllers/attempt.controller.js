@@ -429,11 +429,14 @@ export const runSampleTests = async (req, res, next) => {
     }
 
     // Duplicate Job Protection: If sample run is already queued/running, return existing tracker
+    // Stale jobs older than 20 seconds are superseded to prevent deadlock
+    const recentThreshold = new Date(Date.now() - 20000);
     const activeExisting = await Submission.findOne({
       attemptId,
       questionId,
       runType: 'SAMPLE',
-      status: { $in: ['QUEUED', 'RUNNING'] }
+      status: { $in: ['QUEUED', 'RUNNING'] },
+      createdAt: { $gte: recentThreshold }
     }).sort({ createdAt: -1 });
 
     if (activeExisting) {
@@ -673,11 +676,14 @@ export const submitQuestion = async (req, res, next) => {
     }
 
     // Duplicate Job Protection: If submission is already queued/running, return existing tracker
+    // Stale jobs older than 20 seconds are superseded to prevent deadlock
+    const recentThreshold = new Date(Date.now() - 20000);
     const activeExisting = await Submission.findOne({
       attemptId,
       questionId,
       runType: 'SUBMISSION',
-      status: { $in: ['QUEUED', 'RUNNING'] }
+      status: { $in: ['QUEUED', 'RUNNING'] },
+      createdAt: { $gte: recentThreshold }
     }).sort({ createdAt: -1 });
 
     if (activeExisting) {

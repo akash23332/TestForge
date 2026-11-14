@@ -105,13 +105,7 @@ using Treenode = TreeNode;
     if (language === 'java') {
       const hasUserTreeNode = /\bclass\s+Tree[nN]ode\b/.test(code);
       if (hasUserTreeNode) {
-        return `
-class Treenode extends TreeNode {
-    public Treenode() { super(); }
-    public Treenode(int val) { super(val); }
-    public Treenode(int val, TreeNode left, TreeNode right) { super(val, left, right); }
-}
-`;
+        return '';
       }
       return `
 class TreeNode {
@@ -172,12 +166,6 @@ class TreeNode {
         }
         return "[" + String.join(",", list) + "]";
     }
-}
-
-class Treenode extends TreeNode {
-    public Treenode() { super(); }
-    public Treenode(int val) { super(val); }
-    public Treenode(int val, TreeNode left, TreeNode right) { super(val, left, right); }
 }
 `;
     }

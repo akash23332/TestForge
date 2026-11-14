@@ -86,21 +86,34 @@ export const parseInputArguments = (inputStr) => {
 
 /**
  * Normalizes output string or object for consistent comparison.
+ * Normalizes Windows CRLF to Unix LF.
+ * Preserves case for string return types, and normalizes booleans/nulls in collection payloads.
  */
-export const normalizeOutput = (val) => {
+export const normalizeOutput = (val, returnType = '') => {
   if (val === undefined) return 'undefined';
-  if (val === null) return 'null';
+  if (val === null) return null;
+
+  const isStringType = typeof returnType === 'string' && /^(string|std::string|char)$/i.test(returnType.trim());
+
   if (typeof val === 'string') {
-    const trimmed = val.trim();
+    // 1. Normalize line endings
+    const normalizedLines = val.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const trimmed = normalizedLines.trim();
+
+    // If expected or actual is explicitly a string type, keep it as string
+    if (isStringType) {
+      return trimmed;
+    }
+
     try {
       return JSON.parse(trimmed);
     } catch {
-      // Handle Python-style booleans and nulls in collections like "[True, False]" or "(True, False)"
+      // Handle Python/SQL booleans and nulls in collections like "[True, False]" or "(None, 1)"
       try {
         const jsonCompatible = trimmed
-          .replace(/\bTrue\b/g, 'true')
-          .replace(/\bFalse\b/g, 'false')
-          .replace(/\bNone\b/g, 'null');
+          .replace(/\b(?:True|true|TRUE)\b/g, 'true')
+          .replace(/\b(?:False|false|FALSE)\b/g, 'false')
+          .replace(/\b(?:None|none|null|NULL|nil)\b/g, 'null');
         return JSON.parse(jsonCompatible);
       } catch {
         return trimmed;
@@ -111,38 +124,55 @@ export const normalizeOutput = (val) => {
 };
 
 /**
- * Compares actual output with expected output.
- * For Two Sum: index pairs like [0, 1] and [1, 0] are treated as equal.
- * For all other problems: strict deep equality is enforced.
+ * Type-aware output comparison complying with platform rules:
+ * - Boolean normalization only for boolean values or boolean return types.
+ * - String comparison remains strictly case-sensitive.
+ * - Null and empty collections remain strictly distinct.
+ * - Integer comparison remains exact.
+ * - Floating-point comparison uses configurable absolute and relative tolerance.
  */
 export const compareOutputs = (actual, expected, questionContext = {}) => {
-  const normActual = normalizeOutput(actual);
-  const normExpected = normalizeOutput(expected);
+  const returnType = (questionContext.returnType || '').trim().toLowerCase();
+  const isBoolType = /^(bool|boolean)$/i.test(returnType);
+  const isStringType = /^(string|std::string|char)$/i.test(returnType);
+  const isFloatType = /^(float|double|number)$/i.test(returnType);
 
-  // Handle empty array and null equivalence (standard in LeetCode / competitive programming)
-  const isEmptyOrNull = (v) =>
-    v === null ||
-    v === undefined ||
-    v === 'null' ||
-    v === 'undefined' ||
-    (typeof v === 'string' && /^(null|none|nil|undefined|\[\])$/i.test(v.trim())) ||
-    (Array.isArray(v) && v.length === 0);
+  const normActual = normalizeOutput(actual, returnType);
+  const normExpected = normalizeOutput(expected, returnType);
 
-  if (isEmptyOrNull(normActual) && isEmptyOrNull(normExpected)) {
-    return true;
+  // 1. Strict Null vs. Empty Collection distinction
+  // null only equals null/None/nil/NULL. It NEVER equals empty array [] or empty string "".
+  const isNullLike = (v) => v === null || v === 'null' || (typeof v === 'string' && /^(null|none|nil)$/i.test(v.trim()));
+  const isEmptyArray = (v) => (Array.isArray(v) && v.length === 0) || (typeof v === 'string' && v.trim() === '[]');
+
+  if (isNullLike(normActual) || isNullLike(normExpected)) {
+    return isNullLike(normActual) && isNullLike(normExpected);
+  }
+  if (isEmptyArray(normActual) || isEmptyArray(normExpected)) {
+    return isEmptyArray(normActual) && isEmptyArray(normExpected);
   }
 
-  // 1. Boolean case-insensitive comparison (e.g. "True" vs "true", "False" vs "false", true vs "True")
-  const strA = String(normActual).trim();
-  const strB = String(normExpected).trim();
+  // 2. Strict String comparison: case-sensitive and preserves exact character casing
+  if (isStringType || (typeof normActual === 'string' && typeof normExpected === 'string' && !isBoolType && !isFloatType)) {
+    const unquote = (s) => (typeof s === 'string' && s.startsWith('"') && s.endsWith('"') && s.length >= 2 ? s.slice(1, -1) : s);
+    const sA = unquote(String(normActual).replace(/\r\n/g, '\n').trim());
+    const sB = unquote(String(normExpected).replace(/\r\n/g, '\n').trim());
 
-  const isBoolA = typeof normActual === 'boolean' || /^(true|false)$/i.test(strA);
-  const isBoolB = typeof normExpected === 'boolean' || /^(true|false)$/i.test(strB);
-
-  if (isBoolA && isBoolB) {
-    return strA.toLowerCase() === strB.toLowerCase();
+    // If both look like numbers, let numeric check proceed below; otherwise compare strictly
+    const isNumA = !isNaN(Number(sA)) && sA !== '';
+    const isNumB = !isNaN(Number(sB)) && sB !== '';
+    if (!isNumA || !isNumB) {
+      return sA === sB;
+    }
   }
 
+  // 3. Boolean normalization (Only for boolean types or unquoted boolean literals)
+  const isLiteralBool = (v) => typeof v === 'boolean' || (typeof v === 'string' && /^(true|false)$/i.test(v.trim()));
+  if (isBoolType || (isLiteralBool(normActual) && isLiteralBool(normExpected))) {
+    return String(normActual).trim().toLowerCase() === String(normExpected).trim().toLowerCase();
+  }
+
+  // 4. Two Sum special case: order-independent index pair
   const isTwoSum =
     (questionContext.title && /two\s*sum/i.test(questionContext.title)) ||
     (questionContext.tags && questionContext.tags.some((t) => /two\s*sum/i.test(t)));
@@ -156,29 +186,52 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     return JSON.stringify(normActual) === JSON.stringify(normExpected);
   }
 
-  // Deep object & array comparison supporting key-order and boolean normalization
+  // 5. Configurable Floating-Point comparison with absolute & relative tolerance
+  const absTolerance = Number(questionContext.absTolerance ?? 1e-5);
+  const relTolerance = Number(questionContext.relTolerance ?? 1e-5);
+
+  const compareNumbers = (numA, numB) => {
+    if (isNaN(numA) || isNaN(numB)) return false;
+    const hasDecimal = isFloatType || String(numA).includes('.') || String(numB).includes('.') || String(actual).includes('.') || String(expected).includes('.');
+    if (!hasDecimal) {
+      // Exact integer comparison
+      return numA === numB;
+    }
+    const diff = Math.abs(numA - numB);
+    const allowed = Math.max(absTolerance, relTolerance * Math.max(Math.abs(numA), Math.abs(numB)));
+    return diff <= allowed;
+  };
+
+  if (
+    (typeof normActual === 'number' || (typeof normActual === 'string' && normActual.trim() !== '' && !isNaN(Number(normActual.trim())))) &&
+    (typeof normExpected === 'number' || (typeof normExpected === 'string' && normExpected.trim() !== '' && !isNaN(Number(normExpected.trim()))))
+  ) {
+    return compareNumbers(Number(normActual), Number(normExpected));
+  }
+
+  // 6. Deep object & array comparison supporting collections
   const isDeepEqual = (a, b) => {
     if (a === b) return true;
-    if (a == null || b == null) return false;
+    if (a == null || b == null) {
+      return isNullLike(a) && isNullLike(b);
+    }
 
-    // Element-level boolean equivalence (e.g. true vs "True")
-    const isElemBoolA = typeof a === 'boolean' || (typeof a === 'string' && /^(true|false)$/i.test(String(a).trim()));
-    const isElemBoolB = typeof b === 'boolean' || (typeof b === 'string' && /^(true|false)$/i.test(String(b).trim()));
-    if (isElemBoolA && isElemBoolB) {
+    // Element-level boolean equivalence
+    if (isLiteralBool(a) && isLiteralBool(b)) {
       return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
     }
 
-    // Number vs numeric string equivalence
-    if (
-      (typeof a === 'number' || (typeof a === 'string' && a.trim() !== '' && !isNaN(Number(a.trim())))) &&
-      (typeof b === 'number' || (typeof b === 'string' && b.trim() !== '' && !isNaN(Number(b.trim()))))
-    ) {
-      if (Number(a) === Number(b)) return true;
+    // Element-level number comparison
+    const isElemNumA = typeof a === 'number' || (typeof a === 'string' && a.trim() !== '' && !isNaN(Number(a.trim())));
+    const isElemNumB = typeof b === 'number' || (typeof b === 'string' && b.trim() !== '' && !isNaN(Number(b.trim())));
+    if (isElemNumA && isElemNumB) {
+      return compareNumbers(Number(a), Number(b));
     }
 
     if (typeof a !== typeof b) return false;
     if (typeof a !== 'object') return false;
     if (Array.isArray(a) !== Array.isArray(b)) return false;
+
     if (Array.isArray(a)) {
       if (a.length !== b.length) return false;
       for (let i = 0; i < a.length; i++) {
@@ -186,6 +239,7 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
       }
       return true;
     }
+
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
     if (keysA.length !== keysB.length) return false;
@@ -200,13 +254,9 @@ export const compareOutputs = (actual, expected, questionContext = {}) => {
     return isDeepEqual(normActual, normExpected);
   }
 
-  // Quoted string vs unquoted string equivalence (e.g., "\"true\"" vs "true" or "\"abc\"" vs "abc")
-  const unquote = (s) => (s.startsWith('"') && s.endsWith('"') && s.length >= 2 ? s.slice(1, -1) : s);
-  if (unquote(strA) === unquote(strB)) {
-    return true;
-  }
-
-  return strA === strB;
+  const sA = String(normActual).replace(/\r\n/g, '\n').trim();
+  const sB = String(normExpected).replace(/\r\n/g, '\n').trim();
+  return sA === sB;
 };
 
 /**
