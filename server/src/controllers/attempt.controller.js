@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { config } from '../config/env.js';
@@ -16,6 +17,40 @@ import { validateSingleTestCase } from '../services/codeRunner.service.js';
 import { enqueueExecutionJob } from '../services/queue/executionQueue.js';
 import { recalculateAttemptGrading } from '../services/attemptGrading.service.js';
 import { clearUnresolvedRemoteExecution } from '../services/queue/executionRecovery.js';
+
+/**
+ * Deterministic Idempotency Key Generator for Distributed Concurrency
+ * Generates identical keys for identical execution requests across multiple server instances.
+ * Distinct code or inputs produce distinct keys, preserving separate identities for legitimate requests.
+ */
+export const generateDeterministicIdempotencyKey = ({
+  studentId = 'student',
+  attemptId,
+  questionId,
+  runType,
+  code = '',
+  customInput = '',
+  clientKey = null
+}) => {
+  const cleanStudent = String(studentId || 'anon').trim();
+  const cleanAttempt = String(attemptId).trim();
+  const cleanQuestion = String(questionId).trim();
+  const cleanRunType = String(runType).trim().toUpperCase();
+
+  if (clientKey) {
+    const cleanClientKey = String(clientKey).trim().slice(0, 128);
+    return `client:${cleanStudent}:${cleanAttempt}:${cleanQuestion}:${cleanRunType}:${cleanClientKey}`;
+  }
+  const codeHash = crypto.createHash('sha256').update(String(code || '')).digest('hex').slice(0, 16);
+  if (cleanRunType === 'CUSTOM_INPUT') {
+    const inputHash = crypto.createHash('sha256').update(String(customInput || '')).digest('hex').slice(0, 16);
+    return `exec:${cleanStudent}:${cleanAttempt}:${cleanQuestion}:${cleanRunType}:${codeHash}:${inputHash}`;
+  }
+  return `exec:${cleanStudent}:${cleanAttempt}:${cleanQuestion}:${cleanRunType}:${codeHash}`;
+};
+
+// In-memory atomic lock set to prevent concurrent double-click / simultaneous duplicate submission races
+const inFlightOperations = new Set();
 
 /**
  * Sanitizes coding question for student: strictly removes reference solutions
@@ -428,70 +463,209 @@ export const runSampleTests = async (req, res, next) => {
       throw ApiError.notFound('Question not found.');
     }
 
-    // Duplicate Job Protection: If sample run is already queued/running, return existing tracker
-    // Stale jobs older than 20 seconds are superseded to prevent deadlock
-    const recentThreshold = new Date(Date.now() - 20000);
-    const activeExisting = await Submission.findOne({
-      attemptId,
-      questionId,
-      runType: 'SAMPLE',
-      status: { $in: ['QUEUED', 'RUNNING'] },
-      createdAt: { $gte: recentThreshold }
-    }).sort({ createdAt: -1 });
+    // Concurrency Lock: Prevent simultaneous duplicate requests for the same attempt and question
+    const opKey = `${attemptId}:${questionId}:SAMPLE`;
+    if (inFlightOperations.has(opKey)) {
+      await new Promise(r => setTimeout(r, 120));
+      const justCreated = await Submission.findOne({
+        attemptId,
+        questionId,
+        runType: 'SAMPLE',
+        status: { $in: ['QUEUED', 'RUNNING'] }
+      }).sort({ createdAt: -1 });
+      if (justCreated) {
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            submissionId: justCreated._id,
+            status: justCreated.status,
+            jobId: justCreated.jobId,
+            runType: 'SAMPLE',
+            pollUrl: `/api/v1/attempts/${attemptId}/submissions/${justCreated._id}`,
+            isDuplicate: true
+          },
+          'A sample execution job is already in progress for this question.'
+        );
+      }
+    }
+    inFlightOperations.add(opKey);
 
-    if (activeExisting) {
+    try {
+      // Duplicate Job Protection: A job is legitimately in-flight if:
+      // 1. It is 'RUNNING' with an active, unexpired lease (executionLeaseExpiresAt > now), OR
+      // 2. It is 'QUEUED' and was created recently (within last 30s).
+      // Stalled jobs with expired leases or stale queued timestamps are safely superseded.
+      const now = new Date();
+      const queuedGraceThreshold = new Date(now.getTime() - 30000);
+      const activeExisting = await Submission.findOne({
+        attemptId,
+        questionId,
+        runType: 'SAMPLE',
+        $or: [
+          { status: 'RUNNING', executionLeaseExpiresAt: { $gt: now } },
+          { status: 'QUEUED', createdAt: { $gte: queuedGraceThreshold } }
+        ]
+      }).sort({ createdAt: -1 });
+
+      if (activeExisting) {
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            submissionId: activeExisting._id,
+            status: activeExisting.status,
+            jobId: activeExisting.jobId,
+            runType: 'SAMPLE',
+            pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
+            isDuplicate: true
+          },
+          'A sample execution job is already in progress for this question.'
+        );
+      }
+
+      const clientKey = req.headers['idempotency-key'] || req.body?.idempotencyKey;
+      const studentId = attempt.studentId || attempt.candidateInfo?.email || req.attempt?.studentId || 'student';
+      const idempotencyKey = generateDeterministicIdempotencyKey({
+        studentId,
+        attemptId,
+        questionId,
+        runType: 'SAMPLE',
+        code,
+        clientKey
+      });
+
+      const retentionWindowMs = config.idempotencyRetentionMs || (10 * 60 * 1000);
+      const idempotencyExpiresAt = new Date(now.getTime() + retentionWindowMs);
+
+      // Idempotency Retention Check: Inspect if an execution document currently holds this key
+      const existingKeyDoc = await Submission.findOne({ idempotencyKey });
+      if (existingKeyDoc) {
+        const isExpired = existingKeyDoc.idempotencyExpiresAt && new Date(existingKeyDoc.idempotencyExpiresAt) <= now;
+        if (!isExpired) {
+          // Within active retention window: return the original submission tracker / results
+          const isTerminal = ['COMPLETED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(existingKeyDoc.status);
+          return ApiResponse.success(
+            res,
+            200,
+            {
+              submissionId: existingKeyDoc._id,
+              status: existingKeyDoc.status,
+              jobId: existingKeyDoc.jobId,
+              runType: existingKeyDoc.runType || 'SAMPLE',
+              verdict: existingKeyDoc.verdict,
+              pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existingKeyDoc._id}`,
+              isDuplicate: true,
+              alreadyCompleted: isTerminal
+            },
+            isTerminal
+              ? 'Execution with this idempotency key already completed within retention window.'
+              : 'A sample execution job is already in progress for this request.'
+          );
+        } else {
+          // Retention window expired: safely release the key from the historical submission without deleting history
+          if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+            await Submission.findOneAndUpdate(
+              { _id: existingKeyDoc._id, idempotencyKey },
+              { $set: { idempotencyKey: null } }
+            );
+          }
+        }
+      }
+
+      // Stale fallback in-flight lock cleanup: Only clear stale keys for in-flight fallback locks (not client UUIDs)
+      if (!clientKey && (mongoose.connection?.readyState === 1 || (Submission.updateMany && Submission.updateMany._isMockFunction))) {
+        await Submission.updateMany(
+          {
+            idempotencyKey,
+            $or: [
+              { status: { $nin: ['QUEUED', 'RUNNING'] } },
+              { status: 'RUNNING', executionLeaseExpiresAt: { $lte: now } },
+              { status: 'QUEUED', createdAt: { $lt: queuedGraceThreshold } }
+            ]
+          },
+          { $set: { idempotencyKey: null } }
+        ).catch(() => {});
+      }
+
+      // 1. Create authoritative Submission record in MongoDB with distributed idempotency key
+      let submission;
+      try {
+        submission = await Submission.create({
+          attemptId,
+          questionId,
+          code: code || '',
+          language: language || question.language || 'javascript',
+          runType: 'SAMPLE',
+          status: 'QUEUED',
+          verdict: 'PENDING',
+          idempotencyKey,
+          idempotencyExpiresAt
+        });
+      } catch (createErr) {
+        // Safe distributed handling: if another instance created the submission concurrently (MongoServerError E11000)
+        if (createErr.code === 11000 || createErr.name === 'MongoServerError' || createErr.message?.includes('E11000') || createErr.message?.includes('duplicate key')) {
+          const existing = await Submission.findOne({ idempotencyKey })
+            || await Submission.findOne({ attemptId, questionId, runType: 'SAMPLE' }).sort({ createdAt: -1 });
+          if (existing) {
+            return ApiResponse.success(
+              res,
+              200,
+              {
+                submissionId: existing._id,
+                status: existing.status,
+                jobId: existing.jobId,
+                runType: 'SAMPLE',
+                pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existing._id}`,
+                isDuplicate: true
+              },
+              'A sample execution job is already in progress for this question.'
+            );
+          }
+        }
+        throw createErr;
+      }
+
+      // 2. Enqueue execution job in BullMQ
+      let job;
+      try {
+        job = await enqueueExecutionJob({
+          submissionId: submission._id,
+          attemptId,
+          questionId,
+          runType: 'SAMPLE',
+          language: submission.language,
+          studentEmail: attempt.candidateInfo?.email || ''
+        });
+        submission.jobId = job.id;
+        await submission.save();
+      } catch (queueErr) {
+        submission.status = 'EXECUTION_UNAVAILABLE';
+        submission.verdict = 'EXECUTION_UNAVAILABLE';
+        submission.errorMessage = `Execution queue unavailable: ${queueErr.message}`;
+        submission.idempotencyKey = null;
+        if (typeof submission.save === 'function') {
+          await submission.save();
+        }
+        throw queueErr;
+      }
+
+      // 3. Return 202 immediately with submissionId and pollUrl
       return ApiResponse.success(
         res,
-        200,
+        202,
         {
-          submissionId: activeExisting._id,
-          status: activeExisting.status,
-          jobId: activeExisting.jobId,
+          submissionId: submission._id,
+          status: 'QUEUED',
+          jobId: job.id,
           runType: 'SAMPLE',
-          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
-          isDuplicate: true
+          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
         },
-        'A sample execution job is already in progress for this question.'
+        'Sample test run queued successfully.'
       );
+    } finally {
+      inFlightOperations.delete(opKey);
     }
-
-    // 1. Create authoritative Submission record in MongoDB
-    const submission = await Submission.create({
-      attemptId,
-      questionId,
-      code: code || '',
-      language: language || question.language || 'javascript',
-      runType: 'SAMPLE',
-      status: 'QUEUED',
-      verdict: 'PENDING'
-    });
-
-    // 2. Enqueue execution job in BullMQ
-    const job = await enqueueExecutionJob({
-      submissionId: submission._id,
-      attemptId,
-      questionId,
-      runType: 'SAMPLE',
-      language: submission.language,
-      studentEmail: attempt.candidateInfo?.email || ''
-    });
-
-    submission.jobId = job.id;
-    await submission.save();
-
-    // 3. Return 202 immediately with submissionId and pollUrl
-    return ApiResponse.success(
-      res,
-      202,
-      {
-        submissionId: submission._id,
-        status: 'QUEUED',
-        jobId: job.id,
-        runType: 'SAMPLE',
-        pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
-      },
-      'Sample test run queued successfully.'
-    );
   } catch (error) {
     next(error);
   }
@@ -536,30 +710,161 @@ export const runCustomInput = async (req, res, next) => {
       throw ApiError.badRequest('Custom input exceeds maximum size limit (64KB).');
     }
 
-    // 1. Create authoritative Submission record in MongoDB
-    const submission = await Submission.create({
+    const now = new Date();
+    const queuedGraceThreshold = new Date(now.getTime() - 30000);
+
+    // Duplicate Job Protection
+    const activeExisting = await Submission.findOne({
       attemptId,
       questionId,
-      code: code || '',
-      language: language || question.language || 'javascript',
       runType: 'CUSTOM_INPUT',
-      customInput: customInput !== undefined && customInput !== null ? String(customInput) : '',
-      status: 'QUEUED',
-      verdict: 'PENDING'
+      $or: [
+        { status: 'RUNNING', executionLeaseExpiresAt: { $gt: now } },
+        { status: 'QUEUED', createdAt: { $gte: queuedGraceThreshold } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    if (activeExisting) {
+      return ApiResponse.success(
+        res,
+        200,
+        {
+          submissionId: activeExisting._id,
+          status: activeExisting.status,
+          jobId: activeExisting.jobId,
+          runType: 'CUSTOM_INPUT',
+          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
+          isDuplicate: true
+        },
+        'A custom input execution job is already in progress for this question.'
+      );
+    }
+
+    const clientKey = req.headers['idempotency-key'] || req.body?.idempotencyKey;
+    const studentId = attempt.studentId || attempt.candidateInfo?.email || req.attempt?.studentId || 'student';
+    const idempotencyKey = generateDeterministicIdempotencyKey({
+      studentId,
+      attemptId,
+      questionId,
+      runType: 'CUSTOM_INPUT',
+      code,
+      customInput,
+      clientKey
     });
+
+    const retentionWindowMs = config.idempotencyRetentionMs || (10 * 60 * 1000);
+    const idempotencyExpiresAt = new Date(now.getTime() + retentionWindowMs);
+
+    // Idempotency Retention Check: Inspect if an execution document currently holds this key
+    const existingKeyDoc = await Submission.findOne({ idempotencyKey });
+    if (existingKeyDoc) {
+      const isExpired = existingKeyDoc.idempotencyExpiresAt && new Date(existingKeyDoc.idempotencyExpiresAt) <= now;
+      if (!isExpired) {
+        const isTerminal = ['COMPLETED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(existingKeyDoc.status);
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            submissionId: existingKeyDoc._id,
+            status: existingKeyDoc.status,
+            jobId: existingKeyDoc.jobId,
+            runType: existingKeyDoc.runType || 'CUSTOM_INPUT',
+            verdict: existingKeyDoc.verdict,
+            pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existingKeyDoc._id}`,
+            isDuplicate: true,
+            alreadyCompleted: isTerminal
+          },
+          isTerminal
+            ? 'Execution with this idempotency key already completed within retention window.'
+            : 'A custom input execution job is already in progress for this request.'
+        );
+      } else {
+        // Retention window expired: safely release the key from historical doc without deleting history
+        if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+          await Submission.findOneAndUpdate(
+            { _id: existingKeyDoc._id, idempotencyKey },
+            { $set: { idempotencyKey: null } }
+          );
+        }
+      }
+    }
+
+    // Stale fallback in-flight lock cleanup: Only clear stale keys for in-flight fallback locks (not client UUIDs)
+    if (!clientKey && (mongoose.connection?.readyState === 1 || (Submission.updateMany && Submission.updateMany._isMockFunction))) {
+      await Submission.updateMany(
+        {
+          idempotencyKey,
+          $or: [
+            { status: { $nin: ['QUEUED', 'RUNNING'] } },
+            { status: 'RUNNING', executionLeaseExpiresAt: { $lte: now } },
+            { status: 'QUEUED', createdAt: { $lt: queuedGraceThreshold } }
+          ]
+        },
+        { $set: { idempotencyKey: null } }
+      ).catch(() => {});
+    }
+
+    // 1. Create authoritative Submission record in MongoDB with distributed idempotency key
+    let submission;
+    try {
+      submission = await Submission.create({
+        attemptId,
+        questionId,
+        code: code || '',
+        language: language || question.language || 'javascript',
+        runType: 'CUSTOM_INPUT',
+        customInput: customInput !== undefined && customInput !== null ? String(customInput) : '',
+        status: 'QUEUED',
+        verdict: 'PENDING',
+        idempotencyKey,
+        idempotencyExpiresAt
+      });
+    } catch (createErr) {
+      if (createErr.code === 11000 || createErr.name === 'MongoServerError' || createErr.message?.includes('E11000') || createErr.message?.includes('duplicate key')) {
+        const existing = await Submission.findOne({ idempotencyKey })
+          || await Submission.findOne({ attemptId, questionId, runType: 'CUSTOM_INPUT' }).sort({ createdAt: -1 });
+        if (existing) {
+          return ApiResponse.success(
+            res,
+            200,
+            {
+              submissionId: existing._id,
+              status: existing.status,
+              jobId: existing.jobId,
+              runType: 'CUSTOM_INPUT',
+              pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existing._id}`,
+              isDuplicate: true
+            },
+            'A custom input execution job is already in progress for this question.'
+          );
+        }
+      }
+      throw createErr;
+    }
 
     // 2. Enqueue execution job in BullMQ
-    const job = await enqueueExecutionJob({
-      submissionId: submission._id,
-      attemptId,
-      questionId,
-      runType: 'CUSTOM_INPUT',
-      language: submission.language,
-      studentEmail: attempt.candidateInfo?.email || ''
-    });
-
-    submission.jobId = job.id;
-    await submission.save();
+    let job;
+    try {
+      job = await enqueueExecutionJob({
+        submissionId: submission._id,
+        attemptId,
+        questionId,
+        runType: 'CUSTOM_INPUT',
+        language: submission.language,
+        studentEmail: attempt.candidateInfo?.email || ''
+      });
+      submission.jobId = job.id;
+      await submission.save();
+    } catch (queueErr) {
+      submission.status = 'EXECUTION_UNAVAILABLE';
+      submission.verdict = 'EXECUTION_UNAVAILABLE';
+      submission.errorMessage = `Execution queue unavailable: ${queueErr.message}`;
+      submission.idempotencyKey = null;
+      if (typeof submission.save === 'function') {
+        await submission.save();
+      }
+      throw queueErr;
+    }
 
     // 3. Return 202 immediately with submissionId and pollUrl
     return ApiResponse.success(
@@ -675,71 +980,208 @@ export const submitQuestion = async (req, res, next) => {
       throw ApiError.notFound('Coding challenge not found.');
     }
 
-    // Duplicate Job Protection: If submission is already queued/running, return existing tracker
-    // Stale jobs older than 20 seconds are superseded to prevent deadlock
-    const recentThreshold = new Date(Date.now() - 20000);
-    const activeExisting = await Submission.findOne({
-      attemptId,
-      questionId,
-      runType: 'SUBMISSION',
-      status: { $in: ['QUEUED', 'RUNNING'] },
-      createdAt: { $gte: recentThreshold }
-    }).sort({ createdAt: -1 });
+    // Concurrency Lock: Prevent simultaneous duplicate submissions for the same challenge
+    const opKey = `${attemptId}:${questionId}:SUBMISSION`;
+    if (inFlightOperations.has(opKey)) {
+      await new Promise(r => setTimeout(r, 120));
+      const justCreated = await Submission.findOne({
+        attemptId,
+        questionId,
+        runType: 'SUBMISSION',
+        status: { $in: ['QUEUED', 'RUNNING'] }
+      }).sort({ createdAt: -1 });
+      if (justCreated) {
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            submissionId: justCreated._id,
+            status: justCreated.status,
+            jobId: justCreated.jobId,
+            runType: 'SUBMISSION',
+            pollUrl: `/api/v1/attempts/${attemptId}/submissions/${justCreated._id}`,
+            isDuplicate: true
+          },
+          'A submission job is already in progress for this challenge.'
+        );
+      }
+    }
+    inFlightOperations.add(opKey);
 
-    if (activeExisting) {
+    try {
+      // Duplicate Job Protection: A job is legitimately in-flight if:
+      // 1. It is 'RUNNING' with an active, unexpired lease (executionLeaseExpiresAt > now), OR
+      // 2. It is 'QUEUED' and was created recently (within last 30s).
+      // Stalled jobs with expired leases or stale queued timestamps are safely superseded.
+      const now = new Date();
+      const queuedGraceThreshold = new Date(now.getTime() - 30000);
+      const activeExisting = await Submission.findOne({
+        attemptId,
+        questionId,
+        runType: 'SUBMISSION',
+        $or: [
+          { status: 'RUNNING', executionLeaseExpiresAt: { $gt: now } },
+          { status: 'QUEUED', createdAt: { $gte: queuedGraceThreshold } }
+        ]
+      }).sort({ createdAt: -1 });
+
+      if (activeExisting) {
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            submissionId: activeExisting._id,
+            status: activeExisting.status,
+            jobId: activeExisting.jobId,
+            runType: 'SUBMISSION',
+            pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
+            isDuplicate: true
+          },
+          'A submission job is already in progress for this challenge.'
+        );
+      }
+
+      const clientKey = req.headers['idempotency-key'] || req.body?.idempotencyKey;
+      const studentId = attempt.studentId || attempt.candidateInfo?.email || req.attempt?.studentId || 'student';
+      const idempotencyKey = generateDeterministicIdempotencyKey({
+        studentId,
+        attemptId,
+        questionId,
+        runType: 'SUBMISSION',
+        code,
+        clientKey
+      });
+
+      const retentionWindowMs = config.idempotencyRetentionMs || (10 * 60 * 1000);
+      const idempotencyExpiresAt = new Date(now.getTime() + retentionWindowMs);
+
+      // Idempotency Retention Check: Inspect if an execution document currently holds this key
+      const existingKeyDoc = await Submission.findOne({ idempotencyKey });
+      if (existingKeyDoc) {
+        const isExpired = existingKeyDoc.idempotencyExpiresAt && new Date(existingKeyDoc.idempotencyExpiresAt) <= now;
+        if (!isExpired) {
+          const isTerminal = ['COMPLETED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(existingKeyDoc.status);
+          return ApiResponse.success(
+            res,
+            200,
+            {
+              submissionId: existingKeyDoc._id,
+              status: existingKeyDoc.status,
+              jobId: existingKeyDoc.jobId,
+              runType: existingKeyDoc.runType || 'SUBMISSION',
+              verdict: existingKeyDoc.verdict,
+              pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existingKeyDoc._id}`,
+              isDuplicate: true,
+              alreadyCompleted: isTerminal
+            },
+            isTerminal
+              ? 'Submission with this idempotency key already completed within retention window.'
+              : 'A submission job is already in progress for this challenge.'
+          );
+        } else {
+          // Retention window expired: safely release the key from historical doc without deleting history
+          if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+            await Submission.findOneAndUpdate(
+              { _id: existingKeyDoc._id, idempotencyKey },
+              { $set: { idempotencyKey: null } }
+            );
+          }
+        }
+      }
+
+      // Stale fallback in-flight lock cleanup: Only clear stale keys for in-flight fallback locks (not client UUIDs)
+      if (!clientKey && (mongoose.connection?.readyState === 1 || (Submission.updateMany && Submission.updateMany._isMockFunction))) {
+        await Submission.updateMany(
+          {
+            idempotencyKey,
+            $or: [
+              { status: { $nin: ['QUEUED', 'RUNNING'] } },
+              { status: 'RUNNING', executionLeaseExpiresAt: { $lte: now } },
+              { status: 'QUEUED', createdAt: { $lt: queuedGraceThreshold } }
+            ]
+          },
+          { $set: { idempotencyKey: null } }
+        ).catch(() => {});
+      }
+
+      // 1. Create authoritative Submission record in MongoDB with distributed idempotency key
+      let submission;
+      try {
+        submission = await Submission.create({
+          attemptId,
+          questionId,
+          code: code || '',
+          language: language || question.language || 'javascript',
+          runType: 'SUBMISSION',
+          status: 'QUEUED',
+          verdict: 'PENDING',
+          maxMarks,
+          idempotencyKey,
+          idempotencyExpiresAt
+        });
+      } catch (createErr) {
+        if (createErr.code === 11000 || createErr.name === 'MongoServerError' || createErr.message?.includes('E11000') || createErr.message?.includes('duplicate key')) {
+          const existing = await Submission.findOne({ idempotencyKey })
+            || await Submission.findOne({ attemptId, questionId, runType: 'SUBMISSION' }).sort({ createdAt: -1 });
+          if (existing) {
+            return ApiResponse.success(
+              res,
+              200,
+              {
+                submissionId: existing._id,
+                status: existing.status,
+                jobId: existing.jobId,
+                runType: 'SUBMISSION',
+                pollUrl: `/api/v1/attempts/${attemptId}/submissions/${existing._id}`,
+                isDuplicate: true
+              },
+              'A submission job is already in progress for this challenge.'
+            );
+          }
+        }
+        throw createErr;
+      }
+
+      // 2. Enqueue execution job in BullMQ
+      let job;
+      try {
+        job = await enqueueExecutionJob({
+          submissionId: submission._id,
+          attemptId,
+          questionId,
+          runType: 'SUBMISSION',
+          language: submission.language,
+          studentEmail: attempt.candidateInfo?.email || ''
+        });
+        submission.jobId = job.id;
+        await submission.save();
+      } catch (queueErr) {
+        submission.status = 'EXECUTION_UNAVAILABLE';
+        submission.verdict = 'EXECUTION_UNAVAILABLE';
+        submission.errorMessage = `Execution queue unavailable: ${queueErr.message}`;
+        submission.idempotencyKey = null;
+        if (typeof submission.save === 'function') {
+          await submission.save();
+        }
+        throw queueErr;
+      }
+
+      // 3. Return 202 immediately with submissionId and pollUrl
       return ApiResponse.success(
         res,
-        200,
+        202,
         {
-          submissionId: activeExisting._id,
-          status: activeExisting.status,
-          jobId: activeExisting.jobId,
+          submissionId: submission._id,
+          status: 'QUEUED',
+          jobId: job.id,
           runType: 'SUBMISSION',
-          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${activeExisting._id}`,
-          isDuplicate: true
+          pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
         },
-        'A submission job is already in progress for this challenge.'
+        'Question submission queued for evaluation.'
       );
+    } finally {
+      inFlightOperations.delete(opKey);
     }
-
-    // 1. Create authoritative Submission record in MongoDB
-    const submission = await Submission.create({
-      attemptId,
-      questionId,
-      code: code || '',
-      language: language || question.language || 'javascript',
-      runType: 'SUBMISSION',
-      status: 'QUEUED',
-      verdict: 'PENDING',
-      maxMarks
-    });
-
-    // 2. Enqueue execution job in BullMQ
-    const job = await enqueueExecutionJob({
-      submissionId: submission._id,
-      attemptId,
-      questionId,
-      runType: 'SUBMISSION',
-      language: submission.language,
-      studentEmail: attempt.candidateInfo?.email || ''
-    });
-
-    submission.jobId = job.id;
-    await submission.save();
-
-    // 3. Return 202 immediately with submissionId and pollUrl
-    return ApiResponse.success(
-      res,
-      202,
-      {
-        submissionId: submission._id,
-        status: 'QUEUED',
-        jobId: job.id,
-        runType: 'SUBMISSION',
-        pollUrl: `/api/v1/attempts/${attemptId}/submissions/${submission._id}`
-      },
-      'Question submission queued for evaluation.'
-    );
   } catch (error) {
     next(error);
   }

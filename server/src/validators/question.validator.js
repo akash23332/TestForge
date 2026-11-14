@@ -43,7 +43,19 @@ export const validateCreateQuestion = (req, res, next) => {
     starterCodes: Joi.object().pattern(Joi.string(), Joi.string().allow('')).optional().default({}),
     referenceSolution: Joi.string().allow('').default(''),
     referenceSolutions: Joi.object().pattern(Joi.string(), Joi.string().allow('')).optional().default({}),
-    status: Joi.string().valid('draft', 'published', 'archived').default('draft'),
+    status: Joi.string()
+      .valid(
+        'draft',
+        'published',
+        'archived',
+        'DRAFT',
+        'VALIDATING',
+        'READY_TO_PUBLISH',
+        'PUBLISHED',
+        'VALIDATION_FAILED',
+        'VALIDATION_UNAVAILABLE'
+      )
+      .default('DRAFT'),
     ownerId: Joi.string().optional().allow('')
   }).unknown(true);
 

@@ -4,7 +4,7 @@ import { StudentInstructionsView } from './StudentInstructionsView';
 import { StudentExamWorkspace } from './StudentExamWorkspace';
 import { StudentResultsView } from './StudentResultsView';
 
-export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode = '', currentUser = null }) => {
+export const StudentPortalContainer = ({ onExitToTeacherPortal, onExit, onBack, initialExamCode = '', currentUser = null }) => {
   const [step, setStep] = useState('join'); // 'join' | 'instructions' | 'workspace' | 'results'
   const [sessionData, setSessionData] = useState(() => {
     try {
@@ -62,8 +62,14 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode 
     setSessionData(null);
     setResultData(null);
     setStep('join');
-    if (onExitToTeacherPortal) {
+    if (onBack) {
+      onBack();
+    } else if (onExit) {
+      onExit();
+    } else if (onExitToTeacherPortal) {
       onExitToTeacherPortal();
+    } else if (window.history.length > 1) {
+      window.history.back();
     }
   };
 
@@ -72,6 +78,7 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, initialExamCode 
       {step === 'join' && (
         <StudentJoinView
           onJoined={handleJoined}
+          onBack={handleExit}
           initialExamCode={initialExamCode}
           currentUser={currentUser}
         />

@@ -1095,7 +1095,7 @@ export const QuestionCreatorView = ({
       }
 
       const returnedQ = res?.data?.data || res?.data;
-      const isActuallyPublished = returnedQ?.status === 'published';
+      const isActuallyPublished = returnedQ?.status === 'published' || returnedQ?.status === 'PUBLISHED';
 
       triggerConfettiBurst();
       showToast(isEditing ? 'Question changes saved successfully!' : 'Question saved and published to Question Bank!');
@@ -1168,15 +1168,17 @@ export const QuestionCreatorView = ({
           grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
           gap: 14px;
           margin-bottom: 14px;
+          align-items: stretch;
         }
         .tf-cq-root .tf-hero {
           position: relative;
           background: #101112;
           color: #fff;
           border-radius: 28px;
-          padding: 30px 34px;
+          padding: 24px 30px;
           overflow: hidden;
           min-height: 270px;
+          max-height: 285px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1211,8 +1213,8 @@ export const QuestionCreatorView = ({
 
         /* Hero Title Staggered Letter Animation like Question Bank */
         .tf-cq-root h1.hero-title {
-          font-size: clamp(32px, 4.5vw, 48px);
-          margin: 14px 0 8px;
+          font-size: clamp(28px, 3.2vw, 42px);
+          margin: 8px 0 6px;
           letter-spacing: -.035em;
           line-height: 1.05;
           font-weight: 700;
@@ -1237,11 +1239,11 @@ export const QuestionCreatorView = ({
         }
 
         .tf-cq-root .tf-hero p {
-          margin: 0 0 20px;
+          margin: 0 0 14px;
           color: #b7bdb6;
           max-width: 42ch;
-          font-size: 14.5px;
-          line-height: 1.5;
+          font-size: 13.5px;
+          line-height: 1.45;
         }
         .tf-cq-root .tf-btns {
           display: flex;
@@ -1252,9 +1254,9 @@ export const QuestionCreatorView = ({
           border: 0;
           cursor: pointer;
           border-radius: 99px;
-          padding: 11px 22px;
+          padding: 9px 20px;
           font-weight: 600;
-          font-size: 13.5px;
+          font-size: 13px;
           display: inline-flex;
           gap: 8px;
           align-items: center;
@@ -1289,16 +1291,16 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .tf-facts {
           display: flex;
-          gap: 22px;
+          gap: 18px;
           border-top: 1px solid #2b2d30;
-          padding-top: 14px;
-          margin-top: 20px;
-          font-size: 13px;
+          padding-top: 10px;
+          margin-top: 14px;
+          font-size: 12px;
           color: #c8cdc7;
         }
         .tf-cq-root .tf-facts b {
           color: #fff;
-          font-size: 15px;
+          font-size: 14px;
           margin-right: 4px;
         }
 
@@ -1323,8 +1325,8 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .orbit-ring {
           position: absolute;
-          width: 260px;
-          height: 100px;
+          width: 210px;
+          height: 80px;
           border-radius: 50%;
           border: 1.5px solid rgba(237, 255, 114, 0.35);
           transform: rotateX(72deg) rotateY(-18deg);
@@ -1343,8 +1345,8 @@ export const QuestionCreatorView = ({
           transform: translateX(-50%);
         }
         .tf-cq-root .cube {
-          width: 156px;
-          height: 156px;
+          width: 124px;
+          height: 124px;
           transform-style: preserve-3d;
           animation: tfSpin 14s linear infinite;
           transform: rotateX(-18deg) rotateY(0);
@@ -1354,43 +1356,43 @@ export const QuestionCreatorView = ({
           inset: 0;
           display: grid;
           place-items: center;
-          font: 800 48px var(--mono);
+          font: 800 38px var(--mono);
           font-style: normal;
-          border-radius: 26px;
-          border: 2.8px solid #191A1D;
+          border-radius: 20px;
+          border: 2.5px solid #191A1D;
           backface-visibility: visible;
           user-select: none;
-          box-shadow: inset 0 0 20px rgba(0,0,0,0.14);
+          box-shadow: inset 0 0 16px rgba(0,0,0,0.14);
         }
         .tf-cq-root .f1 {
           background: var(--acc);
           color: #191A1D;
-          transform: translateZ(78px);
+          transform: translateZ(62px);
         }
         .tf-cq-root .f2 {
           background: #2c2f34;
           color: var(--acc);
-          transform: rotateY(180deg) translateZ(78px);
+          transform: rotateY(180deg) translateZ(62px);
         }
         .tf-cq-root .f3 {
           background: #e3f55f;
           color: #191A1D;
-          transform: rotateY(90deg) translateZ(78px);
+          transform: rotateY(90deg) translateZ(62px);
         }
         .tf-cq-root .f4 {
           background: #33363b;
           color: var(--acc);
-          transform: rotateY(-90deg) translateZ(78px);
+          transform: rotateY(-90deg) translateZ(62px);
         }
         .tf-cq-root .f5 {
           background: #f7ffa8;
           color: #191A1D;
-          transform: rotateX(90deg) translateZ(78px);
+          transform: rotateX(90deg) translateZ(62px);
         }
         .tf-cq-root .f6 {
           background: #23252a;
           color: var(--acc);
-          transform: rotateX(-90deg) translateZ(78px);
+          transform: rotateX(-90deg) translateZ(62px);
         }
         @keyframes tfSpin {
           0% { transform: rotateX(-18deg) rotateY(0deg); }
@@ -1408,12 +1410,12 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .stage .shadow {
           position: absolute;
-          bottom: 22px;
-          width: 160px;
-          height: 24px;
+          bottom: 16px;
+          width: 130px;
+          height: 20px;
           border-radius: 50%;
           background: rgba(0,0,0,.55);
-          filter: blur(12px);
+          filter: blur(10px);
           animation: tfShadow 3.2s ease-in-out infinite;
         }
         @keyframes tfShadow {
@@ -2278,9 +2280,35 @@ export const QuestionCreatorView = ({
             </div>
           </div>
 
-          {/* Card 3: Language Selector Chips */}
+          {/* Card 3: Language Selector Chips & Execution Mode */}
           <div className="tf-card tf-mini rise" style={{ '--k': 4 }}>
-            <div className="tf-tile">&lt;/&gt;</div>
+            <div className="flex items-center justify-between">
+              <div className="tf-tile">&lt;/&gt;</div>
+              <div className="flex items-center gap-1 bg-[#F2F3F0] p-0.5 rounded-lg text-[10px] font-bold">
+                <button
+                  type="button"
+                  aria-pressed={executionMode === 'FUNCTION'}
+                  onClick={() => handleModeChange('FUNCTION')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    executionMode === 'FUNCTION' ? 'bg-[#191A1D] text-white' : 'text-[#777D78] hover:text-[#171819]'
+                  }`}
+                  title="Function mode: Student implements a named function"
+                >
+                  Function
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={executionMode === 'STDIN'}
+                  onClick={() => handleModeChange('STDIN')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    executionMode === 'STDIN' ? 'bg-[#191A1D] text-white' : 'text-[#777D78] hover:text-[#171819]'
+                  }`}
+                  title="STDIN mode: Student writes a program reading stdin"
+                >
+                  STDIN
+                </button>
+              </div>
+            </div>
             <div className="tf-cap">Language</div>
             <div className="tf-chips">
               {SUPPORTED_LANGS.map((lang) => (
@@ -2295,64 +2323,6 @@ export const QuestionCreatorView = ({
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Card 3.5: Execution Mode Toggle */}
-          <div className="tf-card tf-mini rise" style={{ '--k': 4.5 }}>
-            <div className="tf-tile">⚙</div>
-            <div className="tf-cap">Execution Mode</div>
-            <div className="tf-chips">
-              <button
-                type="button"
-                aria-pressed={executionMode === 'FUNCTION'}
-                onClick={() => handleModeChange('FUNCTION')}
-                className="tf-chp"
-                title="Function mode: Student implements a named function"
-              >
-                Function
-              </button>
-              <button
-                type="button"
-                aria-pressed={executionMode === 'STDIN'}
-                onClick={() => handleModeChange('STDIN')}
-                className="tf-chp"
-                title="STDIN mode: Student writes a program reading stdin"
-              >
-                STDIN
-              </button>
-            </div>
-            {executionMode === 'FUNCTION' && (
-              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                <div className="tf-cap" style={{ marginBottom: '6px', fontSize: '10px' }}>Data Structure</div>
-                <div className="tf-chips" style={{ flexWrap: 'wrap', gap: '4px' }}>
-                  {DATA_STRUCTURE_OPTIONS.map((ds) => (
-                    <button
-                      key={ds.id}
-                      type="button"
-                      aria-pressed={dataStructure === ds.id}
-                      onClick={() => handleDataStructureChange(ds.id)}
-                      className="tf-chp"
-                      style={{ fontSize: '10px', padding: '3px 8px' }}
-                    >
-                      {ds.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: '8px' }}>
-                  <input
-                    type="text"
-                    value={functionName}
-                    onChange={(e) => {
-                      setFunctionName(e.target.value);
-                      triggerAutoSave();
-                    }}
-                    placeholder="Function name (e.g. solution, reverseList, invertTree)"
-                    className="tf-chp"
-                    style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: '11px' }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Card 4: Difficulty Selector */}
@@ -2656,6 +2626,43 @@ export const QuestionCreatorView = ({
           {/* PANEL 2: Starter Code */}
           {activeTab === 'starter' && (
             <div id="f-starter" className="space-y-3">
+              {executionMode === 'FUNCTION' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-[#F8F9F7] border border-[#DDE1DA] text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[#171819] text-[11px] uppercase tracking-wider font-mono">Data Structure:</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {DATA_STRUCTURE_OPTIONS.map((ds) => (
+                        <button
+                          key={ds.id}
+                          type="button"
+                          aria-pressed={dataStructure === ds.id}
+                          onClick={() => handleDataStructureChange(ds.id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            dataStructure === ds.id
+                              ? 'bg-[#191A1D] text-white shadow-xs'
+                              : 'bg-white text-[#777D78] border border-[#DDE1DA] hover:text-[#171819]'
+                          }`}
+                        >
+                          {ds.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-[#777D78] text-xs font-semibold">Function:</span>
+                    <input
+                      type="text"
+                      value={functionName}
+                      onChange={(e) => {
+                        setFunctionName(e.target.value);
+                        triggerAutoSave();
+                      }}
+                      placeholder="e.g. solution"
+                      className="px-2.5 py-1 rounded-lg border border-[#DDE1DA] bg-white text-xs font-mono w-28 focus:outline-none focus:border-[#191A1D]"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="hd">
                 <label htmlFor="starter" style={{ margin: 0 }}>
                   Starter code (students see this)
@@ -2664,7 +2671,7 @@ export const QuestionCreatorView = ({
                   type="button"
                   className="link text-xs"
                   onClick={() => {
-                    const tpl = getStandardTemplate(executionMode, language);
+                    const tpl = getStandardTemplate(executionMode, language, dataStructure);
                     if (tpl) setStarterCode(tpl.starterCode);
                     triggerAutoSave();
                     showToast('Reset to default language template');
@@ -2692,6 +2699,43 @@ export const QuestionCreatorView = ({
           {activeTab === 'reference' && (
             <div id="f-ref" className="space-y-3">
               <div className="note">Teacher only. Never shown in the student preview.</div>
+              {executionMode === 'FUNCTION' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-[#F8F9F7] border border-[#DDE1DA] text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[#171819] text-[11px] uppercase tracking-wider font-mono">Data Structure:</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {DATA_STRUCTURE_OPTIONS.map((ds) => (
+                        <button
+                          key={ds.id}
+                          type="button"
+                          aria-pressed={dataStructure === ds.id}
+                          onClick={() => handleDataStructureChange(ds.id)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            dataStructure === ds.id
+                              ? 'bg-[#191A1D] text-white shadow-xs'
+                              : 'bg-white text-[#777D78] border border-[#DDE1DA] hover:text-[#171819]'
+                          }`}
+                        >
+                          {ds.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-[#777D78] text-xs font-semibold">Function:</span>
+                    <input
+                      type="text"
+                      value={functionName}
+                      onChange={(e) => {
+                        setFunctionName(e.target.value);
+                        triggerAutoSave();
+                      }}
+                      placeholder="e.g. solution"
+                      className="px-2.5 py-1 rounded-lg border border-[#DDE1DA] bg-white text-xs font-mono w-28 focus:outline-none focus:border-[#191A1D]"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="hd">
                 <label htmlFor="ref" style={{ margin: 0 }}>
                   Reference solution
@@ -2700,7 +2744,7 @@ export const QuestionCreatorView = ({
                   type="button"
                   className="link text-xs"
                   onClick={() => {
-                    const tpl = getStandardTemplate(executionMode, language);
+                    const tpl = getStandardTemplate(executionMode, language, dataStructure);
                     if (tpl) setReferenceSolution(tpl.referenceSolution);
                     triggerAutoSave();
                     showToast('Reset to default reference solution');

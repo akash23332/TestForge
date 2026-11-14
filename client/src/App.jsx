@@ -257,14 +257,24 @@ export const App = () => {
 
   // 0. Direct guest candidate exam execution
   if (guestExamCode || activeTab === 'join-test') {
+    const handleReturn = () => {
+      setGuestExamCode(null);
+      if (currentUser && currentUser.role?.toLowerCase() === 'student') {
+        setActiveTab('student-dashboard');
+        setStudentSubTab('dashboard');
+        window.history.pushState(null, '', '/student/dashboard');
+      } else {
+        setActiveTab('landing');
+        window.history.pushState(null, '', '/');
+      }
+    };
+
     return (
       <StudentPortalContainer
         initialExamCode={guestExamCode || ''}
         currentUser={currentUser}
-        onExit={() => {
-          setGuestExamCode(null);
-          setActiveTab('landing');
-        }}
+        onExit={handleReturn}
+        onBack={handleReturn}
       />
     );
   }
@@ -596,6 +606,7 @@ export const App = () => {
               <StudentPortalContainer
                 initialExamCode={candidateExamCode}
                 onExitToTeacherPortal={() => setActiveTab('exams')}
+                onBack={() => setActiveTab('exams')}
               />
             )}
 

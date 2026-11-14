@@ -85,20 +85,27 @@ const PERMANENT_ERROR_VERDICTS = new Set([
 export const recoverUnavailableSubmissions = async ({
   submissionId,
   attemptId,
+  runType,
   limit = 100,
-  leaseDurationMs = DEFAULT_LEASE_DURATION_MS
+  leaseDurationMs = DEFAULT_LEASE_DURATION_MS,
+  staleQueuedThresholdMs = 30000
 } = {}) => {
   const now = new Date();
+  const staleQueuedThreshold = new Date(now.getTime() - staleQueuedThresholdMs);
 
-  // Find submissions that are either EXECUTION_UNAVAILABLE or have a stale, expired RECOVERING lease
+  // Find submissions that are either EXECUTION_UNAVAILABLE, expired RECOVERING, expired RUNNING, or orphaned QUEUED
   const query = {
-    runType: 'SUBMISSION',
     $or: [
       { status: 'EXECUTION_UNAVAILABLE' },
-      { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: now } }
+      { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: now } },
+      { status: 'RUNNING', executionLeaseExpiresAt: { $lt: now } },
+      { status: 'QUEUED', createdAt: { $lt: staleQueuedThreshold } }
     ]
   };
 
+  if (runType) {
+    query.runType = runType;
+  }
   if (submissionId) {
     query._id = submissionId;
   }
@@ -135,7 +142,9 @@ export const recoverUnavailableSubmissions = async ({
         _id: candidate._id,
         $or: [
           { status: 'EXECUTION_UNAVAILABLE' },
-          { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: new Date() } }
+          { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: new Date() } },
+          { status: 'RUNNING', executionLeaseExpiresAt: { $lt: new Date() } },
+          { status: 'QUEUED', createdAt: { $lt: staleQueuedThreshold } }
         ]
       },
       {
@@ -552,6 +561,22 @@ export const clearUnresolvedRemoteExecution = async (submissionId, operatorId, r
   );
 };
 
+/**
+ * Run startup recovery sweep for dangling, stalled, or unavailable executions.
+ * Safe to execute concurrently on multiple server and worker instances at startup.
+ */
+export const runStartupRecovery = async (options = {}) => {
+  try {
+    console.log('[TestForge Recovery] Running startup execution recovery sweep...');
+    const result = await recoverUnavailableSubmissions(options);
+    console.log(`[TestForge Recovery] Startup recovery complete: scanned=${result.scanned}, recovered=${result.recovered}, skipped=${result.skipped}, errors=${result.errors}`);
+    return result;
+  } catch (err) {
+    console.warn(`[TestForge Recovery] Startup recovery notice: ${err.message}`);
+    return { scanned: 0, recovered: 0, skipped: 0, errors: 1, error: err.message };
+  }
+};
+
 export default {
   DEFAULT_LEASE_DURATION_MS,
   DEFAULT_QUARANTINE_BUFFER_MS,
@@ -561,5 +586,6 @@ export default {
   renewRecoveryLease,
   recoverUnavailableSubmissions,
   reconcileRemoteSubmissions,
-  clearUnresolvedRemoteExecution
+  clearUnresolvedRemoteExecution,
+  runStartupRecovery
 };

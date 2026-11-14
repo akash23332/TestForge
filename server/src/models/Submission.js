@@ -132,6 +132,16 @@ const submissionSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    // Distributed Multi-Instance Idempotency Key & Retention Lifecycle
+    idempotencyKey: {
+      type: String,
+      default: null
+    },
+    idempotencyExpiresAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
     // Worker execution exclusivity & distributed lease
     executionOwner: {
       type: String,
@@ -268,6 +278,12 @@ const submissionSchema = new mongoose.Schema(
 );
 
 submissionSchema.index({ attemptId: 1, questionId: 1, createdAt: -1 });
+
+// Distributed idempotency: ensures exactly ONE active in-flight execution per idempotencyKey across all server instances
+submissionSchema.index(
+  { idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
+);
 
 export const Submission = mongoose.model('Submission', submissionSchema);
 export default Submission;

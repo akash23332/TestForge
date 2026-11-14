@@ -17,6 +17,11 @@ export const LEASE_OUTCOMES = Object.freeze({
   ERROR: 'LEASE_RENEWAL_ERROR'
 });
 
+const isDbConnectedOrMocked = () => {
+  return mongoose.connection?.readyState === 1 ||
+    Boolean(Submission.findOneAndUpdate && (Submission.findOneAndUpdate._isMockFunction || Submission.findOneAndUpdate.mock));
+};
+
 /**
  * Renews the execution lease for an actively running worker.
  * Must match the active executionOwner and RUNNING status.
@@ -54,7 +59,7 @@ export const renewExecutionLease = async (
     query.executionVersion = executionVersion;
   }
 
-  if (mongoose.connection?.readyState !== 1 && (!Submission.findOneAndUpdate || !Submission.findOneAndUpdate._isMockFunction)) {
+  if (!isDbConnectedOrMocked()) {
     return {
       outcome: LEASE_OUTCOMES.ERROR,
       renewed: false,
@@ -75,7 +80,7 @@ export const renewExecutionLease = async (
     });
 
     const updatePromise = (async () => {
-      if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+      if (isDbConnectedOrMocked()) {
         return await Submission.findOneAndUpdate(
           query,
           {
@@ -134,7 +139,7 @@ export const renewExecutionLease = async (
  * 
  * @param {import('bullmq').Job} job
  */
-export const processExecutionJob = async (job) => {
+export const processExecutionJob = async (job, options = {}) => {
   const { submissionId, attemptId, questionId, runType = 'SUBMISSION' } = job.data;
 
   // 1. Fetch trusted submission record
@@ -144,9 +149,8 @@ export const processExecutionJob = async (job) => {
   }
 
   // 1a. Security & Worker Claim Guard: Verify job ID and payload consistency with trusted submission record
-  const expectedJobId = `exec_${submission._id}`;
-  if (job.id && job.id !== expectedJobId) {
-    throw new Error(`[ExecutionProcessor] Job ID mismatch: expected ${expectedJobId}, received ${job.id}`);
+  if (submission._id && job.id && job.id !== `exec_${submission._id}`) {
+    throw new Error(`[ExecutionProcessor] Job ID mismatch: expected exec_${submission._id}, received ${job.id}`);
   }
 
   if (submission.attemptId && attemptId && submission.attemptId.toString() !== attemptId.toString()) {
@@ -172,10 +176,11 @@ export const processExecutionJob = async (job) => {
   // Exclusivity Guard: Only claims if QUEUED, RECOVERING, or stalled RUNNING with expired execution lease.
   // Rejects if already actively RUNNING with an unexpired lease, or if remote execution is active/quarantined.
   const executionOwner = crypto.randomUUID();
-  const executionLeaseExpiresAt = new Date(Date.now() + 60000); // 60s execution lease
+  const leaseDurationMs = options.leaseDurationMs || parseInt(process.env.EXECUTION_LEASE_MS, 10) || 60000;
+  const executionLeaseExpiresAt = new Date(Date.now() + leaseDurationMs); // Dynamic execution lease
 
   let claimedSubmission = null;
-  if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+  if (isDbConnectedOrMocked()) {
     claimedSubmission = await Submission.findOneAndUpdate(
       {
         _id: submission._id,
@@ -271,7 +276,8 @@ export const processExecutionJob = async (job) => {
   let leaseLost = false;
   let isRenewing = false;
   let lastRenewalOutcome = LEASE_OUTCOMES.RENEWED;
-  const heartbeatIntervalMs = 15000;
+  const heartbeatIntervalMs = options.heartbeatIntervalMs || parseInt(process.env.EXECUTION_HEARTBEAT_INTERVAL_MS, 10) || 15000;
+  const extensionMs = options.leaseExtensionMs || leaseDurationMs;
   const heartbeatTimer = setInterval(async () => {
     if (isRenewing) {
       console.warn(`[ExecutionProcessor] Prior lease renewal still in flight for ${submission._id}. Skipping overlapping renewal.`);
@@ -279,10 +285,10 @@ export const processExecutionJob = async (job) => {
     }
     isRenewing = true;
     try {
-      const result = await renewExecutionLease(submission._id, executionOwner, 60000, executionVersion);
+      const result = await renewExecutionLease(submission._id, executionOwner, extensionMs, executionVersion);
       lastRenewalOutcome = result.outcome;
       if (result.outcome === LEASE_OUTCOMES.RENEWED) {
-        currentLeaseExpiresAt = result.expiresAt || new Date(Date.now() + 60000);
+        currentLeaseExpiresAt = result.expiresAt || new Date(Date.now() + extensionMs);
       } else {
         console.warn(`[ExecutionProcessor] Execution lease renewal failed with outcome ${result.outcome} for submission ${submission._id}. Aborting execution.`);
         leaseLost = true;
@@ -308,7 +314,7 @@ export const processExecutionJob = async (job) => {
     // 4. Fetch trusted problem context and test cases from MongoDB
     const question = await Question.findById(questionId).lean();
     if (!question) {
-      if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+      if (isDbConnectedOrMocked()) {
         const qUpdate = { _id: submission._id, status: 'RUNNING', executionOwner };
         if (executionVersion !== null && executionVersion !== undefined) qUpdate.executionVersion = executionVersion;
         await Submission.findOneAndUpdate(qUpdate, {
@@ -345,7 +351,7 @@ export const processExecutionJob = async (job) => {
     }
 
     if (!testCases || testCases.length === 0) {
-      if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+      if (isDbConnectedOrMocked()) {
         const tcUpdate = { _id: submission._id, status: 'RUNNING', executionOwner };
         if (executionVersion !== null && executionVersion !== undefined) tcUpdate.executionVersion = executionVersion;
         await Submission.findOneAndUpdate(tcUpdate, {
@@ -548,7 +554,7 @@ export const processExecutionJob = async (job) => {
 
     // 7. Persist authoritative results to MongoDB (Guarded by executionOwner and executionVersion fencing)
     let finalized = null;
-    if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+    if (isDbConnectedOrMocked()) {
       const completionQuery = {
         _id: submission._id,
         status: 'RUNNING',
@@ -558,24 +564,32 @@ export const processExecutionJob = async (job) => {
         completionQuery.executionVersion = executionVersion;
       }
 
+      // Safe Idempotency Retention Policy:
+      // Client-generated UUIDs (client:*) are retained across completion to prevent delayed duplicate retries
+      // from creating second executions. In-flight fallback keys (inflight:*) are cleared upon terminal completion.
+      const shouldRetainIdempotency = submission.idempotencyKey && submission.idempotencyKey.startsWith('client:');
+
+      const completionUpdate = {
+        testResults: evaluatedResults,
+        totalTests: totalCount,
+        passedTests: passedCount,
+        scoreAwarded,
+        verdict,
+        status: finalStatus,
+        errorMessage: isInfrastructureFailure
+          ? submission.errorMessage
+          : (criticalErrorStatus ? (evaluatedResults.find(r => r.error)?.error || submission.errorMessage || null) : null),
+        executionLeaseExpiresAt: null,
+        'remoteExecution.state': isInfrastructureFailure ? 'EXECUTION_UNAVAILABLE' : 'COMPLETED',
+        'remoteExecution.completedAt': new Date()
+      };
+      if (!shouldRetainIdempotency) {
+        completionUpdate.idempotencyKey = null;
+      }
+
       finalized = await Submission.findOneAndUpdate(
         completionQuery,
-        {
-          $set: {
-            testResults: evaluatedResults,
-            totalTests: totalCount,
-            passedTests: passedCount,
-            scoreAwarded,
-            verdict,
-            status: finalStatus,
-            errorMessage: isInfrastructureFailure
-              ? submission.errorMessage
-              : (criticalErrorStatus ? (evaluatedResults.find(r => r.error)?.error || submission.errorMessage || null) : null),
-            executionLeaseExpiresAt: null,
-            'remoteExecution.state': isInfrastructureFailure ? 'EXECUTION_UNAVAILABLE' : 'COMPLETED',
-            'remoteExecution.completedAt': new Date()
-          }
-        },
+        { $set: completionUpdate },
         { new: true }
       );
 
@@ -594,6 +608,9 @@ export const processExecutionJob = async (job) => {
       submission.scoreAwarded = scoreAwarded;
       submission.verdict = verdict;
       submission.status = finalStatus;
+      if (!submission.idempotencyKey || !submission.idempotencyKey.startsWith('client:')) {
+        submission.idempotencyKey = null;
+      }
       submission.errorMessage = isInfrastructureFailure
         ? submission.errorMessage
         : (criticalErrorStatus ? (evaluatedResults.find(r => r.error)?.error || submission.errorMessage || null) : null);
@@ -662,7 +679,7 @@ export const processExecutionJob = async (job) => {
     const targetStatus = submission.status === 'EXECUTION_UNAVAILABLE' ? 'EXECUTION_UNAVAILABLE' : 'INTERNAL_ERROR';
     const targetError = err.message || 'Worker processing error';
 
-    if (mongoose.connection?.readyState === 1 || (Submission.findOneAndUpdate && Submission.findOneAndUpdate._isMockFunction)) {
+    if (isDbConnectedOrMocked()) {
       const errQuery = {
         _id: submission._id,
         status: 'RUNNING',
@@ -676,13 +693,15 @@ export const processExecutionJob = async (job) => {
         {
           $set: {
             status: targetStatus,
-            errorMessage: targetError
+            errorMessage: targetError,
+            idempotencyKey: null
           }
         }
       );
     } else {
       submission.status = targetStatus;
       submission.errorMessage = targetError;
+      submission.idempotencyKey = null;
       if (typeof submission.save === 'function') {
         await submission.save();
       }

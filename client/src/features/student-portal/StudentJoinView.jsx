@@ -7,6 +7,7 @@ import {
   Mail,
   GraduationCap,
   ArrowRight,
+  ArrowLeft,
   AlertCircle,
   Sparkles,
   Lock,
@@ -15,13 +16,23 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-export const StudentJoinView = ({ onJoined, initialExamCode = '', currentUser = null }) => {
+export const StudentJoinView = ({ onJoined, onBack, initialExamCode = '', currentUser = null }) => {
   const [examCode, setExamCode] = useState(initialExamCode);
   const [candidateName, setCandidateName] = useState(currentUser?.name || '');
   const [candidateEmail, setCandidateEmail] = useState(currentUser?.email || '');
   const [rollNumber, setRollNumber] = useState(currentUser?.rollNumber || currentUser?.studentId || '');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = currentUser?.role?.toLowerCase() === 'student' ? '/student/dashboard' : '/';
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,7 +78,23 @@ export const StudentJoinView = ({ onJoined, initialExamCode = '', currentUser = 
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#F2F3F0]">
+    <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#F2F3F0]">
+      {/* Top Navigation Row */}
+      <div className="w-full max-w-4xl mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#DDE1DA] hover:bg-[#F5F6F3] hover:border-[#171819] active:scale-95 text-xs font-bold text-[#171819] transition-all cursor-pointer shadow-xs group"
+        >
+          <ArrowLeft className="h-4 w-4 text-[#777D78] group-hover:text-[#171819] transition-colors" />
+          <span>Back to Dashboard</span>
+        </button>
+
+        <div className="text-[11px] font-semibold text-[#777D78] hidden sm:block">
+          Assessment Access Verification
+        </div>
+      </div>
+
       <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Information Panel */}
         <div className="lg:col-span-5 space-y-6 text-[#171819]">
@@ -229,7 +256,7 @@ export const StudentJoinView = ({ onJoined, initialExamCode = '', currentUser = 
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -246,6 +273,15 @@ export const StudentJoinView = ({ onJoined, initialExamCode = '', currentUser = 
                       <ArrowRight className="h-4 w-4 text-[#EDFF72]" />
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="w-full py-2.5 px-4 rounded-xl border border-[#DDE1DA] hover:bg-[#F5F6F3] text-xs font-bold text-[#777D78] hover:text-[#171819] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Cancel & Return</span>
                 </button>
               </div>
 

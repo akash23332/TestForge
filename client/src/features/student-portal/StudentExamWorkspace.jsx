@@ -488,6 +488,24 @@ export const StudentExamWorkspace = ({
     throw new Error('Execution timed out waiting for worker results. Please try again.');
   };
 
+  // Executes network requests with idempotency preservation:
+  // Network failures retry automatically reusing the EXACT same action UUID.
+  const executeWithIdempotencyRetry = async (requestFn, maxRetries = 2) => {
+    for (let attemptNum = 0; attemptNum <= maxRetries; attemptNum++) {
+      try {
+        return await requestFn();
+      } catch (err) {
+        const isNetworkFailure = !err.response || [502, 503, 504].includes(err.response?.status);
+        if (isNetworkFailure && attemptNum < maxRetries) {
+          setExecutionStatusMessage(`Network interrupted. Retrying request (${attemptNum + 1}/${maxRetries})...`);
+          await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attemptNum)));
+          continue; // Re-uses identical clientActionId
+        }
+        throw err;
+      }
+    }
+  };
+
   // ── Run Sample Tests (Coding Only) ─────────────────────────────────────────
   const handleRunSampleTests = async () => {
     if (!currentQuestion._id || isMcq || isExecuting || isSubmittingQuestion) return;
@@ -496,12 +514,29 @@ export const StudentExamWorkspace = ({
     setActiveTab('samples');
     setIsTestDrawerExpanded(true);
 
+    // Generate unique client-side idempotency UUID for this logical action.
+    // Network retries reuse this exact action ID.
+    const clientActionId = window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `act_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
     try {
-      const res = await api.post(`/attempts/${attempt._id}/run`, {
-        questionId: currentQuestion._id,
-        code: currentCode,
-        language: selectedLanguage
-      });
+      const res = await executeWithIdempotencyRetry(() =>
+        api.post(
+          `/attempts/${attempt._id}/run`,
+          {
+            questionId: currentQuestion._id,
+            code: currentCode,
+            language: selectedLanguage,
+            idempotencyKey: clientActionId
+          },
+          {
+            headers: {
+              'Idempotency-Key': clientActionId
+            }
+          }
+        )
+      );
       const data = res.data?.data;
       if (data?.status === 'QUEUED' || data?.status === 'RUNNING') {
         setExecutionStatusMessage(data.status === 'RUNNING' ? 'Executing test suite in worker...' : 'Queued for execution...');
@@ -539,13 +574,28 @@ export const StudentExamWorkspace = ({
     setActiveTab('custom');
     setIsTestDrawerExpanded(true);
 
+    const clientActionId = window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `act_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
     try {
-      const res = await api.post(`/attempts/${attempt._id}/custom-run`, {
-        questionId: currentQuestion._id,
-        code: currentCode,
-        language: selectedLanguage,
-        customInput
-      });
+      const res = await executeWithIdempotencyRetry(() =>
+        api.post(
+          `/attempts/${attempt._id}/custom-run`,
+          {
+            questionId: currentQuestion._id,
+            code: currentCode,
+            language: selectedLanguage,
+            customInput,
+            idempotencyKey: clientActionId
+          },
+          {
+            headers: {
+              'Idempotency-Key': clientActionId
+            }
+          }
+        )
+      );
       const data = res.data?.data;
       if (data?.status === 'QUEUED' || data?.status === 'RUNNING') {
         setExecutionStatusMessage(data.status === 'RUNNING' ? 'Executing custom input in worker...' : 'Queued for execution...');
@@ -584,12 +634,26 @@ export const StudentExamWorkspace = ({
       setIsTestDrawerExpanded(true);
     }
 
+    const clientActionId = window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `act_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
     try {
       const payload = isMcq
-        ? { questionId: currentQuestion._id, selectedOption }
-        : { questionId: currentQuestion._id, code: currentCode, language: selectedLanguage };
+        ? { questionId: currentQuestion._id, selectedOption, idempotencyKey: clientActionId }
+        : { questionId: currentQuestion._id, code: currentCode, language: selectedLanguage, idempotencyKey: clientActionId };
 
-      const res = await api.post(`/attempts/${attempt._id}/submit-question`, payload);
+      const res = await executeWithIdempotencyRetry(() =>
+        api.post(
+          `/attempts/${attempt._id}/submit-question`,
+          payload,
+          {
+            headers: {
+              'Idempotency-Key': clientActionId
+            }
+          }
+        )
+      );
       let data = res.data?.data;
 
       if (!isMcq && (data?.status === 'QUEUED' || data?.status === 'RUNNING')) {

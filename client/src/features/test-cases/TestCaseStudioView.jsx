@@ -104,7 +104,6 @@ export const TestCaseStudioView = ({
   const [selectedTestCaseId, setSelectedTestCaseId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [singleValidatingId, setSingleValidatingId] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -191,7 +190,13 @@ export const TestCaseStudioView = ({
         if (seededCases.length > 0) fetched = seededCases;
       }
 
-      setTestCases(fetched);
+      setTestCases((prev) => {
+        const runtimeMap = new Map(prev.map((p) => [String(p._id), p.runtimeMs]));
+        return fetched.map((item) => ({
+          ...item,
+          runtimeMs: runtimeMap.get(String(item._id)) ?? item.runtimeMs
+        }));
+      });
       if (fetched.length > 0 && !selectedTestCaseId) {
         setSelectedTestCaseId(fetched[0]._id);
       }
@@ -304,7 +309,7 @@ export const TestCaseStudioView = ({
   }, [testCases]);
 
   // Derived 5-Status Teacher Validation Dashboard (Requirements 4 & 5)
-  const isAlreadyPublished = currentQ?.status === 'published';
+  const isAlreadyPublished = currentQ?.status === 'published' || currentQ?.status === 'PUBLISHED';
   const refStatus = validationReport?.referenceSolutionStatus || currentQ?.validationSummary?.referenceSolutionStatus || 'PENDING';
   const caseValidity = validationReport?.testCaseValidity || currentQ?.validationSummary?.testCaseValidity || 'PENDING';
   const outStatus = validationReport?.expectedOutputStatus || currentQ?.validationSummary?.expectedOutputStatus || 'PENDING';
@@ -420,28 +425,30 @@ export const TestCaseStudioView = ({
         language: currentQ.language
       });
       const data = res.data?.data;
-      if (data?.passed) {
-        showToast('✓ Test Case Verified against reference solution');
+      if (data) {
         setTestCases((prev) =>
           prev.map((t) =>
             t._id === testId
-              ? { ...t, verificationStatus: 'verified', computedOutput: data.computedOutput, lastError: null }
+              ? {
+                  ...t,
+                  verificationStatus: data.passed
+                    ? 'verified'
+                    : (data.computedOutput !== undefined && data.computedOutput !== data.expectedOutput ? 'failed' : (data.status || 'failed')),
+                  computedOutput: data.computedOutput,
+                  runtimeMs: data.runtimeMs,
+                  lastError: data.passed ? null : data.error
+                }
               : t
           )
         );
-      } else if (data?.computedOutput !== undefined && data?.computedOutput !== data?.expectedOutput) {
-        showToast('⚠ Output Mismatch: Reference solution produced different output');
-        setTestCases((prev) =>
-          prev.map((t) =>
-            t._id === testId
-              ? { ...t, verificationStatus: 'failed', computedOutput: data.computedOutput, lastError: data.error }
-              : t
-          )
-        );
-      } else {
-        showToast(data?.error || 'Execution completed with issues');
+        if (data.passed) {
+          showToast(`✓ Test Case Verified in ${data.runtimeMs || 0}ms against reference solution`);
+        } else if (data.computedOutput !== undefined && data.computedOutput !== data.expectedOutput) {
+          showToast(`⚠ Output Mismatch (${data.runtimeMs || 0}ms): Reference solution produced different output`);
+        } else {
+          showToast(data.error || 'Execution completed with issues');
+        }
       }
-      await fetchTests();
     } catch (err) {
       showToast(err.response?.data?.message || err.message || 'Execution error during test run');
     } finally {
@@ -471,6 +478,7 @@ export const TestCaseStudioView = ({
                 ...t,
                 verificationStatus: r.status,
                 computedOutput: r.computedOutput,
+                runtimeMs: r.runtimeMs,
                 lastError: r.passed ? null : (r.error || t.lastError)
               };
             }
@@ -479,11 +487,10 @@ export const TestCaseStudioView = ({
         );
       }
       if (data?.canPublish) {
-        showToast('✓ Suite Verified: All test cases passed, Question is READY to publish!');
+        showToast('✓ Suite Verified: All test cases passed against reference solution');
       } else {
-        showToast(`Validation complete: ${data?.blockingErrors?.length || 0} blocking issue(s) detected`);
+        showToast(`Validation complete: ${data?.blockingErrors?.length || 0} issue(s) detected`);
       }
-      await fetchTests();
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.response?.data?.error?.message || err.message || 'Validation execution failed';
       showToast(`Validation Failed: ${errorMsg}`);
@@ -502,22 +509,6 @@ export const TestCaseStudioView = ({
       await fetchTests();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update expected output');
-    }
-  };
-
-  // Publish question directly from Test Studio once verified
-  const handlePublishFromStudio = async () => {
-    if (!currentQ?._id) return;
-    setIsPublishing(true);
-    try {
-      await api.patch(`/questions/${currentQ._id}`, { status: 'published' });
-      setCurrentQ((prev) => ({ ...prev, status: 'published' }));
-      showToast('✓ Successfully published question to Question Bank!');
-    } catch (err) {
-      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || 'Failed to publish question';
-      showToast(`Cannot publish: ${msg}`);
-    } finally {
-      setIsPublishing(false);
     }
   };
 
@@ -1275,20 +1266,20 @@ export const TestCaseStudioView = ({
             <div className="tf-tile">≡</div>
             <div className="tf-cap">Execution Ceil</div>
             <div className="tf-big" style={{ fontSize: '28px' }}>
-              38<span className="text-sm font-normal text-[#777D78] ml-1">ms</span>
+              {currentQ?.timeLimit || 2000}<span className="text-sm font-normal text-[#777D78] ml-1">ms</span>
             </div>
-            <div className="tf-sub">Memory limit: 128 MB</div>
+            <div className="tf-sub">Memory limit: {currentQ?.memoryLimit || 128} MB</div>
           </div>
         </div>
       </div>
 
       {/* ────────────────────────────────────────────────────────────────────────────
-          TEACHER VALIDATION DASHBOARD (Requirement 5)
+          TEACHER VALIDATION DASHBOARD
           Separate validation statuses: Reference Solution, Test Case Validity,
-          Expected Output, Test Quality, and Publishing Status
+          Expected Output, and Test Quality
           ──────────────────────────────────────────────────────────────────────────── */}
       <div className="mb-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Status 1: Reference Solution */}
           <div className="p-3.5 rounded-2xl bg-white border border-[#DDE1DA] shadow-xs flex flex-col justify-between min-h-[96px]">
             <div className="flex items-center justify-between">
@@ -1360,22 +1351,6 @@ export const TestCaseStudioView = ({
               {qualStatus === 'ADEQUATE' ? 'Covers edge & boundary cases' : 'Missing edge/hidden coverage'}
             </span>
           </div>
-
-          {/* Status 5: Publishing Status */}
-          <div className={`p-3.5 rounded-2xl border shadow-xs flex flex-col justify-between min-h-[96px] ${
-            pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'bg-emerald-50/80 border-emerald-300' : 'bg-rose-50/80 border-rose-300'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78]">Publishing Status</span>
-              <span className={`w-2.5 h-2.5 rounded-full ${pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            </div>
-            <div className={`text-base font-black ${pubStatus === 'PUBLISHED' || pubStatus === 'READY' ? 'text-emerald-800' : 'text-rose-800'}`}>
-              {pubStatus}
-            </div>
-            <span className="text-[10px] text-[#777D78]">
-              {pubStatus === 'PUBLISHED' ? 'Live in Question Bank' : pubStatus === 'READY' ? 'All criteria satisfied' : 'Resolve blocking errors'}
-            </span>
-          </div>
         </div>
 
         {/* Blocking Errors Banner (Requirement 4 & 6) */}
@@ -1383,7 +1358,7 @@ export const TestCaseStudioView = ({
           <div className="mt-3 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 shadow-xs">
             <div className="flex items-center gap-2 font-bold text-xs text-rose-800 mb-1.5">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>Blocking Errors ({validationReport.blockingErrors.length}) — Question Cannot Be Published:</span>
+              <span>Validation Issues ({validationReport.blockingErrors.length}) — Suite Unresolved:</span>
             </div>
             <ul className="list-disc list-inside text-xs space-y-1 text-rose-800 font-medium">
               {validationReport.blockingErrors.map((err, i) => (
@@ -1671,19 +1646,30 @@ export const TestCaseStudioView = ({
                 </div>
               </div>
 
-              {/* Computed Reference Output & Mismatch Resolver (Requirement 3) */}
-              {activeTestCase.computedOutput !== undefined && activeTestCase.computedOutput !== null && (
-                <div className={`p-3.5 rounded-2xl border ${
-                  String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim()
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                    : 'bg-amber-50 border-amber-300 text-amber-950'
-                }`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold flex items-center gap-1.5">
-                      <Cpu className="w-3.5 h-3.5" />
-                      <span>Computed Reference Solution Output</span>
-                    </label>
-                    {String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim() ? (
+              {/* Computed Reference Output & Live Execution Telemetry */}
+              <div className={`p-3.5 rounded-2xl border ${
+                activeTestCase.computedOutput === undefined || activeTestCase.computedOutput === null
+                  ? 'bg-[#F2F3F0] border-[#DDE1DA] text-[#171819]'
+                  : String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim()
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                  : 'bg-amber-50 border-amber-300 text-amber-950'
+              }`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>Computed Reference Solution Output</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {activeTestCase.runtimeMs !== undefined && activeTestCase.runtimeMs !== null && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/80 border border-[#DDE1DA] text-[#171819]">
+                        ⚡ {activeTestCase.runtimeMs}ms
+                      </span>
+                    )}
+                    {activeTestCase.computedOutput === undefined || activeTestCase.computedOutput === null ? (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                        AWAITING RUN
+                      </span>
+                    ) : String(activeTestCase.computedOutput).trim() === String(activeTestCase.expectedOutput || '').trim() ? (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 flex items-center gap-1">
                         <Check className="w-3 h-3" /> VERIFIED MATCH
                       </span>
@@ -1692,30 +1678,44 @@ export const TestCaseStudioView = ({
                         <AlertTriangle className="w-3 h-3" /> OUTPUT MISMATCH
                       </span>
                     )}
-                  </div>
-                  <div className="code-box min-h-[60px] text-xs">
-                    {activeTestCase.computedOutput === '' ? (
-                      <span className="text-[#8a8a85] italic font-normal">// (Empty output / no stdout produced)</span>
-                    ) : (
-                      activeTestCase.computedOutput
-                    )}
-                  </div>
-                  {String(activeTestCase.computedOutput).trim() !== String(activeTestCase.expectedOutput || '').trim() && (
-                    <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
-                      <p className="text-[11px] text-amber-900 font-medium m-0">
-                        Teacher approval required before replacing expected output with reference solution output.
-                      </p>
+                    {activeTestCase.computedOutput !== undefined && activeTestCase.computedOutput !== null && (
                       <button
                         type="button"
-                        onClick={() => handleAcceptComputedOutput(activeTestCase._id)}
-                        className="self-start sm:self-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                        onClick={() => handleCopy(String(activeTestCase.computedOutput), 'comp_out')}
+                        className="text-[11px] font-bold text-[#777D78] hover:text-[#171819] flex items-center gap-1 cursor-pointer"
                       >
-                        Accept Computed Output
+                        {copiedKey === 'comp_out' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'comp_out' ? 'Copied' : 'Copy Output'}</span>
                       </button>
-                    </div>
+                    )}
+                  </div>
+                </div>
+                <div className="code-box min-h-[60px] text-xs font-mono">
+                  {activeTestCase.computedOutput === undefined || activeTestCase.computedOutput === null ? (
+                    <span className="text-[#8a8a85] italic font-normal">
+                      // Click "Run" or "Run Full Suite" to execute reference solution live against this input.
+                    </span>
+                  ) : activeTestCase.computedOutput === '' ? (
+                    <span className="text-[#8a8a85] italic font-normal">// (Empty output / no stdout produced)</span>
+                  ) : (
+                    activeTestCase.computedOutput
                   )}
                 </div>
-              )}
+                {activeTestCase.computedOutput !== undefined && activeTestCase.computedOutput !== null && String(activeTestCase.computedOutput).trim() !== String(activeTestCase.expectedOutput || '').trim() && (
+                  <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-200">
+                    <p className="text-[11px] text-amber-900 font-medium m-0">
+                      Teacher approval required before replacing expected output with reference solution output.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleAcceptComputedOutput(activeTestCase._id)}
+                      className="self-start sm:self-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                    >
+                      Accept Computed Output
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Execution / Compiler Error Banner */}
               {activeTestCase.lastError && activeTestCase.verificationStatus !== 'verified' && (
@@ -1771,15 +1771,25 @@ export const TestCaseStudioView = ({
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
                 <span className="text-[10px] font-mono font-bold uppercase text-[#777D78] block">CPU Latency</span>
-                <span className="text-lg font-black text-[#171819]">31.4<small className="text-xs font-normal">ms</small></span>
+                <span className="text-lg font-black text-[#171819]">
+                  {activeTestCase?.runtimeMs !== undefined && activeTestCase?.runtimeMs !== null
+                    ? activeTestCase.runtimeMs
+                    : validationReport?.metrics?.averageRuntimeMs !== undefined && validationReport?.metrics?.averageRuntimeMs > 0
+                    ? validationReport.metrics.averageRuntimeMs
+                    : '--'}
+                  <small className="text-xs font-normal ml-0.5">ms</small>
+                </span>
               </div>
               <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
                 <span className="text-[10px] font-mono font-bold uppercase text-[#777D78] block">Memory RSS</span>
-                <span className="text-lg font-black text-[#171819]">14.2<small className="text-xs font-normal">MB</small></span>
+                <span className="text-lg font-black text-[#171819]">
+                  {currentQ?.memoryLimit || 128}
+                  <small className="text-xs font-normal ml-0.5">MB</small>
+                </span>
               </div>
             </div>
 
-            {/* Test Quality & Validation Report (Requirement 4) */}
+            {/* Test Quality & Validation Report */}
             {validationReport && (
               <div className="p-4 rounded-2xl bg-white border border-[#DDE1DA] space-y-3 shadow-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-[#DDE1DA]">
@@ -1787,11 +1797,11 @@ export const TestCaseStudioView = ({
                     <BarChart3 className="w-4 h-4 text-emerald-600" /> Test Quality Analysis
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                    isAlreadyPublished || validationReport.canPublish
+                    validationReport.canPublish
                       ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-rose-100 text-rose-800'
+                      : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {isAlreadyPublished ? 'PUBLISHED' : (validationReport.publishingStatus || (validationReport.canPublish ? 'READY' : 'NOT READY'))}
+                    {validationReport.canPublish ? 'SUITE HEALTHY' : 'NEEDS ATTENTION'}
                   </span>
                 </div>
 
@@ -1814,39 +1824,23 @@ export const TestCaseStudioView = ({
                   </div>
                 </div>
 
-                {isAlreadyPublished ? (
-                  <div className="space-y-2">
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
+                <div className={`p-2.5 rounded-xl border text-[11px] font-medium flex items-center gap-1.5 ${
+                  validationReport.canPublish
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}>
+                  {validationReport.canPublish ? (
+                    <>
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Question is published and live in Question Bank.</span>
-                    </div>
-                    <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ✓ Published to Question Bank
-                    </div>
-                  </div>
-                ) : validationReport.canPublish ? (
-                  <div className="space-y-2">
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Reference solution and test suite verified. Question is ready to publish!</span>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isPublishing}
-                      onClick={handlePublishFromStudio}
-                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border-0 transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      {isPublishing ? 'Publishing…' : 'Publish Question Now'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>Publishing blocked until all blocking errors and output mismatches are resolved.</span>
-                  </div>
-                )}
+                      <span>Reference solution and test suite verified against all cases.</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Validation issues or output mismatches present in test suite.</span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

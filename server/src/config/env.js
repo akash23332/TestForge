@@ -29,7 +29,8 @@ const envSchema = Joi.object({
   RENDER_SANDBOX_API_KEY: Joi.string().optional().allow(''),
   ONLINE_COMPILER_ENDPOINT: Joi.string().uri().optional().allow('').default('https://api.onlinecompiler.io/api/run-code-sync/'),
   ONLINE_COMPILER_API_KEY: Joi.string().optional().allow(''),
-  ONLINE_COMPILER_TIMEOUT_MS: Joi.number().optional().default(10000)
+  ONLINE_COMPILER_TIMEOUT_MS: Joi.number().optional().default(10000),
+  IDEMPOTENCY_RETENTION_MS: Joi.number().optional().default(10 * 60 * 1000) // Default: 10 minutes
 }).unknown(true);
 
 const { error, value: envVars } = envSchema.validate(process.env, { abortEarly: false });
@@ -81,7 +82,8 @@ export const config = {
     onlineCompilerEndpoint: envVars.ONLINE_COMPILER_ENDPOINT || 'https://api.onlinecompiler.io/api/run-code-sync/',
     onlineCompilerApiKey: envVars.ONLINE_COMPILER_API_KEY || null,
     onlineCompilerTimeoutMs: envVars.ONLINE_COMPILER_TIMEOUT_MS || 10000
-  }
+  },
+  idempotencyRetentionMs: envVars.IDEMPOTENCY_RETENTION_MS || (10 * 60 * 1000)
 };
 
 export default config;

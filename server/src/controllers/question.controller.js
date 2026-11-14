@@ -4,6 +4,7 @@ import { User } from '../models/User.js';
 import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { validateQuestionSuite } from '../services/testValidation.service.js';
+import { evaluateAndPublishQuestion, PUBLISHING_STATES } from '../services/publishingGate.service.js';
 
 export const createQuestion = async (req, res, next) => {
   try {
@@ -43,7 +44,7 @@ export const createQuestion = async (req, res, next) => {
       initialStarterCodes.set(lang, starter);
     }
 
-    // 1. ALWAYS persist the question in MongoDB (starts as 'draft')
+    // 1. ALWAYS persist the question initially as DRAFT
     const createData = { ...req.body };
     delete createData.referenceSolutions;
     delete createData.starterCodes;
@@ -55,7 +56,7 @@ export const createQuestion = async (req, res, next) => {
       referenceSolutions: initialRefSolutions,
       starterCode: starter,
       starterCodes: initialStarterCodes,
-      status: 'published',
+      status: PUBLISHING_STATES.DRAFT,
       ownerId
     });
 
@@ -79,12 +80,27 @@ export const createQuestion = async (req, res, next) => {
       }
     }
 
-    // 3. Directly publish to Question Bank
-    question.status = 'published';
-    await question.save();
-    const noticeMessage = 'Question created and published to Question Bank.';
+    // 3. Single Authoritative Publishing Gate if publishing requested
+    const isPublishRequested = String(requestedStatus).toLowerCase() === 'published';
+    if (isPublishRequested) {
+      const publishReport = await evaluateAndPublishQuestion({
+        questionId: question._id,
+        user: req.user,
+        dryRun: false
+      });
 
-    return ApiResponse.success(res, 201, question, noticeMessage);
+      if (!publishReport.canPublish) {
+        throw ApiError.badRequest(
+          `Question cannot be published. Unresolved issues: ${publishReport.blockingErrors.join('; ')}`,
+          publishReport
+        );
+      }
+
+      const refreshed = await Question.findById(question._id);
+      return ApiResponse.success(res, 201, refreshed, 'Question created and published to Question Bank.');
+    }
+
+    return ApiResponse.success(res, 201, question, 'Question created successfully as draft.');
   } catch (error) {
     next(error);
   }
@@ -133,14 +149,14 @@ export const getQuestions = async (req, res, next) => {
           { ownerId: req.user._id },
           { ownerId: { $exists: false } },
           { ownerId: null },
-          { status: 'published' }
+          { status: { $in: ['published', 'PUBLISHED'] } }
         ];
       } else {
         filter.ownerId = req.user._id;
       }
     } else if (!isAdmin) {
       // Unauthenticated or students: only published questions
-      filter.status = 'published';
+      filter.status = { $in: ['published', 'PUBLISHED'] };
     }
 
     if (search) {
@@ -323,24 +339,50 @@ export const updateQuestion = async (req, res, next) => {
     }
     await question.save();
 
-    // 3. Strict Publishing Gate (Requirement 6)
-    // Validate suite when transitioning from draft to published
-    if (req.body.status === 'published' && !wasAlreadyPublished) {
-      const suiteReport = await validateQuestionSuite({
+    // 3. Single Authoritative Publishing Gate
+    const isPublishRequested = req.body.status && String(req.body.status).toLowerCase() === 'published';
+    if (isPublishRequested) {
+      const publishReport = await evaluateAndPublishQuestion({
         questionId: id,
-        language: targetLang,
-        user: req.user
+        user: req.user,
+        dryRun: false
       });
-      if (!suiteReport.canPublish) {
-        question.status = 'draft';
-        await question.save();
+      if (!publishReport.canPublish) {
         throw ApiError.badRequest(
-          `Question cannot be published. Unresolved issues: ${suiteReport.blockingErrors.join('; ')}`
+          `Question cannot be published. Unresolved issues: ${publishReport.blockingErrors.join('; ')}`,
+          publishReport
         );
       }
+    } else if (req.body.status && String(req.body.status).toLowerCase() === 'draft') {
+      question.status = PUBLISHING_STATES.DRAFT;
+      await question.save();
     }
 
-    return ApiResponse.success(res, 200, question, 'Question updated successfully');
+    const refreshed = await Question.findById(id);
+    return ApiResponse.success(res, 200, refreshed, 'Question updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const publishQuestion = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const publishReport = await evaluateAndPublishQuestion({
+      questionId: id,
+      user: req.user,
+      dryRun: false
+    });
+
+    if (!publishReport.canPublish) {
+      throw ApiError.badRequest(
+        `Question cannot be published. Unresolved issues: ${publishReport.blockingErrors.join('; ')}`,
+        publishReport
+      );
+    }
+
+    const question = await Question.findById(id);
+    return ApiResponse.success(res, 200, { question, ...publishReport }, 'Question published successfully to Question Bank');
   } catch (error) {
     next(error);
   }
@@ -382,5 +424,6 @@ export default {
   getQuestionById,
   getQuestionStudentView,
   updateQuestion,
+  publishQuestion,
   deleteQuestion
 };

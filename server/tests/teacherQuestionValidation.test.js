@@ -192,6 +192,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       ];
 
       jest.spyOn(Question, 'findById').mockReturnValue(mockMongooseQuery(mockQuestion));
+      jest.spyOn(Question, 'findByIdAndUpdate').mockResolvedValue(mockQuestion);
       jest.spyOn(TestCase, 'find').mockReturnValue({
         sort: jest.fn().mockResolvedValue(mockTestCases)
       });
@@ -259,6 +260,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       ];
 
       jest.spyOn(Question, 'findById').mockReturnValue(mockMongooseQuery(mockQuestion));
+      jest.spyOn(Question, 'findByIdAndUpdate').mockResolvedValue(mockQuestion);
       jest.spyOn(TestCase, 'find').mockReturnValue({
         sort: jest.fn().mockResolvedValue(mockTestCases)
       });
@@ -326,6 +328,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       ];
 
       jest.spyOn(Question, 'findById').mockReturnValue(mockMongooseQuery(mockQuestion));
+      jest.spyOn(Question, 'findByIdAndUpdate').mockResolvedValue(mockQuestion);
       jest.spyOn(TestCase, 'find').mockReturnValue({
         sort: jest.fn().mockResolvedValue(mockTestCases)
       });
@@ -445,6 +448,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       ];
 
       jest.spyOn(Question, 'findById').mockReturnValue(mockMongooseQuery(mockQuestion));
+      jest.spyOn(Question, 'findByIdAndUpdate').mockResolvedValue(mockQuestion);
       jest.spyOn(TestCase, 'find').mockReturnValue({
         sort: jest.fn().mockResolvedValue(mockTestCases)
       });
@@ -490,6 +494,7 @@ describe('Teacher Question Validation Enhancement Tests (Without Mutation Lab)',
       const mockTestCases = [];
 
       jest.spyOn(Question, 'findById').mockReturnValue(mockMongooseQuery(mockQuestion));
+      jest.spyOn(Question, 'findByIdAndUpdate').mockResolvedValue(mockQuestion);
       jest.spyOn(TestCase, 'find').mockReturnValue({
         sort: jest.fn().mockResolvedValue(mockTestCases)
       });

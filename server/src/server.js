@@ -2,6 +2,7 @@ import app from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { User } from './models/User.js';
+import { runStartupRecovery, recoverUnavailableSubmissions } from './services/queue/executionRecovery.js';
 
 const ensureDemoAccounts = async () => {
   try {
@@ -42,6 +43,14 @@ const startServer = async () => {
 
     // Auto-ensure demo accounts exist for both Teacher and Student
     await ensureDemoAccounts();
+
+    // Startup recovery sweep: safely reconcile stalled RUNNING, orphaned QUEUED, or EXECUTION_UNAVAILABLE submissions
+    try {
+      const recoveryResult = await recoverUnavailableSubmissions();
+      console.log(`✔ [TestForge] Startup recovery sweep completed: ${recoveryResult.recovered} recovered, ${recoveryResult.skipped} skipped (${recoveryResult.scanned} scanned).`);
+    } catch (recErr) {
+      console.warn('[TestForge] Notice: Startup recovery sweep skipped or non-fatal:', recErr.message);
+    }
 
     // Start HTTP listener
     const server = app.listen(config.port, () => {

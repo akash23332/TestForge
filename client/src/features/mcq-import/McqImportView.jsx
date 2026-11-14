@@ -41,8 +41,7 @@ import {
   SlidersHorizontal,
   Compass,
   Cpu,
-  RefreshCw,
-  Zap
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../../lib/api';
 
@@ -1039,12 +1038,6 @@ export const McqImportView = ({ currentUser }) => {
             <span>Repository Vault ({questions.length})</span>
           </button>
         </div>
-
-        {/* Quick Help Tip */}
-        <span className="text-xs text-[#777D78] font-bold pr-2 flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-amber-500" />
-          <span>Real-time sync to MongoDB</span>
-        </span>
       </div>
 
       {/* Notification Toast */}

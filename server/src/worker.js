@@ -5,6 +5,7 @@ import { config } from './config/env.js';
 import { EXECUTION_QUEUE_NAME } from './services/queue/executionQueue.js';
 import { processExecutionJob } from './services/queue/executionProcessor.js';
 import { providerRegistry } from './services/execution/providerRegistry.js';
+import { recoverUnavailableSubmissions } from './services/queue/executionRecovery.js';
 
 console.log('----------------------------------------------------');
 console.log('  TestForge Background Execution Worker Service    ');
@@ -15,6 +16,14 @@ const startWorker = async () => {
   try {
     await connectDatabase();
     console.log('[Worker] Connected to MongoDB database.');
+
+    // Startup recovery sweep
+    try {
+      const rec = await recoverUnavailableSubmissions();
+      console.log(`[Worker] Startup recovery sweep: ${rec.recovered} recovered, ${rec.skipped} skipped (${rec.scanned} scanned).`);
+    } catch (recErr) {
+      console.warn(`[Worker] Startup recovery sweep non-fatal warning: ${recErr.message}`);
+    }
   } catch (err) {
     console.error(`[Worker FATAL] Database connection failed: ${err.message}`);
     process.exit(1);

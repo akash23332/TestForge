@@ -9,7 +9,6 @@ import {
   Award,
   Users,
   Trash2,
-  ExternalLink,
   BookOpen,
   CheckCircle2,
   X,
@@ -937,16 +936,6 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                     >
                       <BarChart3 className="w-3.5 h-3.5 text-[#EDFF72]" />
                       <span>Analytics</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => onNavigateToStudentPortal(exam.examCode)}
-                      title="Open student test preview"
-                      className="py-2 px-3 rounded-full bg-[#F2F3F0] hover:bg-[#E4E8E2] text-[#171819] text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Preview</span>
                     </button>
 
                     <button

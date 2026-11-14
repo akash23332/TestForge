@@ -8,6 +8,19 @@ let executionQueueInstance = null;
 let isRedisOffline = false;
 
 /**
+ * Returns current Redis offline state flag.
+ */
+export const getRedisOfflineStatus = () => isRedisOffline;
+
+/**
+ * Allows overriding Redis offline status (e.g. for testing and reconnection drills).
+ * @param {boolean} status
+ */
+export const setRedisOfflineStatus = (status) => {
+  isRedisOffline = Boolean(status);
+};
+
+/**
  * Allows injecting or mocking the queue instance (e.g. for testing).
  * @param {Queue|null} queue
  */
@@ -47,6 +60,18 @@ export const getExecutionQueue = () => {
 
     connection.on('connect', () => {
       isRedisOffline = false;
+    });
+
+    connection.on('ready', () => {
+      isRedisOffline = false;
+    });
+
+    connection.on('close', () => {
+      isRedisOffline = true;
+    });
+
+    connection.on('end', () => {
+      isRedisOffline = true;
     });
 
     executionQueueInstance = new Queue(EXECUTION_QUEUE_NAME, {
@@ -125,7 +150,29 @@ export const enqueueExecutionJob = async ({
   };
 
   // In test environment with mocked queue instance, preserve existing fast synchronous/mock behavior
-  if ((config.env === 'test' || process.env.NODE_ENV === 'test') && !process.env.USE_REAL_REDIS) {
+  // UNLESS explicitly testing offline fallback or production fail-closed
+  if (
+    (config.env === 'test' || process.env.NODE_ENV === 'test') &&
+    !process.env.USE_REAL_REDIS &&
+    !isRedisOffline &&
+    config.env !== 'production'
+  ) {
+    return await queue.add(
+      `execute_${runType.toLowerCase()}`,
+      jobPayload,
+      {
+        jobId,
+        priority
+      }
+    );
+  }
+
+  // PRODUCTION SECURITY GUARD: Production must NEVER silently rely on in-memory execution.
+  // If Redis is offline or unavailable in production, fail-closed immediately.
+  if (config.env === 'production') {
+    if (isRedisOffline) {
+      throw new Error(`[ExecutionQueue FAIL-CLOSED] Redis execution queue is offline in production. Cannot enqueue job ${jobId}.`);
+    }
     return await queue.add(
       `execute_${runType.toLowerCase()}`,
       jobPayload,
@@ -180,17 +227,19 @@ export const enqueueExecutionJob = async ({
           data: jobPayload
         });
       } catch (procErr) {
-        console.error(`[ExecutionQueue Fallback] In-memory job execution error for ${submissionId}:`, procErr.message);
+        if (process.env.NODE_ENV !== 'test' && config.env !== 'test') {
+          console.error(`[ExecutionQueue Fallback] In-memory job execution error for ${submissionId}:`, procErr.message);
+        }
       }
     }, 15);
-  } else {
-    // Watchdog: If Redis accepted the job but no standalone worker is running (common in local dev),
-    // check after 2.5s and process in-memory if still QUEUED.
+  } else if (config.env === 'development') {
+    // Watchdog ONLY in development mode: If Redis accepted the job but no standalone worker is running,
+    // check after 2.5s and process locally if still QUEUED and unclaimed.
     setTimeout(async () => {
       try {
         const { Submission } = await import('../../models/Submission.js');
         const sub = await Submission.findById(submissionId).lean();
-        if (sub && sub.status === 'QUEUED') {
+        if (sub && sub.status === 'QUEUED' && !sub.executionOwner) {
           console.warn(`[ExecutionQueue Watchdog] Job ${jobId} remained QUEUED for 2.5s (no standalone worker active). Triggering local execution processor.`);
           const { processExecutionJob } = await import('./executionProcessor.js');
           await processExecutionJob({

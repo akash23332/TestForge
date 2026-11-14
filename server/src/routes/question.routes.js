@@ -5,6 +5,7 @@ import {
   getQuestionById,
   getQuestionStudentView,
   updateQuestion,
+  publishQuestion,
   deleteQuestion
 } from '../controllers/question.controller.js';
 import {
@@ -32,6 +33,7 @@ router.post('/', requireAuth, requireRole('teacher', 'admin'), validateCreateQue
 router.get('/:id', optionalAuth, getQuestionById);
 router.get('/:id/student-view', optionalAuth, getQuestionStudentView);
 router.patch('/:id', requireAuth, requireRole('teacher', 'admin'), updateQuestion);
+router.post('/:id/publish', requireAuth, requireRole('teacher', 'admin'), publishQuestion);
 router.delete('/:id', requireAuth, requireRole('teacher', 'admin'), deleteQuestion);
 
 // Test Cases & Verification (Strictly Restricted to Authorized Faculty / Admins)

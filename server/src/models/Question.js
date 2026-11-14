@@ -114,8 +114,18 @@ const questionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'published', 'archived'],
-      default: 'draft'
+      enum: [
+        'draft',
+        'published',
+        'archived',
+        'DRAFT',
+        'VALIDATING',
+        'READY_TO_PUBLISH',
+        'PUBLISHED',
+        'VALIDATION_FAILED',
+        'VALIDATION_UNAVAILABLE'
+      ],
+      default: 'DRAFT'
     },
     validationSummary: {
       referenceSolutionStatus: {
@@ -140,7 +150,14 @@ const questionSchema = new mongoose.Schema(
       },
       publishingStatus: {
         type: String,
-        enum: ['READY', 'NOT_READY'],
+        enum: [
+          'READY',
+          'NOT_READY',
+          'READY_TO_PUBLISH',
+          'PUBLISHED',
+          'VALIDATION_FAILED',
+          'VALIDATION_UNAVAILABLE'
+        ],
         default: 'NOT_READY'
       },
       lastValidatedAt: {
@@ -156,6 +173,15 @@ const questionSchema = new mongoose.Schema(
 
 // Compound index for owner listings sorted by update date (Section 8)
 questionSchema.index({ ownerId: 1, updatedAt: -1 });
+
+export const QUESTION_STATUS = Object.freeze({
+  DRAFT: 'DRAFT',
+  VALIDATING: 'VALIDATING',
+  READY_TO_PUBLISH: 'READY_TO_PUBLISH',
+  PUBLISHED: 'PUBLISHED',
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  VALIDATION_UNAVAILABLE: 'VALIDATION_UNAVAILABLE'
+});
 
 export const Question = mongoose.model('Question', questionSchema);
 export default Question;

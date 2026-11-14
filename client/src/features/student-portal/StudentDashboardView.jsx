@@ -266,6 +266,10 @@ export const StudentDashboardView = ({
           setActiveTakingCode(null);
           fetchData();
         }}
+        onBack={() => {
+          setActiveTakingCode(null);
+          fetchData();
+        }}
       />
     );
   }

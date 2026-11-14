@@ -501,16 +501,9 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
     }
   }
 
-  // Fallback: If referenceSolution exists on the question and targetLang is the requested language
-  if (!refCode || !refCode.trim()) {
-    if (question.referenceSolution && question.referenceSolution.trim()) {
-      refCode = question.referenceSolution;
-    }
-  }
-
   let hasRefCode = Boolean(refCode && refCode.trim());
   if (!hasRefCode) {
-    blockingErrors.push(`Question has no reference solution configured for language '${targetLang}'.`);
+    blockingErrors.push(`${targetLang} | Missing reference solution. Every enabled language must have a valid reference solution.`);
   }
 
   // 2. Parse Question Constraints
@@ -618,7 +611,15 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
           'cancelled'
         ].includes(execResult.status) || Boolean(execResult.error && !execResult.passed && execResult.actualOutput === null);
 
-        if (isExecError) {
+        let isProviderError = execResult.status === 'internal_error' || /provider.*offline|provider.*unavailable|FAIL-CLOSED/i.test(execResult.error || '');
+
+        if (isProviderError) {
+          failedCount++;
+          executionCriticalError = 'Execution provider is unavailable or offline.';
+          tc.verificationStatus = 'error';
+          tc.lastError = executionCriticalError;
+          blockingErrors.push(`${targetLang} | Test Case #${idx + 1}: Execution provider is unavailable or offline.`);
+        } else if (isExecError) {
           failedCount++;
           executionCriticalError = execResult.error || `Execution failed with status: ${execResult.status}`;
           tc.verificationStatus = 'failed';
@@ -711,15 +712,18 @@ export const validateQuestionSuite = async ({ questionId, language = null, user 
     ? 'ADEQUATE'
     : 'NEEDS_IMPROVEMENT';
 
-  // E. Publishing Status: READY / NOT_READY
-  const canPublish = (
+  // E. Publishing Status: READY / NOT_READY / VALIDATION_UNAVAILABLE
+  const isProviderUnavailable = blockingErrors.some(e => /provider is unavailable|provider.*offline/i.test(e));
+  const canPublish = !isProviderUnavailable && (
     referenceSolutionStatus === 'PASS' &&
     testCaseValidity === 'VALID' &&
     expectedOutputStatus === 'VERIFIED' &&
     blockingErrors.length === 0 &&
     testCases.length > 0
   );
-  const publishingStatus = canPublish ? 'READY' : 'NOT_READY';
+  const publishingStatus = isProviderUnavailable
+    ? 'VALIDATION_UNAVAILABLE'
+    : (canPublish ? 'READY' : 'NOT_READY');
 
   // Update Question model validationSummary
   question.validationSummary = {
