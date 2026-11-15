@@ -56,6 +56,11 @@ def split_smart_args(text):
     text = text.strip()
     if not text:
         return []
+    if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+        try:
+            return [json.loads(text)]
+        except Exception:
+            return [text[1:-1]]
     lines = [l.strip() for l in text.split('\\n') if l.strip()]
     if len(lines) > 1:
         res = []
@@ -197,21 +202,25 @@ if __name__ == '__main__':
         target_fn = None
         if 'Solution' in globals():
             sol_inst = Solution()
-            target_fn = getattr(sol_inst, '${fn}', None)
-            if target_fn is None:
-                methods = [m for m in dir(sol_inst) if not m.startswith('_')]
-                if methods:
-                    target_fn = getattr(sol_inst, methods[0])
-        if target_fn is None:
-            target_fn = globals().get('${fn}')
-            if target_fn is None:
-                for name, obj in list(globals().items()):
-                    if callable(obj) and not name.startswith('_') and name != 'main' and name not in ['ListNode', 'TreeNode', 'split_smart_args']:
-                        target_fn = obj
-                        break
+            if hasattr(sol_inst, '${fn}') and callable(getattr(sol_inst, '${fn}')):
+                target_fn = getattr(sol_inst, '${fn}')
+            elif '${fn}' == 'solution' and hasattr(sol_inst, 'solution') and callable(getattr(sol_inst, 'solution')):
+                target_fn = getattr(sol_inst, 'solution')
 
         if target_fn is None:
-            raise NameError("Function '${fn}' is not defined")
+            fn_candidate = globals().get('${fn}')
+            if callable(fn_candidate):
+                target_fn = fn_candidate
+            elif '${fn}' == 'solution':
+                fn_candidate = globals().get('solution')
+                if callable(fn_candidate):
+                    target_fn = fn_candidate
+
+        if target_fn is None:
+            if 'Solution' in globals():
+                raise NameError("Method '${fn}' not found in Solution class")
+            else:
+                raise NameError("Function '${fn}' is not defined")
 
         res = target_fn(*final_args)
 

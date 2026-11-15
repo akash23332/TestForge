@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { config } from '../config/env.js';
 import { providerRegistry } from './execution/providerRegistry.js';
 import {
@@ -9,6 +10,10 @@ import {
   compareOutputs,
   parseInputArguments
 } from './codeRunner.service.js';
+import { mutateJavaScriptAst } from './mutation/ast/jsMutator.js';
+import { mutatePythonAstSync } from './mutation/ast/pyMutator.js';
+
+export { detectLanguage, compareOutputs, parseInputArguments };
 
 /**
  * Executes code in an isolated runner based on language.
@@ -77,34 +82,30 @@ export const executeIsolated = async ({
 
 /**
  * Generates bounded deterministic code mutations from a reference solution across JS, Python, and Java.
+ * Uses AST-based transformation for JavaScript (@babel) and Python (ast), with strict validation.
+ * Java and C++ mutation generation remain untouched in Phase 1.
  */
-export const generateMutants = (code, language = 'javascript') => {
+export const generateMutants = (code, language = 'javascript', options = {}) => {
   if (!code || typeof code !== 'string') return [];
 
+  const lang = (language || 'javascript').toLowerCase();
+
+  // Phase 1 AST Mutation Engines for JavaScript and Python
+  if (lang === 'javascript' || lang === 'js') {
+    return mutateJavaScriptAst(code, options);
+  }
+
+  if (lang === 'python' || lang === 'py') {
+    return mutatePythonAstSync(code, options);
+  }
+
+  // Java & legacy mutation logic (preserved intact for Phase 1)
   const mutants = [];
   let idCounter = 1;
-  const lang = language.toLowerCase();
 
   // -------------------------------------------------------------
   // 1. Boundary Off-By-One: Skipping the final element in loops
   // -------------------------------------------------------------
-  // JavaScript: for (...; i < arr.length; ...) -> i < arr.length - 1
-  if (lang === 'javascript') {
-    const loopMatch = code.match(/for\s*\(\s*(?:let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*0\s*;\s*\1\s*<\s*([a-zA-Z0-9_$]+)\.length\s*;/);
-    if (loopMatch) {
-      const originalSnippet = loopMatch[0];
-      const mutatedSnippet = originalSnippet.replace('.length', '.length - 1');
-      mutants.push({
-        id: `mut-${idCounter++}`,
-        operator: 'BOUNDARY_OFF_BY_ONE',
-        description: 'Loop termination changed from "< length" to "< length - 1", skipping the final element',
-        originalSnippet,
-        mutatedSnippet,
-        mutatedFullCode: code.replace(originalSnippet, mutatedSnippet)
-      });
-    }
-  }
-
   // Java: for (int i = 0; i < nums.length; i++) -> i < nums.length - 1
   if (lang === 'java') {
     const javaLoopMatch = code.match(/for\s*\(\s*int\s+([a-zA-Z0-9_$]+)\s*=\s*0\s*;\s*\1\s*<\s*([a-zA-Z0-9_$]+)\.length\s*;/);
@@ -476,9 +477,9 @@ export const generateMutants = (code, language = 'javascript') => {
 /**
  * Runs all mutants against test cases and finds surviving mutants.
  */
-export const evaluateMutants = async ({ referenceCode, testCases = [], questionContext = {}, customMutants = null, provider = null }) => {
+export const evaluateMutants = async ({ referenceCode, testCases = [], questionContext = {}, customMutants = null, provider = null, options = {} }) => {
   const lang = detectLanguage(referenceCode, questionContext);
-  const generated = customMutants && Array.isArray(customMutants) ? customMutants : generateMutants(referenceCode, lang);
+  const generated = customMutants && Array.isArray(customMutants) ? customMutants : generateMutants(referenceCode, lang, options);
   const mutantResults = [];
 
   for (const mutant of generated) {
@@ -674,12 +675,14 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
 
       if (mutantDiffers) {
         candidateTests.push({
+          candidateId: crypto.randomUUID(),
           mutantId: mutant.id,
           operator: mutant.operator,
           input: inputStr,
           expectedOutput: refOutputStr,
           category: 'boundary',
-          reason: `Verified boundary input that differentiates reference output (${refOutputStr}) from mutant`
+          reason: `Verified boundary input that differentiates reference output (${refOutputStr}) from mutant`,
+          adoptionStatus: 'PENDING'
         });
         break; // Only 1 verified candidate needed per surviving mutant
       }

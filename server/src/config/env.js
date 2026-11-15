@@ -1,7 +1,11 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Joi from 'joi';
 
-// Load .env file
+// Load .env file (check server directory first, fallback to root)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
 const envSchema = Joi.object({
@@ -19,6 +23,9 @@ const envSchema = Joi.object({
   CLIENT_ORIGIN: Joi.string().default('http://localhost:5173'),
   LLM_PROVIDER: Joi.string().optional().allow(''),
   LLM_API_KEY: Joi.string().optional().allow(''),
+  GEMINI_API_KEY: Joi.string().optional().allow(''),
+  GEMINI_MODEL: Joi.string().optional().allow('').default('gemini-2.5-flash'),
+  AI_PROVIDER: Joi.string().optional().allow('').default('gemini'),
   REDIS_URL: Joi.string().optional().allow('').default('redis://127.0.0.1:6379'),
   VALKEY_URL: Joi.string().optional().allow(''),
   EXECUTION_PROVIDER: Joi.string().valid('mock', 'local', 'render_sandbox', 'onlinecompiler').default(
@@ -70,6 +77,11 @@ export const config = {
   llm: {
     provider: envVars.LLM_PROVIDER || null,
     apiKey: envVars.LLM_API_KEY || null
+  },
+  ai: {
+    provider: envVars.AI_PROVIDER || envVars.LLM_PROVIDER || 'gemini',
+    geminiApiKey: envVars.GEMINI_API_KEY || envVars.LLM_API_KEY || null,
+    geminiModel: envVars.GEMINI_MODEL || 'gemini-2.5-flash'
   },
   redis: {
     url: envVars.VALKEY_URL || envVars.REDIS_URL || 'redis://127.0.0.1:6379'

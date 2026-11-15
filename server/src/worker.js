@@ -4,6 +4,8 @@ import { createRedisConnection, disconnectRedis } from './config/redis.js';
 import { config } from './config/env.js';
 import { EXECUTION_QUEUE_NAME } from './services/queue/executionQueue.js';
 import { processExecutionJob } from './services/queue/executionProcessor.js';
+import { MUTATION_QUEUE_NAME } from './services/queue/mutationQueue.js';
+import { processMutationJob } from './services/queue/mutationProcessor.js';
 import { providerRegistry } from './services/execution/providerRegistry.js';
 import { recoverUnavailableSubmissions } from './services/queue/executionRecovery.js';
 
@@ -90,12 +92,46 @@ const startWorker = async () => {
 
   console.log(`[Worker] Listening for jobs on '${EXECUTION_QUEUE_NAME}' with bounded concurrency=${concurrency}`);
 
+  // 4b. Initialize BullMQ Mutation Worker
+  const mutationConcurrency = parseInt(process.env.MUTATION_WORKER_CONCURRENCY, 10) || 2;
+  const mutationWorker = new Worker(
+    MUTATION_QUEUE_NAME,
+    async (job) => {
+      console.log(`[MutationWorker] Processing Job ${job.id} (${job.name}) for report ${job.data.reportId}`);
+      return await processMutationJob(job);
+    },
+    {
+      connection: redisConnection,
+      concurrency: mutationConcurrency,
+      limiter: {
+        max: 10,
+        duration: 1000 // Bounded rate limit for mutation executions to prevent overloading runner
+      }
+    }
+  );
+
+  mutationWorker.on('completed', (job, result) => {
+    console.log(`[MutationWorker] Job ${job.id} completed. Report: ${result.reportId}, Score: ${result.mutationScore}%`);
+  });
+
+  mutationWorker.on('failed', (job, err) => {
+    console.error(`[MutationWorker] Job ${job?.id} failed with error: ${err.message}`);
+  });
+
+  mutationWorker.on('error', (err) => {
+    console.error(`[MutationWorker] Runtime error: ${err.message}`);
+  });
+
+  console.log(`[MutationWorker] Listening for jobs on '${MUTATION_QUEUE_NAME}' with bounded concurrency=${mutationConcurrency}`);
+
   // 5. Graceful Shutdown Handlers
   const gracefulShutdown = async (signal) => {
     console.log(`\n[Worker] Received ${signal}. Commencing graceful shutdown...`);
     try {
       await worker.close();
-      console.log('[Worker] BullMQ Worker closed.');
+      console.log('[Worker] BullMQ Execution Worker closed.');
+      await mutationWorker.close();
+      console.log('[MutationWorker] BullMQ Mutation Worker closed.');
       await disconnectDatabase();
       console.log('[Worker] MongoDB disconnected.');
       await disconnectRedis();

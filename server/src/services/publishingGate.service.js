@@ -10,6 +10,7 @@ import {
 } from './testValidation.service.js';
 import { validateMetadataContract } from './codeContract.service.js';
 import { providerRegistry } from './execution/providerRegistry.js';
+import { computeSampleValidationFingerprint } from './sampleValidation.service.js';
 
 export const PUBLISHING_STATES = Object.freeze({
   DRAFT: 'DRAFT',
@@ -386,6 +387,23 @@ export const evaluateAndPublishQuestion = async ({
     const persistedStatus = dryRun
       ? (canPublish ? PUBLISHING_STATES.READY_TO_PUBLISH : (previousStatus === 'published' ? 'draft' : previousStatus))
       : finalStatus;
+
+    if (canPublish && sampleTestCases.length > 0) {
+      question.sampleValidationFingerprint = computeSampleValidationFingerprint({
+        referenceSolution: question.referenceSolution,
+        sampleInput: sampleTestCases[0].input,
+        expectedOutput: sampleTestCases[0].expectedOutput,
+        language: question.language,
+        executionMode: question.executionMode,
+        dataStructure: question.dataStructure,
+        functionName: question.functionName,
+        functionSignature: question.functionSignature
+      });
+      question.sampleValidationPassedAt = new Date();
+    } else {
+      question.sampleValidationFingerprint = null;
+      question.sampleValidationPassedAt = null;
+    }
 
     question.status = persistedStatus;
     question.validationSummary = {

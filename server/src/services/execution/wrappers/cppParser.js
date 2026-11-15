@@ -29,10 +29,11 @@ export const parseCppParams = (paramsStr) => {
   });
 };
 
-export const extractCppFunctionInfo = (code) => {
+export const extractCppFunctionInfo = (code, targetName = null) => {
   if (!code || typeof code !== 'string') return null;
   const funcRegex = /(?:static\s+|virtual\s+|inline\s+)?([\w][\w\s:<>,*&]*?)\s*(\w+)\s*\(([^)]*)\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{/g;
   let match;
+  let firstMatch = null;
   while ((match = funcRegex.exec(code)) !== null) {
     const rawReturnType = match[1].trim();
     const returnType = rawReturnType.replace(/^(?:public|protected|private)\s*:\s*/i, '').trim();
@@ -41,7 +42,13 @@ export const extractCppFunctionInfo = (code) => {
     if (['Solution', 'main', 'class', 'struct', 'if', 'for', 'while', 'switch'].includes(funcName)) continue;
     if (returnType === 'class' || returnType === 'struct') continue;
     const params = parseCppParams(paramsStr);
-    return { funcName, returnType, params };
+    const info = { funcName, returnType, params };
+    if (targetName && funcName === targetName) {
+      return info;
+    }
+    if (!firstMatch) {
+      firstMatch = info;
+    }
   }
-  return null;
+  return firstMatch;
 };

@@ -31,10 +31,9 @@ export const buildCppWrapper = ({
     .replace(/\bTreenode\b/g, 'TreeNode');
 
   // Dynamically resolve target function name and parameters
-  const fnInfo = extractCppFunctionInfo(normalizedCode);
-  const targetFn = (functionName && functionName !== 'solution')
-    ? functionName
-    : (fnInfo?.funcName || functionName || 'solution');
+  const specifiedFn = (functionName && functionName !== 'solution') ? functionName : null;
+  const fnInfo = extractCppFunctionInfo(normalizedCode, specifiedFn);
+  const targetFn = specifiedFn || (fnInfo?.funcName || functionName || 'solution');
 
   const activeParams = (parameters && parameters.length > 0)
     ? parameters

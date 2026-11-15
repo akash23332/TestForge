@@ -78,6 +78,7 @@ export const PaperDesignerView = ({
   // ── 1. ACTIVE VIEW MODE ──────────────────────────────────────────────────
   // 'designer' | 'preview_student' | 'teacher_key'
   const [viewMode, setViewMode] = useState('designer');
+  const [leftTab, setLeftTab] = useState('vault'); // 'vault' | 'settings'
 
   // ── 2. ASSESSMENT SETTINGS & METADATA ────────────────────────────────────
   const [examTitle, setExamTitle] = useState('Data Structures & Algorithms - Mid-Semester Online Test');
@@ -1020,7 +1021,23 @@ export const PaperDesignerView = ({
         </div>
 
         {/* Quick Summary Pill on Right */}
-        <div className="flex items-center gap-3 text-xs pr-2">
+        <div className="flex items-center gap-3 text-xs pr-2 flex-wrap">
+          {viewMode === 'designer' && (
+            <button
+              type="button"
+              onClick={() => setLeftTab((prev) => (prev === 'settings' ? 'vault' : 'settings'))}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                leftTab === 'settings'
+                  ? 'bg-[#101112] text-white border-[#101112]'
+                  : 'bg-[#F2F3F0] hover:bg-[#E9ECE7] text-[#171819] border-[#DDE1DA]'
+              }`}
+              title="Toggle between Question Bank Vault and Exam Settings"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>{leftTab === 'settings' ? 'Back to Question Vault' : 'Edit Exam Settings'}</span>
+            </button>
+          )}
+
           {!calculation.isBalanced && calculation.totalAllocatedMarks > 0 && (
             <button
               type="button"
@@ -1065,287 +1082,315 @@ export const PaperDesignerView = ({
       {viewMode === 'designer' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ══════════════════════════════════════════════════════════════════════════
-              LEFT DRAWER: ASSESSMENT SETTINGS & QUESTION BANK VAULT (4 cols)
+              LEFT PANEL: TABBED QUESTION VAULT & EXAM SETTINGS (5 cols)
               ══════════════════════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* CARD 1: ASSESSMENT SETTINGS */}
-            <div className="tf-card p-6">
-              <div className="flex items-center gap-2 mb-1">
-                <SlidersHorizontal className="w-4 h-4 text-[#171819]" />
-                <h3 className="text-sm font-black text-[#171819]">Assessment Settings</h3>
-              </div>
-              <p className="text-[11px] text-[#777D78] mb-4">
-                Configure course metadata, duration, and proctoring constraints.
-              </p>
-
-              <div className="space-y-3.5 text-xs">
-                {/* Title */}
-                <div>
-                  <label className="block text-[11px] font-bold text-[#171819] mb-1">
-                    Assessment Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={examTitle}
-                    onChange={(e) => setExamTitle(e.target.value)}
-                    placeholder="e.g. Mid-Semester Online Test"
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
-                  />
-                </div>
-
-                {/* Course Code & Duration */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">
-                      Course Code <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={courseCode}
-                      onChange={(e) => setCourseCode(e.target.value)}
-                      placeholder="e.g. CS204"
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">
-                      Duration (Mins) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="10"
-                      max="360"
-                      value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(e.target.value)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
-                    />
-                  </div>
-                </div>
-
-                {/* Course Title & Target Marks */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Course Title</label>
-                    <input
-                      type="text"
-                      value={courseTitle}
-                      onChange={(e) => setCourseTitle(e.target.value)}
-                      placeholder="e.g. Data Structures"
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Target Total Marks</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={targetMarks}
-                      onChange={(e) => setTargetMarks(e.target.value)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-black text-[#171819] focus:outline-none focus:border-[#101112]"
-                    />
-                  </div>
-                </div>
-
-                {/* Proctoring Mode */}
-                <div>
-                  <label className="block text-[11px] font-bold text-[#171819] mb-1">Proctoring Mode</label>
-                  <select
-                    value={proctoringMode}
-                    onChange={(e) => setProctoringMode(e.target.value)}
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                  >
-                    <option value="No Proctoring">No Proctoring</option>
-                    <option value="Fullscreen Lock">Fullscreen Lock</option>
-                    <option value="Webcam Monitoring">Webcam Monitoring</option>
-                    <option value="Strict Proctoring">Strict Proctoring (Webcam + Screen + Tab)</option>
-                  </select>
-                </div>
-
-                {/* Candidate Instructions */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold text-[#171819]">Candidate Instructions</label>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => applyInstructionsFormat('b')}
-                        className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
-                      >
-                        B
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyInstructionsFormat('i')}
-                        className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
-                      >
-                        I
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyInstructionsFormat('bullet')}
-                        className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
-                      >
-                        •
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyInstructionsFormat('num')}
-                        className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
-                      >
-                        1.
-                      </button>
-                    </div>
-                  </div>
-                  <textarea
-                    ref={instructionsRef}
-                    rows={4}
-                    value={candidateInstructions}
-                    onChange={(e) => setCandidateInstructions(e.target.value)}
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] focus:outline-none resize-none leading-relaxed font-sans"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 2: QUESTION BANK REPOSITORY VAULT */}
-            <div className="tf-card p-6">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#171819]" />
-                  <h3 className="text-sm font-black text-[#171819]">Question Bank Vault</h3>
-                </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#777D78]">
-                  {filteredRepositoryQuestions.length} available
-                </span>
-              </div>
-              <p className="text-[11px] text-[#777D78] mb-3">
-                Select verified MCQs and coding problems to add directly into paper sections.
-              </p>
-
-              {/* Target Section Selection */}
-              <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] mb-3 text-xs flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold text-[#171819] shrink-0">Insert into:</span>
-                <select
-                  value={targetSectionForInsert}
-                  onChange={(e) => setTargetSectionForInsert(e.target.value)}
-                  className="bg-white border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none max-w-[190px] truncate cursor-pointer shadow-2xs"
+          <div className="lg:col-span-5 space-y-4">
+            <div className="tf-card p-5">
+              {/* Left Column Segmented Tab Switcher */}
+              <div className="flex items-center p-1 bg-[#F2F3F0] rounded-2xl border border-[#DDE1DA] mb-4">
+                <button
+                  type="button"
+                  onClick={() => setLeftTab('vault')}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    leftTab === 'vault'
+                      ? 'bg-[#101112] text-white shadow-xs'
+                      : 'text-[#777D78] hover:text-[#171819]'
+                  }`}
                 >
-                  {sections.map((sec) => (
-                    <option key={sec.id} value={sec.id}>
-                      {sec.title}
-                    </option>
-                  ))}
-                </select>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Question Vault</span>
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                    leftTab === 'vault' ? 'bg-[#252830] text-[#EDFF72]' : 'bg-white text-[#777D78]'
+                  }`}>
+                    {filteredRepositoryQuestions.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLeftTab('settings')}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    leftTab === 'settings'
+                      ? 'bg-[#101112] text-white shadow-xs'
+                      : 'text-[#777D78] hover:text-[#171819]'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Exam Settings</span>
+                </button>
               </div>
 
-              {/* Search & Filters */}
-              <div className="space-y-2 mb-3">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-[#777D78] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchBankQuery}
-                    onChange={(e) => setSearchBankQuery(e.target.value)}
-                    placeholder="Search questions, topics, algorithms..."
-                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-full pl-8 pr-3 py-1.5 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112]"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={bankTypeFilter}
-                    onChange={(e) => setBankTypeFilter(e.target.value)}
-                    className="flex-1 bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-[#171819] focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">All Types</option>
-                    <option value="mcq">MCQ Only</option>
-                    <option value="coding">Coding Only</option>
-                  </select>
-
-                  <select
-                    value={bankDifficultyFilter}
-                    onChange={(e) => setBankDifficultyFilter(e.target.value)}
-                    className="flex-1 bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-[#171819] focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">All Difficulties</option>
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Scrollable Questions List */}
-              <div className="max-h-[420px] overflow-y-auto space-y-2.5 pr-1">
-                {filteredRepositoryQuestions.map((q) => {
-                  const inPaper = isQuestionInPaper(q.id);
-                  return (
-                    <div
-                      key={q.id}
-                      className="p-3.5 rounded-2xl border border-[#DDE1DA] bg-white hover:border-[#101112]/40 transition-all text-xs flex flex-col justify-between gap-2.5 shadow-2xs"
+              {/* TAB 1: QUESTION BANK VAULT */}
+              {leftTab === 'vault' && (
+                <div>
+                  {/* Target Section Selection */}
+                  <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] mb-3 text-xs flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-[#171819] shrink-0">Add into:</span>
+                    <select
+                      value={targetSectionForInsert}
+                      onChange={(e) => setTargetSectionForInsert(e.target.value)}
+                      className="bg-white border border-[#DDE1DA] rounded-xl px-3 py-1.5 text-xs font-bold text-[#171819] focus:outline-none flex-1 truncate cursor-pointer shadow-2xs"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                            <span
-                              className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
-                                q.type === 'mcq'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            >
-                              {q.type}
-                            </span>
-                            <span className="text-[10px] text-[#777D78] font-bold">{q.topic}</span>
-                            <span className="text-[10px] text-amber-800 font-bold">• {q.difficulty}</span>
-                          </div>
-                          <p className="font-bold text-[#171819] line-clamp-2 leading-snug">
-                            {q.title}
-                          </p>
-                        </div>
+                      {sections.map((sec) => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                        <span className="font-mono text-xs font-black text-[#171819] shrink-0 bg-[#F2F3F0] px-2 py-0.5 rounded-lg">
-                          {q.defaultMarks}m
-                        </span>
+                  {/* Search & Filters */}
+                  <div className="space-y-2 mb-3">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-[#777D78] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={searchBankQuery}
+                        onChange={(e) => setSearchBankQuery(e.target.value)}
+                        placeholder="Search questions, topics, algorithms..."
+                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-full pl-8 pr-3 py-1.5 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={bankTypeFilter}
+                        onChange={(e) => setBankTypeFilter(e.target.value)}
+                        className="flex-1 bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-[#171819] focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="mcq">MCQ Only</option>
+                        <option value="coding">Coding Only</option>
+                      </select>
+
+                      <select
+                        value={bankDifficultyFilter}
+                        onChange={(e) => setBankDifficultyFilter(e.target.value)}
+                        className="flex-1 bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-[#171819] focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">All Difficulties</option>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Scrollable Questions List */}
+                  <div className="max-h-[580px] overflow-y-auto space-y-2.5 pr-1">
+                    {filteredRepositoryQuestions.map((q) => {
+                      const inPaper = isQuestionInPaper(q.id);
+                      return (
+                        <div
+                          key={q.id}
+                          className="p-3.5 rounded-2xl border border-[#DDE1DA] bg-white hover:border-[#101112]/40 transition-all text-xs flex flex-col justify-between gap-2.5 shadow-2xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                <span
+                                  className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
+                                    q.type === 'mcq'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {q.type}
+                                </span>
+                                <span className="text-[10px] text-[#777D78] font-bold">{q.topic}</span>
+                                <span className="text-[10px] text-amber-800 font-bold">• {q.difficulty}</span>
+                              </div>
+                              <p className="font-bold text-[#171819] line-clamp-2 leading-snug">
+                                {q.title}
+                              </p>
+                            </div>
+
+                            <span className="font-mono text-xs font-black text-[#171819] shrink-0 bg-[#F2F3F0] px-2 py-0.5 rounded-lg">
+                              {q.defaultMarks}m
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1.5 border-t border-[#DDE1DA]/60">
+                            {inPaper ? (
+                              <span className="text-[10px] font-black text-emerald-700 flex items-center gap-1">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                                <span>In Paper</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-[#777D78]">Available</span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddQuestionToSection(q)}
+                              className="px-3 py-1 rounded-full bg-[#F2F3F0] hover:bg-[#EDFF72] text-[11px] font-black text-[#171819] transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: ASSESSMENT SETTINGS */}
+              {leftTab === 'settings' && (
+                <div className="space-y-4">
+                  <div className="space-y-3.5 text-xs">
+                    {/* Title */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                        Assessment Title <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={examTitle}
+                        onChange={(e) => setExamTitle(e.target.value)}
+                        placeholder="e.g. Mid-Semester Online Test"
+                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
+                      />
+                    </div>
+
+                    {/* Course Code & Duration */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                          Course Code <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={courseCode}
+                          onChange={(e) => setCourseCode(e.target.value)}
+                          placeholder="e.g. CS204"
+                          className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between pt-1.5 border-t border-[#DDE1DA]/60">
-                        {inPaper ? (
-                          <span className="text-[10px] font-black text-emerald-700 flex items-center gap-1">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            <span>In Paper</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-[#777D78]">Available</span>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleAddQuestionToSection(q)}
-                          className="px-3 py-1 rounded-full bg-[#F2F3F0] hover:bg-[#EDFF72] text-[11px] font-black text-[#171819] transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Add</span>
-                        </button>
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                          Duration (Mins) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="10"
+                          max="360"
+                          value={durationMinutes}
+                          onChange={(e) => setDurationMinutes(e.target.value)}
+                          className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
+                        />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Course Title & Target Marks */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#171819] mb-1">Course Title</label>
+                        <input
+                          type="text"
+                          value={courseTitle}
+                          onChange={(e) => setCourseTitle(e.target.value)}
+                          placeholder="e.g. Data Structures"
+                          className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#171819] mb-1">Target Total Marks</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={targetMarks}
+                          onChange={(e) => setTargetMarks(e.target.value)}
+                          className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-black text-[#171819] focus:outline-none focus:border-[#101112]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Proctoring Mode */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#171819] mb-1">Proctoring Mode</label>
+                      <select
+                        value={proctoringMode}
+                        onChange={(e) => setProctoringMode(e.target.value)}
+                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
+                      >
+                        <option value="No Proctoring">No Proctoring</option>
+                        <option value="Fullscreen Lock">Fullscreen Lock</option>
+                        <option value="Webcam Monitoring">Webcam Monitoring</option>
+                        <option value="Strict Proctoring">Strict Proctoring (Webcam + Screen + Tab)</option>
+                      </select>
+                    </div>
+
+                    {/* Candidate Instructions */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-[#171819]">Candidate Instructions</label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => applyInstructionsFormat('b')}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyInstructionsFormat('i')}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyInstructionsFormat('bullet')}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
+                          >
+                            •
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyInstructionsFormat('num')}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#F2F3F0]"
+                          >
+                            1.
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        ref={instructionsRef}
+                        rows={4}
+                        value={candidateInstructions}
+                        onChange={(e) => setCandidateInstructions(e.target.value)}
+                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] focus:outline-none resize-none leading-relaxed font-sans"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setLeftTab('vault')}
+                      className="w-full py-2.5 rounded-xl bg-[#101112] hover:bg-[#252830] text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <Check className="w-4 h-4 text-[#EDFF72]" />
+                      <span>Done, Back to Question Vault</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════════════
-              RIGHT CANVAS: PAPER SECTIONS & INTERACTIVE ASSEMBLER (8 cols)
+              RIGHT CANVAS: PAPER SECTIONS & INTERACTIVE ASSEMBLER (7 cols)
               ══════════════════════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-7 space-y-6">
             {/* CARD 1: PAPER SECTIONS & ORDERING */}
             <div className="tf-card p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-[#DDE1DA]/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-[#DDE1DA]/80">
                 <div>
                   <h3 className="text-base font-black text-[#171819]">
                     Paper Sections & Question Assembler
@@ -1364,6 +1409,57 @@ export const PaperDesignerView = ({
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Section</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Integrated Live Calibration Telemetry Strip */}
+              <div className="p-4 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] mb-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
+                  <div>
+                    <span className="text-[10px] text-[#777D78] font-bold block uppercase tracking-wider">Total Sections</span>
+                    <span className="text-lg font-black text-[#171819]">{sections.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#777D78] font-bold block uppercase tracking-wider">Total Questions</span>
+                    <span className="text-lg font-black text-[#171819]">{calculation.totalQuestions}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#777D78] font-bold block uppercase tracking-wider">Allocated Marks</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-black text-[#171819]">{calculation.totalAllocatedMarks}</span>
+                      <span className="text-xs text-[#777D78] font-normal">/ {calculation.targetMarks} pts</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#777D78] font-bold block uppercase tracking-wider">Allocation Status</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-xs font-black ${
+                        calculation.isBalanced ? 'text-emerald-700' : calculation.isOverAllocated ? 'text-rose-600' : 'text-amber-700'
+                      }`}>
+                        {calculation.progressPercent}% Allocated
+                      </span>
+                      {!calculation.isBalanced && calculation.totalAllocatedMarks > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleSyncTargetMarks}
+                          className="text-[10px] font-bold bg-[#EDFF72] text-[#101112] px-2 py-0.5 rounded-full hover:bg-[#d8ee4b] transition-all cursor-pointer shadow-2xs"
+                          title="Auto-sync target marks"
+                        >
+                          Sync
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full h-2 rounded-full bg-[#E9ECE7] overflow-hidden">
+                  <div
+                    style={{ width: `${calculation.progressPercent}%` }}
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      calculation.isBalanced ? 'bg-[#101112]' : calculation.isOverAllocated ? 'bg-rose-500' : 'bg-[#EDFF72]'
+                    }`}
+                  />
                 </div>
               </div>
 
@@ -1433,13 +1529,27 @@ export const PaperDesignerView = ({
                       {!sec.collapsed && (
                         <div className="p-4 space-y-2.5">
                           {sec.items.length === 0 ? (
-                            <div className="text-center py-10 border border-dashed border-[#DDE1DA] rounded-2xl bg-[#F2F3F0]/40">
-                              <p className="text-xs text-[#777D78] font-bold">
-                                No questions in this section yet.
+                            <div className="text-center py-8 px-4 border-2 border-dashed border-[#DDE1DA] rounded-2xl bg-[#F8F9F7] flex flex-col items-center justify-center">
+                              <div className="w-10 h-10 rounded-2xl bg-white border border-[#DDE1DA] flex items-center justify-center mb-2.5 shadow-2xs text-[#777D78]">
+                                <Plus className="w-5 h-5 text-[#171819]" />
+                              </div>
+                              <p className="text-xs text-[#171819] font-black">
+                                {sec.title} has no questions yet
                               </p>
-                              <p className="text-[11px] text-[#777D78] mt-1">
-                                Click "+ Add" on any question from the Question Bank Vault on the left.
+                              <p className="text-[11px] text-[#777D78] max-w-sm mt-1 mb-3">
+                                Select questions from the Question Bank Vault on the left to add them here.
                               </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTargetSectionForInsert(sec.id);
+                                  setLeftTab('vault');
+                                }}
+                                className="px-3.5 py-1.5 rounded-full bg-white hover:bg-[#101112] text-[#171819] hover:text-white border border-[#DDE1DA] text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                              >
+                                <Layers className="w-3.5 h-3.5" />
+                                <span>Select Questions for this Section</span>
+                              </button>
                             </div>
                           ) : (
                             sec.items.map((item, itIdx) => (
@@ -1523,59 +1633,6 @@ export const PaperDesignerView = ({
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* CARD 2: PAPER SUMMARY & MARK ALLOCATION CALIBRATION */}
-            <div className="tf-card p-6">
-              <h4 className="text-xs font-black text-[#171819] uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#171819]" />
-                <span>Paper Calibration & Weight Distribution</span>
-              </h4>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs mb-4">
-                <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
-                  <span className="text-[10px] text-[#777D78] font-bold block uppercase">Total Sections</span>
-                  <span className="text-xl font-black text-[#171819]">{sections.length}</span>
-                </div>
-                <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
-                  <span className="text-[10px] text-[#777D78] font-bold block uppercase">Total Questions</span>
-                  <span className="text-xl font-black text-[#171819]">{calculation.totalQuestions}</span>
-                </div>
-                <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
-                  <span className="text-[10px] text-[#777D78] font-bold block uppercase">Allocated Marks</span>
-                  <span className="text-xl font-black text-[#171819]">
-                    {calculation.totalAllocatedMarks} <span className="text-xs text-[#777D78] font-normal">/ {calculation.targetMarks}</span>
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
-                  <span className="text-[10px] text-[#777D78] font-bold block uppercase">Status</span>
-                  <span
-                    className={`text-xs font-black inline-block mt-1 ${
-                      calculation.isBalanced
-                        ? 'text-emerald-700'
-                        : calculation.isOverAllocated
-                        ? 'text-rose-600'
-                        : 'text-amber-700'
-                    }`}
-                  >
-                    {calculation.progressPercent}% Allocated
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="w-full h-3 rounded-full bg-[#E9ECE7] overflow-hidden">
-                <div
-                  style={{ width: `${calculation.progressPercent}%` }}
-                  className={`h-full transition-all duration-500 rounded-full ${
-                    calculation.isBalanced
-                      ? 'bg-[#101112]'
-                      : calculation.isOverAllocated
-                      ? 'bg-rose-500'
-                      : 'bg-[#EDFF72]'
-                  }`}
-                />
               </div>
             </div>
           </div>

@@ -545,10 +545,15 @@ export const App = () => {
             {activeTab === 'create' && (
               <QuestionCreatorView
                 initialQuestion={editingQuestion}
-                onSuccess={() => {
+                onSuccess={(pubQ) => {
                   setEditingQuestion(null);
                   fetchQuestions();
-                  setActiveTab('bank');
+                  if (pubQ) {
+                    setSelectedQuestion(pubQ);
+                    setActiveTab('tests');
+                  } else {
+                    setActiveTab('bank');
+                  }
                 }}
                 onCancel={() => {
                   setEditingQuestion(null);

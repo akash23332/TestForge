@@ -46,7 +46,8 @@ export const buildJavaScriptWrapper = ({
   const paramTypes = (parameters || []).map((p) => (p.type || '').trim());
   const paramNames = (parameters || []).map((p) => (p.name || '').trim());
 
-  return `const fs = require('fs');
+  return `/* TESTFORGE_JS_WRAPPER */
+const fs = require('fs');
 
 ${typeDefs}
 
@@ -187,21 +188,28 @@ function splitSmartArgs(text) {
     });
 
     let targetFn = null;
-    if (typeof ${fn} === 'function') targetFn = ${fn};
-    else if (typeof solution === 'function') targetFn = solution;
+    if (typeof ${fn} === 'function') {
+      targetFn = ${fn};
+    } else if ('${fn}' === 'solution' && typeof solution === 'function') {
+      targetFn = solution;
+    }
 
     if (!targetFn && typeof Solution === 'function') {
       const solInst = new Solution();
       if (typeof solInst['${fn}'] === 'function') {
         targetFn = solInst['${fn}'].bind(solInst);
-      } else {
-        const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(solInst));
-        const method = proto.find((m) => m !== 'constructor' && typeof solInst[m] === 'function');
-        if (method) targetFn = solInst[method].bind(solInst);
+      } else if ('${fn}' === 'solution' && typeof solInst['solution'] === 'function') {
+        targetFn = solInst['solution'].bind(solInst);
       }
     }
 
-    if (!targetFn) throw new Error("Function '${fn}' is not defined.");
+    if (!targetFn) {
+      if (typeof Solution === 'function') {
+        throw new Error("Method '${fn}' not found in Solution class.");
+      } else {
+        throw new Error("Function '${fn}' is not defined.");
+      }
+    }
     let res = targetFn.apply(null, finalArgs);
 
     if (res && typeof res === 'object') {
@@ -222,6 +230,10 @@ function splitSmartArgs(text) {
       }
     }
 
+    if (typeof __hasResult !== 'undefined') {
+      __result = res;
+      __hasResult = true;
+    }
     console.log(JSON.stringify(res));
   } catch (err) {
     console.error(err.message || String(err));

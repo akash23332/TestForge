@@ -127,6 +127,18 @@ const questionSchema = new mongoose.Schema(
       ],
       default: 'DRAFT'
     },
+    sampleValidationFingerprint: {
+      type: String,
+      default: null
+    },
+    sampleValidationPassedAt: {
+      type: Date,
+      default: null
+    },
+    draftId: {
+      type: String,
+      default: null
+    },
     validationSummary: {
       referenceSolutionStatus: {
         type: String,
@@ -164,6 +176,23 @@ const questionSchema = new mongoose.Schema(
         type: Date,
         default: null
       }
+    },
+    // Phase 4A.2: Distributed cooperative adoption lease structure
+    adoptionLock: {
+      type: new mongoose.Schema(
+        {
+          lockToken: { type: String, default: null },
+          operationId: { type: String, default: null },
+          reportId: { type: mongoose.Schema.Types.ObjectId, ref: 'MutationReport', default: null },
+          candidateId: { type: String, default: null },
+          acquiredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+          acquiredAt: { type: Date, default: null },
+          expiresAt: { type: Date, default: null },
+          lastHeartbeat: { type: Date, default: null }
+        },
+        { _id: false }
+      ),
+      default: null
     }
   },
   {
@@ -173,6 +202,17 @@ const questionSchema = new mongoose.Schema(
 
 // Compound index for owner listings sorted by update date (Section 8)
 questionSchema.index({ ownerId: 1, updatedAt: -1 });
+
+// Atomic, unique single-use draft index:
+// Uses partialFilterExpression to safely ignore null/undefined legacy documents,
+// while strictly guaranteeing that every non-null string draftId is unique across the entire database.
+questionSchema.index(
+  { draftId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { draftId: { $type: 'string' } }
+  }
+);
 
 export const QUESTION_STATUS = Object.freeze({
   DRAFT: 'DRAFT',

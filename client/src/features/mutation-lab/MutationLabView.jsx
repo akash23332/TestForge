@@ -7,9 +7,6 @@ import {
   XCircle,
   AlertTriangle,
   Clock,
-  Eye,
-  Copy,
-  Check,
   ChevronDown,
   Search,
   Activity,
@@ -17,21 +14,37 @@ import {
   SlidersHorizontal,
   Filter,
   ArrowRight,
-  Download,
   Sparkles,
   Layers,
   Code2,
-  Settings,
-  X,
   ShieldCheck,
   Flame,
   Zap,
-  Terminal
+  Terminal,
+  HelpCircle,
+  ShieldAlert,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
-import { api } from '../../lib/api';
+import { useMutationRun } from './useMutationRun';
+import { MutantDiffViewer } from './MutantDiffViewer';
+import { SurvivingMutantsCandidateTests } from './SurvivingMutantsCandidateTests';
+import { CandidateAdoptionSection } from './CandidateAdoptionSection';
+import {
+  classifyMutant as classifyMutantApi,
+  adoptCandidateTest as adoptCandidateApi,
+  rejectCandidateTest as rejectCandidateApi
+} from './mutationLabService';
+import {
+  SUPPORTED_OPERATORS,
+  STATUS_FILTERS,
+  filterMutants,
+  formatMutationScore,
+  calculateProgressPercent
+} from './mutationLabHelpers';
 
-// Helper to smoothly count up numbers matching Question Bank
-const AnimatedCount = ({ value, duration = 800 }) => {
+// Helper to smoothly count up numbers matching TestForge conventions
+const AnimatedCount = ({ value, duration = 600 }) => {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
@@ -54,16 +67,6 @@ const AnimatedCount = ({ value, duration = 800 }) => {
   return <>{display}</>;
 };
 
-// Standard mutation operators
-const DEFAULT_OPERATORS = [
-  { id: 'ALL', name: 'All Operators', abbr: 'ALL', total: 24, enabled: true },
-  { id: 'AOR', name: 'Arithmetic (AOR)', abbr: 'AOR', total: 6, enabled: true },
-  { id: 'ROR', name: 'Relational (ROR)', abbr: 'ROR', total: 4, enabled: true },
-  { id: 'LOR', name: 'Logical (LOR)', abbr: 'LOR', total: 3, enabled: true },
-  { id: 'CBR', name: 'Conditional (CBR)', abbr: 'CBR', total: 2, enabled: true },
-  { id: 'SDL', name: 'Statement Del (SDL)', abbr: 'SDL', total: 3, enabled: true }
-];
-
 export const MutationLabView = ({
   questions = [],
   selectedQuestion,
@@ -84,7 +87,7 @@ export const MutationLabView = ({
     }
   }, [selectedQuestion, questions]);
 
-  // Outside click listener
+  // Outside click listener for question dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (questionDropdownRef.current && !questionDropdownRef.current.contains(e.target)) {
@@ -95,15 +98,27 @@ export const MutationLabView = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Execution state
-  const [running, setRunning] = useState(false);
-  const [mutants, setMutants] = useState([]);
-  const [selectedMutantId, setSelectedMutantId] = useState('M1');
+  // Connect to real backend asynchronous mutation run
+  const {
+    runId,
+    report,
+    status,
+    progress,
+    error,
+    isStarting,
+    isPolling,
+    startRun,
+    refreshReport,
+    resetRun
+  } = useMutationRun(currentQ?._id);
+
+  // Local UI filters and selection
+  const [activeLabTab, setActiveLabTab] = useState('explorer'); // 'explorer' | 'candidates'
+  const [selectedMutantId, setSelectedMutantId] = useState(null);
   const [selectedOperatorFilter, setSelectedOperatorFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'killed' | 'survived'
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
-  const [copiedKey, setCopiedKey] = useState(null);
 
   // 3D Tilt refs
   const heroRef = useRef(null);
@@ -113,132 +128,70 @@ export const MutationLabView = ({
   const showToast = (msg) => {
     setToastMsg(msg);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToastMsg(null), 2400);
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), 2500);
   };
 
-  // Generate realistic initial mutants for the question
-  const generateInitialMutants = (q) => {
-    const code = q?.referenceSolution || q?.starterCode || `function solve(arr) {\n  let sum = 0;\n  for(let i = 0; i < arr.length; i++) {\n    if (arr[i] > 0) sum += arr[i];\n  }\n  return sum;\n}`;
-    return [
-      {
-        id: 'M1',
-        operator: 'ROR',
-        operatorName: 'Relational Replacement',
-        location: 'Line 4',
-        mutation: '> -> >=',
-        result: 'killed',
-        executionTime: '2 ms',
-        failedOn: 'Test #2 (Zero Value Invariant)',
-        originalSnippet: 'if (arr[i] > 0)',
-        mutatedSnippet: 'if (arr[i] >= 0)',
-        description: 'Replaced strictly-greater (>) with greater-or-equal (>=).'
-      },
-      {
-        id: 'M2',
-        operator: 'AOR',
-        operatorName: 'Arithmetic Replacement',
-        location: 'Line 4',
-        mutation: '+= -> -=',
-        result: 'killed',
-        executionTime: '1 ms',
-        failedOn: 'Test #1 (Basic Array)',
-        originalSnippet: 'sum += arr[i];',
-        mutatedSnippet: 'sum -= arr[i];',
-        description: 'Inverted addition operation into subtraction.'
-      },
-      {
-        id: 'M3',
-        operator: 'CBR',
-        operatorName: 'Conditional Boundary',
-        location: 'Line 3',
-        mutation: '< -> <=',
-        result: 'survived',
-        executionTime: '2 ms',
-        failedOn: 'None (Mutant survived test suite)',
-        originalSnippet: 'for(let i = 0; i < arr.length; i++)',
-        mutatedSnippet: 'for(let i = 0; i <= arr.length; i++)',
-        description: 'Off-by-one boundary replacement on loop terminal. Test suite lacks index-out-of-bounds boundary check.'
-      },
-      {
-        id: 'M4',
-        operator: 'SDL',
-        operatorName: 'Statement Deletion',
-        location: 'Line 2',
-        mutation: 'delete initialization',
-        result: 'killed',
-        executionTime: '1 ms',
-        failedOn: 'Test #3 (Empty Array)',
-        originalSnippet: 'let sum = 0;',
-        mutatedSnippet: '// deleted let sum = 0;',
-        description: 'Removed variable initialization statement.'
-      },
-      {
-        id: 'M5',
-        operator: 'LOR',
-        operatorName: 'Logical Replacement',
-        location: 'Line 4',
-        mutation: '&& -> ||',
-        result: 'killed',
-        executionTime: '2 ms',
-        failedOn: 'Test #4 (Negative Numbers)',
-        originalSnippet: 'isValid && inRange',
-        mutatedSnippet: 'isValid || inRange',
-        description: 'Replaced short-circuit AND with logical OR.'
-      },
-      {
-        id: 'M6',
-        operator: 'ROR',
-        operatorName: 'Relational Replacement',
-        location: 'Line 5',
-        mutation: '== -> !=',
-        result: 'killed',
-        executionTime: '1 ms',
-        failedOn: 'Test #5 (Target Value)',
-        originalSnippet: 'if (val == target)',
-        mutatedSnippet: 'if (val != target)',
-        description: 'Inverted equality validation.'
-      }
-    ];
-  };
-
-  useEffect(() => {
-    if (currentQ) {
-      const initial = generateInitialMutants(currentQ);
-      setMutants(initial);
-      setSelectedMutantId(initial[0].id);
+  // Candidate Adoption & Rejection Handlers
+  const handleAdoptCandidate = async (candidateId, options = {}) => {
+    const qId = currentQ?._id;
+    const rId = report?._id || runId;
+    if (!qId || !rId || !candidateId) {
+      throw new Error('Question ID, Report ID, and Candidate ID are required for adoption.');
     }
-  }, [currentQ?._id]);
 
-  const activeMutant = useMemo(() => {
-    return mutants.find((m) => m.id === selectedMutantId) || mutants[0] || null;
-  }, [mutants, selectedMutantId]);
+    const res = await adoptCandidateApi(qId, rId, candidateId, options);
+    if (res?.alreadyAdopted) {
+      showToast('Candidate test case was already adopted into question suite.');
+    } else {
+      showToast('Candidate test case successfully adopted into Question test suite!');
+    }
+    refreshReport();
+    return res;
+  };
 
-  // Derived telemetry metrics
-  const stats = useMemo(() => {
-    const total = mutants.length;
-    if (total === 0) return { score: 100, killed: 0, survived: 0 };
-    const killed = mutants.filter((m) => m.result === 'killed').length;
-    const survived = mutants.filter((m) => m.result === 'survived').length;
-    const score = Math.round((killed / total) * 100);
-    return { score, killed, survived, total };
-  }, [mutants]);
+  const handleRejectCandidate = async (candidateId, options = {}) => {
+    const qId = currentQ?._id;
+    const rId = report?._id || runId;
+    if (!qId || !rId || !candidateId) {
+      throw new Error('Question ID, Report ID, and Candidate ID are required for rejection.');
+    }
+
+    const res = await rejectCandidateApi(qId, rId, candidateId, options);
+    showToast('Candidate test case rejected.');
+    refreshReport();
+    return res;
+  };
+
+  // Mutants from real backend report
+  const rawMutants = useMemo(() => {
+    return Array.isArray(report?.mutants) ? report.mutants : [];
+  }, [report]);
+
+  // Set default selected mutant when mutants list updates
+  useEffect(() => {
+    if (rawMutants.length > 0) {
+      const exists = rawMutants.some((m) => m.mutantId === selectedMutantId);
+      if (!exists) {
+        setSelectedMutantId(rawMutants[0].mutantId);
+      }
+    } else {
+      setSelectedMutantId(null);
+    }
+  }, [rawMutants, selectedMutantId]);
 
   // Filtered mutants list
   const filteredMutants = useMemo(() => {
-    return mutants.filter((m) => {
-      if (selectedOperatorFilter !== 'ALL' && m.operator !== selectedOperatorFilter) return false;
-      if (statusFilter !== 'all' && m.result !== statusFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          m.id.toLowerCase().includes(q) ||
-          m.operator.toLowerCase().includes(q) ||
-          m.description.toLowerCase().includes(q)
-        );
-      }
-      return true;
+    return filterMutants(rawMutants, {
+      operator: selectedOperatorFilter,
+      status: statusFilter,
+      search: searchQuery
     });
-  }, [mutants, selectedOperatorFilter, statusFilter, searchQuery]);
+  }, [rawMutants, selectedOperatorFilter, statusFilter, searchQuery]);
+
+  // Active mutant object
+  const activeMutant = useMemo(() => {
+    return rawMutants.find((m) => m.mutantId === selectedMutantId) || rawMutants[0] || null;
+  }, [rawMutants, selectedMutantId]);
 
   // 3D Tilt handlers
   const handleHeroMouseMove = (e) => {
@@ -257,39 +210,49 @@ export const MutationLabView = ({
     }
   };
 
-  // Run full mutation analysis
-  const handleRunMutationSuite = async () => {
-    setRunning(true);
-    showToast('Executing automated mutation testing sandbox…');
-    setTimeout(() => {
-      setRunning(false);
-      showToast(`Analysis complete: ${stats.score}% mutation robustness score`);
-    }, 1200);
+  // Handle Triggering Run
+  const handleTriggerRun = async () => {
+    if (!currentQ?._id) {
+      showToast('Please select a question first.');
+      return;
+    }
+
+    showToast('Enqueuing mutation testing run on server...');
+    const newRunId = await startRun();
+    if (newRunId) {
+      showToast(`Run ${newRunId.slice(-6)} enqueued. Monitoring worker progress...`);
+    }
   };
 
-  // Auto-generate killer test case for survived mutants
-  const handleGenerateKillerTest = async () => {
-    if (!activeMutant || activeMutant.result !== 'survived') return;
-    showToast(`Synthesizing killer test case for ${activeMutant.id} (${activeMutant.operator})…`);
-    setTimeout(() => {
-      // Mark as killed by newly generated test
-      setMutants((prev) =>
-        prev.map((m) =>
-          m.id === activeMutant.id
-            ? { ...m, result: 'killed', failedOn: 'Test #7 (AI Synthesized Boundary Check)' }
-            : m
-        )
-      );
-      showToast(`Mutant ${activeMutant.id} killed! Suite score raised to 100%`);
-    }, 1000);
+  // Handle Equivalent Mutant Classification (Phase 4A.1)
+  const handleClassifyMutant = async ({ mutantId, newClassification, reason }) => {
+    if (!currentQ?._id || !report?._id) return;
+    try {
+      await classifyMutantApi(currentQ._id, report._id, mutantId, {
+        newClassification,
+        reason,
+        expectedVersion: report.version ?? report.__v
+      });
+      showToast(`Mutant classified as ${newClassification} successfully.`);
+      if (typeof refreshReport === 'function') {
+        await refreshReport(report._id);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update mutant classification');
+      throw err;
+    }
   };
+
+  const isRunning = status === 'PENDING' || status === 'RUNNING';
+  const progressPercent = calculateProgressPercent(progress);
+  const formattedScore = formatMutationScore(report?.mutationScore);
 
   const titleCharacters = 'Mutation Lab'.split('');
 
   return (
     <div className="tf-ml-root select-none font-sans text-[#171819] pb-16">
       {/* ────────────────────────────────────────────────────────────────────────────
-          SCOPED STYLES: 100% LIGHT THEME, 3D KINETIC MUTANT HELIX, TECH BENTO
+          SCOPED STYLES: TESTFORGE THEME, 3D KINETIC MUTANT HELIX, TECH BENTO
           ──────────────────────────────────────────────────────────────────────────── */}
       <style>{`
         .tf-ml-root {
@@ -401,16 +364,17 @@ export const MutationLabView = ({
         }
 
         .tf-ml-root .tf-hero p {
-          margin: 0 0 20px;
+          margin: 0 0 16px;
           color: #b7bdb6;
-          max-width: 42ch;
-          font-size: 14.5px;
+          max-width: 44ch;
+          font-size: 14px;
           line-height: 1.5;
         }
         .tf-ml-root .tf-btns {
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
+          align-items: center;
         }
         .tf-ml-root .tf-btn {
           border: 0;
@@ -422,13 +386,17 @@ export const MutationLabView = ({
           display: inline-flex;
           gap: 8px;
           align-items: center;
-          transition: transform .2s, box-shadow .25s;
+          transition: transform .2s, box-shadow .25s, opacity .2s;
         }
-        .tf-ml-root .tf-btn:hover {
+        .tf-ml-root .tf-btn:hover:not(:disabled) {
           transform: translateY(-2px);
         }
-        .tf-ml-root .tf-btn:active {
+        .tf-ml-root .tf-btn:active:not(:disabled) {
           transform: scale(.97);
+        }
+        .tf-ml-root .tf-btn:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
         }
         .tf-ml-root .tf-btn.pri {
           background: var(--acc);
@@ -442,20 +410,21 @@ export const MutationLabView = ({
         }
         .tf-ml-root .tf-facts {
           display: flex;
-          gap: 22px;
+          gap: 20px;
           border-top: 1px solid #2b2d30;
           padding-top: 14px;
-          margin-top: 20px;
-          font-size: 13px;
+          margin-top: 18px;
+          font-size: 12.5px;
           color: #c8cdc7;
+          flex-wrap: wrap;
         }
         .tf-ml-root .tf-facts b {
           color: #fff;
-          font-size: 15px;
+          font-size: 14.5px;
           margin-right: 4px;
         }
 
-        /* 3D Kinetic DNA Helix & Biohazard Reactor */
+        /* 3D Kinetic DNA Helix */
         .tf-ml-root .stage {
           position: absolute;
           right: 20px;
@@ -487,7 +456,6 @@ export const MutationLabView = ({
           transform-style: preserve-3d;
           transform: rotateX(20deg) rotateY(-15deg);
         }
-        /* Kinetic DNA Rotating Cylinder */
         .tf-ml-root .helix-spindle {
           width: 100%;
           height: 100%;
@@ -499,7 +467,6 @@ export const MutationLabView = ({
           0% { transform: rotateY(0deg); }
           100% { transform: rotateY(360deg); }
         }
-        /* Molecular DNA Rungs */
         .tf-ml-root .dna-rung {
           position: absolute;
           left: 10px;
@@ -539,7 +506,6 @@ export const MutationLabView = ({
           color: #EDFF72;
           border: 1.5px solid #363942;
         }
-        /* Central Biohazard Mutation Core */
         .tf-ml-root .mutant-core-disc {
           position: absolute;
           top: 50%;
@@ -669,26 +635,13 @@ export const MutationLabView = ({
         /* 3-Column Workspace Grid */
         .tf-ml-root .tf-workspace {
           display: grid;
-          grid-template-columns: 310px minmax(0, 1.4fr) 340px;
+          grid-template-columns: 310px minmax(0, 1.45fr) 340px;
           gap: 14px;
           align-items: start;
         }
         .tf-ml-root .tf-col {
           position: sticky;
           top: 12px;
-        }
-
-        /* Code Blocks */
-        .tf-ml-root .code-diff {
-          background: #15161a;
-          color: #d6ef6b;
-          border: 1px solid #2b2e35;
-          border-radius: 14px;
-          padding: 12px 14px;
-          font-family: var(--mono);
-          font-size: 13px;
-          line-height: 1.55;
-          white-space: pre-wrap;
         }
 
         /* Toast */
@@ -714,7 +667,7 @@ export const MutationLabView = ({
 
         @media (max-width: 1200px) {
           .tf-ml-root .tf-workspace {
-            grid-template-columns: 280px minmax(0, 1fr);
+            grid-template-columns: 290px minmax(0, 1fr);
           }
           .tf-ml-root .tf-workspace .right-col {
             grid-column: 1 / -1;
@@ -799,12 +752,31 @@ export const MutationLabView = ({
               onClick={() => onNavigate('tests')}
               className="text-xs font-bold text-[#171819] hover:text-black flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#DDE1DA] bg-white hover:bg-[#F2F3F0] transition-colors"
             >
-              <span>View Test Suite</span>
+              <span>View Test Studio</span>
               <ArrowRight className="w-3 h-3" />
             </button>
           )}
         </div>
       </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          ERROR BANNER (IF ENCOUNTERED)
+          ──────────────────────────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="mb-3 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-rose-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={refreshReport}
+            className="px-3 py-1 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-xl font-bold transition-colors cursor-pointer shrink-0"
+          >
+            Retry Check
+          </button>
+        </div>
+      )}
 
       {/* ────────────────────────────────────────────────────────────────────────────
           TOP BANNER GRID: HERO CARD (3D MUTANT HELIX) + 4 STATS CARDS
@@ -825,7 +797,7 @@ export const MutationLabView = ({
             </div>
 
             {/* Staggered Animated Title */}
-            <h1 className="hero-title">
+            <h1 className="hero-title" aria-label="Mutation Lab">
               {titleCharacters.map((ch, idx) => (
                 <span
                   key={idx}
@@ -839,41 +811,98 @@ export const MutationLabView = ({
 
             <p>Inject syntactical mutants into solution code to measure and reinforce test suite kill efficacy.</p>
 
+            {/* Asynchronous Execution Action Buttons */}
             <div className="tf-btns">
               <button
                 type="button"
-                onClick={handleRunMutationSuite}
-                disabled={running}
+                onClick={handleTriggerRun}
+                disabled={isRunning || isStarting}
                 className="tf-btn pri"
               >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>{running ? 'Mutating…' : 'Run Mutation Analysis'}</span>
+                {isRunning ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Analyzing Mutants ({progressPercent}%)</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{report ? 'Rerun Mutation Suite' : 'Run Mutation Analysis'}</span>
+                  </>
+                )}
               </button>
-              {stats.survived > 0 && (
+
+              {report && (
                 <button
                   type="button"
-                  onClick={handleGenerateKillerTest}
+                  onClick={refreshReport}
+                  disabled={isStarting}
                   className="tf-btn gh"
+                  title="Refresh report state from MongoDB"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#EDFF72] fill-current" />
-                  <span>Synthesize Killer Tests ({stats.survived})</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Refresh Report</span>
                 </button>
               )}
             </div>
 
+            {/* Live Progress Bar during active run */}
+            {isRunning && (
+              <div className="mt-4 p-3 bg-zinc-900/90 border border-zinc-700 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono text-zinc-300">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#EDFF72] animate-pulse" />
+                    <span>Worker Status: {status}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span>
+                      {progress.completed || 0} / {progress.total || 0} mutants ({progressPercent}%)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={resetRun}
+                      title="Reset or cancel stalled run"
+                      className="text-[10px] text-zinc-400 hover:text-red-400 underline cursor-pointer ml-1"
+                    >
+                      Reset
+                    </button>
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#EDFF72] transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                {progress.currentMutant && (
+                  <div className="text-[10px] font-mono text-zinc-400 truncate">
+                    Processing {progress.currentMutant} {progress.currentTestCase ? `against ${progress.currentTestCase}` : ''}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Live Count Up Facts Bar */}
             <div className="tf-facts">
               <span>
-                <b><AnimatedCount value={stats.score} />%</b>mutation score
+                <b>
+                  {formattedScore !== null ? (
+                    <AnimatedCount value={formattedScore} />
+                  ) : (
+                    '--'
+                  )}
+                  %
+                </b>
+                mutation score
               </span>
               <span>
-                <b><AnimatedCount value={stats.killed} /></b>killed
+                <b><AnimatedCount value={report?.killedCount || 0} /></b>killed
               </span>
               <span>
-                <b><AnimatedCount value={stats.survived} /></b>survived
+                <b><AnimatedCount value={report?.survivedCount || 0} /></b>survived
               </span>
               <span>
-                <b><AnimatedCount value={stats.total} /></b>total mutants
+                <b><AnimatedCount value={report?.totalMutants || 0} /></b>total mutants
               </span>
             </div>
           </div>
@@ -895,13 +924,13 @@ export const MutationLabView = ({
                     </div>
                     {/* Rung 2 */}
                     <div className="dna-rung" style={{ top: '44px', transform: 'rotateY(45deg)' }}>
-                      <div className="dna-node node-dark">SDL</div>
+                      <div className="dna-node node-dark">RVR</div>
                       <div className="dna-bar" />
-                      <div className="dna-node node-lime">LCR</div>
+                      <div className="dna-node node-lime">COR</div>
                     </div>
                     {/* Rung 3 */}
                     <div className="dna-rung" style={{ top: '78px', transform: 'rotateY(90deg)' }}>
-                      <div className="dna-node node-lime">MUT</div>
+                      <div className="dna-node node-lime">LOR</div>
                       <div className="dna-bar" />
                       <div className="dna-node node-dark">KILL</div>
                     </div>
@@ -913,7 +942,7 @@ export const MutationLabView = ({
                     </div>
                     {/* Rung 5 */}
                     <div className="dna-rung" style={{ top: '146px', transform: 'rotateY(180deg)' }}>
-                      <div className="dna-node node-lime">Δ 99%</div>
+                      <div className="dna-node node-lime">Δ {formattedScore !== null ? `${formattedScore}%` : 'AST'}</div>
                       <div className="dna-bar" />
                       <div className="dna-node node-dark">SURV</div>
                     </div>
@@ -931,9 +960,9 @@ export const MutationLabView = ({
           </div>
         </section>
 
-        {/* Right 2x2 Quick Stats Cards with Smooth Animated Numbers */}
+        {/* Right 2x2 Quick Stats Cards */}
         <div className="tf-cards">
-          {/* Card 1: Mutation Score */}
+          {/* Card 1: Mutation Robustness Score */}
           <div className="tf-card tf-mini rise" style={{ '--k': 2 }}>
             <div className="tf-tile a">%</div>
             <div className="tf-ringm">
@@ -945,16 +974,24 @@ export const MutationLabView = ({
                   cy="21"
                   r="17"
                   strokeDasharray="107"
-                  strokeDashoffset={107 * (1 - stats.score / 100)}
+                  strokeDashoffset={107 * (1 - (Number(formattedScore) || 0) / 100)}
                 />
               </svg>
             </div>
             <div className="tf-cap">Mutation Score</div>
             <div className="tf-big">
-              <AnimatedCount value={stats.score} />%
+              {formattedScore !== null ? (
+                <span><AnimatedCount value={formattedScore} />%</span>
+              ) : (
+                <span className="text-[#777D78] text-2xl">--%</span>
+              )}
             </div>
-            <div className={`tf-sub ${stats.score >= 80 ? 'g' : ''}`}>
-              {stats.score >= 80 ? 'High Test Discrimination' : 'Low Test Discrimination'}
+            <div className={`tf-sub ${Number(formattedScore) >= 80 ? 'g' : ''}`}>
+              {formattedScore === null
+                ? 'No eligible mutants executed'
+                : Number(formattedScore) >= 80
+                ? 'High Suite Discrimination'
+                : 'Test Suite Needs Reinforcement'}
             </div>
           </div>
 
@@ -963,242 +1000,292 @@ export const MutationLabView = ({
             <div className="tf-tile">✓</div>
             <div className="tf-cap">Mutants Killed</div>
             <div className="tf-big">
-              <AnimatedCount value={stats.killed} />
+              <AnimatedCount value={report?.killedCount || 0} />
             </div>
-            <div className="tf-sub">Caught by existing tests</div>
+            <div className="tf-sub">Caught by existing test assertions</div>
           </div>
 
           {/* Card 3: Mutants Survived */}
           <div className="tf-card tf-mini rise" style={{ '--k': 4 }}>
             <div className="tf-tile"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /></div>
             <div className="tf-cap">Mutants Survived</div>
-            <div className="tf-big" style={{ color: stats.survived > 0 ? '#e5484d' : '#171819' }}>
-              <AnimatedCount value={stats.survived} />
+            <div className="tf-big" style={{ color: (report?.survivedCount || 0) > 0 ? '#e5484d' : '#171819' }}>
+              <AnimatedCount value={report?.survivedCount || 0} />
             </div>
-            <div className="tf-sub">{stats.survived > 0 ? 'Requires killer assertions' : 'Zero test leakage'}</div>
+            <div className="tf-sub">
+              {(report?.survivedCount || 0) > 0 ? 'Requires killer assertions' : 'Zero test leakage'}
+            </div>
           </div>
 
-          {/* Card 4: Operators Active */}
+          {/* Card 4: Syntax Operators */}
           <div className="tf-card tf-mini rise" style={{ '--k': 5 }}>
             <div className="tf-tile">≡</div>
-            <div className="tf-cap">Operators Active</div>
+            <div className="tf-cap">Active Operators</div>
             <div className="tf-big">
-              <AnimatedCount value={DEFAULT_OPERATORS.length - 1} />
+              <AnimatedCount value={SUPPORTED_OPERATORS.length - 1} />
             </div>
-            <div className="tf-sub">AOR, ROR, LOR, CBR, SDL</div>
+            <div className="tf-sub">AOR, ROR, LOR, COR, RVR</div>
           </div>
         </div>
       </div>
 
       {/* ────────────────────────────────────────────────────────────────────────────
-          MAIN BODY: 3-COLUMN WORKSPACE
-          Col 1: Mutants Ledger | Col 2: Diff Inspector | Col 3: Kill Matrix & Operators
+          SECONDARY TELEMETRY STRIP (COMPILATION / RUNTIME / TIMEOUT / EQUIVALENT)
           ──────────────────────────────────────────────────────────────────────────── */}
-      <div className="tf-workspace">
-        {/* COL 1: Mutants Ledger */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="p-3 bg-white rounded-2xl border border-[#DDE1DA] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-[#777D78] uppercase block">Equivalent Mutants</span>
+            <span className="text-base font-bold text-[#171819]">{report?.equivalentCount || 0}</span>
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono">Excluded</span>
+        </div>
+
+        <div className="p-3 bg-white rounded-2xl border border-[#DDE1DA] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-[#777D78] uppercase block">Compilation Errors</span>
+            <span className="text-base font-bold text-[#171819]">{report?.compilationErrorCount || 0}</span>
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono">Excluded</span>
+        </div>
+
+        <div className="p-3 bg-white rounded-2xl border border-[#DDE1DA] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-[#777D78] uppercase block">Runtime Errors</span>
+            <span className="text-base font-bold text-orange-600">{report?.runtimeErrorCount || 0}</span>
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono">Counted</span>
+        </div>
+
+        <div className="p-3 bg-white rounded-2xl border border-[#DDE1DA] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-[#777D78] uppercase block">Timeouts</span>
+            <span className="text-base font-bold text-purple-600">{report?.timeoutCount || 0}</span>
+          </div>
+          <span className="text-[10px] text-zinc-400 font-mono">Counted</span>
+        </div>
+      </div>
+
+      {/* View Switcher: Mutant Explorer vs Candidate Adoption Hub */}
+      <div className="flex items-center justify-between mb-4 border-b border-[#DDE1DA] pb-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveLabTab('explorer')}
+            className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeLabTab === 'explorer'
+                ? 'bg-[#191A1D] text-white shadow-xs'
+                : 'bg-white text-[#777D78] border border-[#DDE1DA] hover:bg-[#F2F3F0] hover:text-[#171819]'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            <span>Mutant Explorer & Code Diff</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveLabTab('candidates')}
+            className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeLabTab === 'candidates'
+                ? 'bg-[#191A1D] text-[#EDFF72] shadow-xs'
+                : 'bg-white text-[#777D78] border border-[#DDE1DA] hover:bg-[#F2F3F0] hover:text-[#171819]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Candidate Test Adoption</span>
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+              {report?.candidateTests?.length || 0}
+            </span>
+          </button>
+        </div>
+
+        {activeLabTab === 'candidates' && onNavigate && (
+          <button
+            type="button"
+            onClick={() => onNavigate('test-cases')}
+            className="text-[11px] font-bold text-[#777D78] hover:text-[#171819] flex items-center gap-1 cursor-pointer"
+          >
+            <span>Open TestCase Studio</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {activeLabTab === 'candidates' ? (
+        <CandidateAdoptionSection
+          questionId={currentQ?._id}
+          runId={report?._id || runId}
+          candidates={report?.candidateTests || []}
+          mutants={rawMutants}
+          onAdoptCandidate={handleAdoptCandidate}
+          onRejectCandidate={handleRejectCandidate}
+          onNavigateToStudio={() => onNavigate && onNavigate('test-cases')}
+          onSelectMutant={(id) => {
+            setSelectedMutantId(id);
+            setActiveLabTab('explorer');
+          }}
+          isRefreshing={isPolling}
+        />
+      ) : (
+        /* ────────────────────────────────────────────────────────────────────────────
+            MAIN BODY: 3-COLUMN WORKSPACE
+            Col 1: Mutants Ledger | Col 2: Diff Inspector | Col 3: Kill Matrix & Candidates
+            ──────────────────────────────────────────────────────────────────────────── */
+        <div className="tf-workspace">
+        {/* COL 1: Mutants Vault Ledger */}
         <section className="tf-card tf-col rise" style={{ '--k': 6 }} aria-label="Mutants Ledger">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2.5">
             <h3 className="font-bold text-sm text-[#171819] m-0">Mutants Vault</h3>
             <span className="text-xs font-mono font-bold bg-[#F2F3F0] px-2 py-0.5 rounded-full text-[#777D78]">
-              {filteredMutants.length} generated
+              {filteredMutants.length} / {rawMutants.length}
             </span>
           </div>
 
+          {/* Search Input */}
+          <div className="relative mb-2.5">
+            <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777D78]" />
+            <input
+              type="text"
+              placeholder="Search mutant, operator..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-7 pr-2.5 py-1 text-xs bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl outline-none font-medium"
+            />
+          </div>
+
           {/* Status filter pills */}
-          <div className="flex gap-1 mb-3">
-            {['all', 'killed', 'survived'].map((st) => (
+          <div className="flex gap-1 mb-3 overflow-x-auto pb-1 scrollbar-none">
+            {STATUS_FILTERS.map((st) => (
               <button
-                key={st}
+                key={st.id}
                 type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`text-[11px] font-bold px-3 py-1 rounded-full border transition-all capitalize ${
-                  statusFilter === st
+                onClick={() => setStatusFilter(st.id)}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all shrink-0 cursor-pointer ${
+                  statusFilter === st.id
                     ? 'bg-[#191A1D] text-white border-[#191A1D]'
                     : 'bg-white text-[#777D78] border-[#DDE1DA] hover:bg-[#F2F3F0]'
                 }`}
               >
-                {st}
+                {st.label}
               </button>
             ))}
           </div>
 
           {/* Mutants list */}
-          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-            {filteredMutants.map((m) => {
-              const isSelected = m.id === activeMutant?.id;
-              const isKilled = m.result === 'killed';
-              return (
-                <div
-                  key={m.id}
-                  onClick={() => setSelectedMutantId(m.id)}
-                  className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#191A1D] text-white border-[#191A1D] shadow-md'
-                      : 'bg-[#F2F3F0] hover:bg-[#E9ECE7] border-[#DDE1DA] text-[#171819]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-bold text-xs">{m.id}</span>
+          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+            {filteredMutants.length > 0 ? (
+              filteredMutants.map((m) => {
+                const isSelected = m.mutantId === activeMutant?.mutantId;
+                const isKilled = m.executionStatus === 'KILLED';
+                const isSurvived = m.executionStatus === 'SURVIVED';
+                return (
+                  <div
+                    key={m.mutantId}
+                    onClick={() => setSelectedMutantId(m.mutantId)}
+                    className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#191A1D] text-white border-[#191A1D] shadow-md'
+                        : 'bg-[#F2F3F0] hover:bg-[#E9ECE7] border-[#DDE1DA] text-[#171819]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-xs">{m.mutantId}</span>
+                        <span
+                          className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md ${
+                            isSelected ? 'bg-white/20 text-[#EDFF72]' : 'bg-white text-[#171819] border border-[#DDE1DA]'
+                          }`}
+                        >
+                          {m.operator}
+                        </span>
+                      </div>
+
                       <span
-                        className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-md ${
-                          isSelected ? 'bg-white/20 text-[#EDFF72]' : 'bg-white text-[#171819] border border-[#DDE1DA]'
+                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                          isKilled
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : isSurvived
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-zinc-200 text-zinc-800'
                         }`}
                       >
-                        {m.operator}
+                        {m.executionStatus}
                       </span>
                     </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isKilled
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
+
+                    <div
+                      className={`text-[11px] font-mono truncate mb-0.5 ${
+                        isSelected ? 'text-zinc-300' : 'text-[#777D78]'
                       }`}
                     >
-                      {isKilled ? 'Killed' : 'Survived'}
-                    </span>
+                      {m.originalSnippet} → {m.mutatedSnippet}
+                    </div>
+
+                    {m.failureReason && (
+                      <p
+                        className={`text-[10px] truncate m-0 ${
+                          isSelected ? 'text-rose-300' : 'text-rose-700'
+                        }`}
+                      >
+                        {m.failureReason}
+                      </p>
+                    )}
                   </div>
-
-                  <p
-                    className={`text-xs font-mono truncate mb-1 ${
-                      isSelected ? 'text-zinc-300' : 'text-[#777D78]'
-                    }`}
-                  >
-                    {m.mutation} • {m.location}
-                  </p>
-
-                  <p
-                    className={`text-[11px] truncate m-0 ${
-                      isSelected ? 'text-zinc-400' : 'text-[#777D78]'
-                    }`}
-                  >
-                    {m.failedOn}
-                  </p>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-xs text-[#777D78]">
+                {rawMutants.length === 0 ? (
+                  <div>
+                    <TestTube className="w-6 h-6 mx-auto mb-2 text-[#CBD0C8]" />
+                    <p className="font-bold text-[#171819] mb-1">No mutation runs yet</p>
+                    <p className="text-[11px]">Click "Run Mutation Analysis" above to generate and execute controlled AST mutants.</p>
+                  </div>
+                ) : (
+                  <div>No mutants match your active filter.</div>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
         {/* COL 2: Diff Inspector */}
         <section className="tf-card rise" style={{ '--k': 7 }} aria-label="Mutant Code Diff">
-          {activeMutant ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA]">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-[#191A1D] text-[#EDFF72]">
-                      MUTANT {activeMutant.id}
-                    </span>
-                    <span className="text-xs font-bold text-[#777D78]">
-                      {activeMutant.operatorName} ({activeMutant.operator})
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-[#171819] mt-1 m-0">
-                    Syntax Mutation at {activeMutant.location}
-                  </h3>
-                </div>
-
-                {activeMutant.result === 'survived' && (
-                  <button
-                    type="button"
-                    onClick={handleGenerateKillerTest}
-                    className="px-3.5 py-1.5 text-xs font-bold bg-[#EDFF72] hover:bg-[#e2f560] text-[#191A1D] rounded-xl flex items-center gap-1 shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 fill-current" />
-                    <span>Synthesize Killer Test</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Side-by-side diff */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-[#171819] block mb-1.5 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Original Reference Snippet</span>
-                  </label>
-                  <div className="code-diff min-h-[90px] border-l-4 border-l-emerald-500">
-                    {activeMutant.originalSnippet}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#171819] block mb-1.5 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Synthesized Mutant Snippet</span>
-                  </label>
-                  <div className="code-diff min-h-[90px] border-l-4 border-l-rose-500 text-rose-300">
-                    {activeMutant.mutatedSnippet}
-                  </div>
-                </div>
-              </div>
-
-              {/* Full code diff view */}
-              <div>
-                <label className="text-xs font-bold text-[#171819] block mb-1.5">
-                  Execution Diagnostic Log
-                </label>
-                <div className="p-4 bg-[#15161a] rounded-2xl border border-[#2b2e35] text-xs font-mono space-y-1.5">
-                  <div className="flex justify-between text-zinc-400">
-                    <span>Operator: {activeMutant.operator} ({activeMutant.mutation})</span>
-                    <span>Latency: {activeMutant.executionTime}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Outcome:</span>
-                    <span className={activeMutant.result === 'killed' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                      {activeMutant.result === 'killed' ? 'MUTANT KILLED' : 'MUTANT SURVIVED (TEST SUITE WEAKNESS)'}
-                    </span>
-                  </div>
-                  <div className="text-zinc-400 pt-1 border-t border-zinc-800">
-                    Detection Vector: {activeMutant.failedOn}
-                  </div>
-                </div>
-              </div>
-
-              {/* Pedagogical Explanation */}
-              <div className="p-3.5 bg-[#F2F3F0] rounded-2xl border border-[#DDE1DA]">
-                <span className="text-[11px] font-bold text-[#777D78] uppercase tracking-wider block mb-1">
-                  Psychometric Assessment Impact:
-                </span>
-                <p className="text-xs font-medium text-[#171819] leading-relaxed m-0">
-                  {activeMutant.description}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-16 text-[#777D78]">
-              <TestTube className="w-8 h-8 mx-auto mb-2 text-[#CBD0C8]" />
-              <p className="text-sm font-bold text-[#171819]">Select a mutant from the vault</p>
-            </div>
-          )}
+          <MutantDiffViewer
+            activeMutant={activeMutant}
+            referenceSolution={currentQ?.referenceSolution || currentQ?.starterCode || ''}
+            language={currentQ?.language || 'javascript'}
+            onClassifyMutant={handleClassifyMutant}
+          />
         </section>
 
-        {/* COL 3: Kill Matrix & Operators */}
-        <section className="tf-card tf-col right-col rise" style={{ '--k': 8 }} aria-label="Operators & Matrix">
+        {/* COL 3: Kill Matrix & Candidate Tests */}
+        <section className="tf-card tf-col right-col rise" style={{ '--k': 8 }} aria-label="Operators & Candidates">
           <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA] mb-3">
-            <h3 className="font-bold text-sm text-[#171819] m-0">Kill Matrix</h3>
+            <h3 className="font-bold text-sm text-[#171819] m-0">Operator Filter</h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EDFF72] text-[#191A1D]">
-              O-KILL 88%
+              AST 5-OPR
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Operator filter buttons */}
             <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA]">
-              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78] block mb-1">
-                Filter by Operator
+              <span className="text-[10px] font-mono font-bold uppercase text-[#777D78] block mb-1.5">
+                AST Mutation Category
               </span>
               <div className="flex flex-wrap gap-1">
-                {DEFAULT_OPERATORS.map((op) => (
+                {SUPPORTED_OPERATORS.map((op) => (
                   <button
                     key={op.id}
                     type="button"
                     onClick={() => setSelectedOperatorFilter(op.id)}
-                    className={`text-[10px] font-mono font-bold px-2 py-1 rounded-lg border transition-all ${
+                    className={`text-[10px] font-mono font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
                       selectedOperatorFilter === op.id
                         ? 'bg-[#191A1D] text-white border-[#191A1D]'
                         : 'bg-white text-[#777D78] border-[#DDE1DA] hover:bg-[#E9ECE7]'
                     }`}
+                    title={op.description}
                   >
                     {op.abbr}
                   </button>
@@ -1206,17 +1293,32 @@ export const MutationLabView = ({
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#191A1D] text-white">
-              <span className="text-[10px] font-mono font-bold uppercase text-[#EDFF72] block mb-1">
-                Test Suite Discrimination
-              </span>
-              <p className="text-xs text-zinc-300 leading-relaxed m-0">
-                A high mutation score certifies that student submissions with flawed boundary conditions will be caught reliably.
-              </p>
+            {/* Dedicated Surviving Mutants and Synthesized Candidate Tests (Part 8) */}
+            <div className="pt-2 border-t border-[#DDE1DA]">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-[#171819] flex items-center gap-1.5 m-0">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Surviving Mutants & Candidates</span>
+                </h4>
+                <span className="text-[10px] font-mono font-bold text-[#777D78]">
+                  {report?.survivedCount || 0} survived
+                </span>
+              </div>
+
+              <SurvivingMutantsCandidateTests
+                mutants={rawMutants}
+                candidateTests={report?.candidateTests || []}
+                selectedMutantId={selectedMutantId}
+                onSelectMutant={(id) => setSelectedMutantId(id)}
+                onAdoptCandidate={() => setActiveLabTab('candidates')}
+                onRejectCandidate={() => setActiveLabTab('candidates')}
+                onOpenAdoptionTab={() => setActiveLabTab('candidates')}
+              />
             </div>
           </div>
         </section>
       </div>
+      )}
 
       {/* Floating Status Toast */}
       <div className={`tf-toast ${toastMsg ? 'on' : ''}`} role="status">
@@ -1225,3 +1327,5 @@ export const MutationLabView = ({
     </div>
   );
 };
+
+export default MutationLabView;

@@ -64,7 +64,7 @@ export const createRateLimiter = ({
     const key = `tf:ratelimit:${prefix}:${identifier}`;
 
     // Test environment in-memory mode when running in test
-    if (config.env === 'test' || process.env.NODE_ENV === 'test') {
+    if (config.env === 'test' || (!config.env && process.env.NODE_ENV === 'test')) {
       return applyInMemoryRateLimit(key, windowMs, max, message, res, next);
     }
 

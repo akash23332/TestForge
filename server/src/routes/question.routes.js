@@ -6,7 +6,8 @@ import {
   getQuestionStudentView,
   updateQuestion,
   publishQuestion,
-  deleteQuestion
+  deleteQuestion,
+  validateSampleTest
 } from '../controllers/question.controller.js';
 import {
   getTestCases,
@@ -16,9 +17,17 @@ import {
   validateReferenceSolution,
   validateSingleTestCaseHandler,
   acceptComputedOutputHandler,
-  getValidationStatusHandler
+  getValidationStatusHandler,
+  generateAITestCasesHandler,
+  batchSaveTestCasesHandler
 } from '../controllers/testCase.controller.js';
-import { runMutations } from '../controllers/mutation.controller.js';
+import {
+  runMutations,
+  getMutationRun,
+  classifyMutant,
+  adoptCandidate,
+  rejectCandidate
+} from '../controllers/mutation.controller.js';
 import {
   validateCreateQuestion,
   validateListQuestions
@@ -33,12 +42,16 @@ router.post('/', requireAuth, requireRole('teacher', 'admin'), validateCreateQue
 router.get('/:id', optionalAuth, getQuestionById);
 router.get('/:id/student-view', optionalAuth, getQuestionStudentView);
 router.patch('/:id', requireAuth, requireRole('teacher', 'admin'), updateQuestion);
+router.post('/validate-sample', requireAuth, requireRole('teacher', 'admin'), validateSampleTest);
+router.post('/:id/validate-sample', requireAuth, requireRole('teacher', 'admin'), validateSampleTest);
 router.post('/:id/publish', requireAuth, requireRole('teacher', 'admin'), publishQuestion);
 router.delete('/:id', requireAuth, requireRole('teacher', 'admin'), deleteQuestion);
 
 // Test Cases & Verification (Strictly Restricted to Authorized Faculty / Admins)
 router.get('/:id/tests', requireAuth, requireRole('teacher', 'admin'), getTestCases);
 router.post('/:id/tests', requireAuth, requireRole('teacher', 'admin'), createTestCase);
+router.post('/:id/tests/batch', requireAuth, requireRole('teacher', 'admin'), batchSaveTestCasesHandler);
+router.post('/:id/ai-generate-tests', requireAuth, requireRole('teacher', 'admin'), generateAITestCasesHandler);
 router.patch('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), updateTestCase);
 router.delete('/:id/tests/:testId', requireAuth, requireRole('teacher', 'admin'), deleteTestCase);
 router.post('/:id/validate', requireAuth, requireRole('teacher', 'admin'), validateReferenceSolution);
@@ -49,5 +62,9 @@ router.get('/:id/validation-status', requireAuth, requireRole('teacher', 'admin'
 
 // Mutation Testing
 router.post('/:id/mutation-runs', requireAuth, requireRole('teacher', 'admin'), runMutations);
+router.get('/:id/mutation-runs/:runId', requireAuth, requireRole('teacher', 'admin'), getMutationRun);
+router.patch('/:id/mutation-runs/:runId/mutants/:mutantId/classification', requireAuth, requireRole('teacher', 'admin'), classifyMutant);
+router.post('/:id/mutation-runs/:runId/candidates/:candidateId/adopt', requireAuth, requireRole('teacher', 'admin'), adoptCandidate);
+router.post('/:id/mutation-runs/:runId/candidates/:candidateId/reject', requireAuth, requireRole('teacher', 'admin'), rejectCandidate);
 
 export default router;

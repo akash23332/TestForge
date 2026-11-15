@@ -79,11 +79,13 @@ public class Main {
                         targetMethod = m;
                         break;
                     }
-                    if (targetMethod == null) targetMethod = m;
+                    if ("${fn}".equals("solution") && targetMethod == null) {
+                        targetMethod = m;
+                    }
                 }
             }
             if (targetMethod == null) {
-                System.err.println("No public method found in Solution class.");
+                System.err.println("Method '${fn}' not found in Solution class.");
                 System.exit(1);
             }
 

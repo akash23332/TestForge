@@ -133,6 +133,13 @@ export const TestCaseStudioView = ({
   const [aiPrompt, setAiPrompt] = useState('Generate corner cases testing maximum array size and empty values.');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+  // 6b. AI Candidate Staging Modal State
+  const [candidates, setCandidates] = useState([]);
+  const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+  const [regeneratingCandidateId, setRegeneratingCandidateId] = useState(null);
+  const [batchSaveError, setBatchSaveError] = useState(null);
+
   // 7. Feedback & Activity Timeline
   const [copiedKey, setCopiedKey] = useState(null);
   const [activityTimeline, setActivityTimeline] = useState([
@@ -171,24 +178,7 @@ export const TestCaseStudioView = ({
     setLoading(true);
     try {
       const res = await api.get(`/questions/${qId}/tests`);
-      let fetched = res.data.data || [];
-
-      // If database has 0 test cases but the question has examples, auto-seed
-      if (fetched.length === 0 && currentQ?.examples && currentQ.examples.length > 0) {
-        const seededCases = [];
-        for (const ex of currentQ.examples) {
-          try {
-            const seedRes = await api.post(`/questions/${qId}/tests`, {
-              input: ex.input || '4\n1 2 3 4',
-              expectedOutput: ex.output || '4',
-              category: 'sample',
-              visibility: 'public'
-            });
-            if (seedRes.data?.data) seededCases.push(seedRes.data.data);
-          } catch {}
-        }
-        if (seededCases.length > 0) fetched = seededCases;
-      }
+      const fetched = res.data.data || [];
 
       setTestCases((prev) => {
         const runtimeMap = new Map(prev.map((p) => [String(p._id), p.runtimeMs]));
@@ -407,12 +397,18 @@ export const TestCaseStudioView = ({
   const handleDeleteTestCase = async (testId) => {
     if (!currentQ?._id) return;
     if (!window.confirm('Delete this test case from the active suite?')) return;
+    // Optimistically remove from state immediately
+    setTestCases((prev) => prev.filter((t) => t._id !== testId));
+    if (selectedTestCaseId === testId) {
+      setSelectedTestCaseId(null);
+    }
     try {
       await api.delete(`/questions/${currentQ._id}/tests/${testId}`);
-      await fetchTests();
       showToast('Test case deleted');
+      await fetchTests();
     } catch {
       showToast('Failed to delete test case');
+      await fetchTests();
     }
   };
 
@@ -512,40 +508,192 @@ export const TestCaseStudioView = ({
     }
   };
 
-  // AI Auto-Generate Test Cases
+  // AI Auto-Generate Test Cases -> Open Staging Modal
   const handleAIAutoGenerate = async () => {
     if (!currentQ?._id) return;
     setIsGeneratingAI(true);
+    setBatchSaveError(null);
     try {
-      await api.post(`/questions/${currentQ._id}/ai-generate-tests`, {
+      const existingInStudio = testCases.map((t) => t.input).filter(Boolean);
+      const res = await api.post(`/questions/${currentQ._id}/ai-generate-tests`, {
         count: aiCaseCount,
         category: aiCategory,
         visibility: aiVisibility,
-        prompt: aiPrompt
+        prompt: aiPrompt,
+        excludeInputs: existingInStudio
       });
+
+      const rawCandidates = res.data?.data?.candidates || res.data?.candidates || [];
+      if (!rawCandidates.length) {
+        showToast('No candidates passed validation against reference solution. Adjust your prompt or constraints.');
+        return;
+      }
+
+      const formatted = rawCandidates.map((c, idx) => ({
+        id: `cand-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+        input: c.input ?? '',
+        editedInput: c.input ?? '',
+        expectedOutput: c.expectedOutput ?? '',
+        category: c.category || (aiCategory === 'all' ? 'edge_case' : aiCategory) || 'edge_case',
+        visibility: c.visibility || aiVisibility || 'hidden',
+        explanation: c.explanation || '',
+        runtimeMs: c.runtimeMs || 0,
+        selected: true,
+        isEditing: false
+      }));
+
+      setCandidates(formatted);
       setIsAIModalOpen(false);
-      await fetchTests();
-      showToast(`Generated ${aiCaseCount} new AI test cases!`);
-    } catch {
-      // Fallback generator when offline
-      setTimeout(async () => {
-        try {
-          await api.post(`/questions/${currentQ._id}/tests`, {
-            input: '100000\n' + Array.from({ length: 10 }, (_, i) => i).join(' '),
-            expectedOutput: '45',
-            category: aiCategory,
-            visibility: aiVisibility,
-            explanation: 'Generated maximum boundary stress fixture.'
-          });
-          setIsAIModalOpen(false);
-          await fetchTests();
-          showToast(`Generated ${aiCaseCount} new AI test cases!`);
-        } catch {
-          setIsAIModalOpen(false);
-        }
-      }, 700);
+      setIsCandidateModalOpen(true);
+      showToast(`Synthesized ${formatted.length} valid candidate cases ready for review!`);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to generate AI test cases.');
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  // Staging handlers
+  const handleToggleSelectCandidate = (id) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c))
+    );
+  };
+
+  const handleToggleSelectAllCandidates = () => {
+    setCandidates((prev) => {
+      const allSelected = prev.every((c) => c.selected);
+      return prev.map((c) => ({ ...c, selected: !allSelected }));
+    });
+  };
+
+  const handleToggleCandidateEditing = (id) => {
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        if (c.isEditing) {
+          // Saving edit
+          return { ...c, input: c.editedInput, isEditing: false };
+        }
+        // Entering edit mode
+        return { ...c, editedInput: c.input, isEditing: true };
+      })
+    );
+  };
+
+  const handleCancelCandidateEditing = (id) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, editedInput: c.input, isEditing: false } : c))
+    );
+  };
+
+  const handleCandidateInputChange = (id, val) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, editedInput: val } : c))
+    );
+  };
+
+  const handleChangeCandidateVisibility = (id, nextVisibility) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, visibility: nextVisibility } : c))
+    );
+  };
+
+  const handleChangeCandidateCategory = (id, nextCategory) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, category: nextCategory } : c))
+    );
+  };
+
+  const handleRemoveCandidate = (id) => {
+    setCandidates((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleRegenerateSingleCandidate = async (id) => {
+    if (!currentQ?._id || regeneratingCandidateId) return;
+    const target = candidates.find((c) => c.id === id);
+    if (!target) return;
+
+    setRegeneratingCandidateId(id);
+    try {
+      // Gather all current candidate inputs AND active suite inputs so Gemini explicitly generates a novel input
+      const candidateInputs = candidates
+        .map((c) => (c.isEditing ? c.editedInput : c.input))
+        .filter((val) => typeof val === 'string' && val.trim().length > 0);
+      const studioInputs = testCases.map((t) => t.input).filter(Boolean);
+      const excludeInputs = Array.from(new Set([...candidateInputs, ...studioInputs]));
+
+      const res = await api.post(`/questions/${currentQ._id}/ai-generate-tests`, {
+        count: 1,
+        category: target.category || (aiCategory === 'all' ? 'edge_case' : aiCategory),
+        visibility: target.visibility || aiVisibility,
+        prompt: `Generate a distinct, novel alternative test case different from existing inputs. ${aiPrompt || ''}`.trim(),
+        excludeInputs
+      });
+
+      const newItems = res.data?.data?.candidates || res.data?.candidates || [];
+      if (newItems.length > 0) {
+        const replacement = newItems[0];
+        setCandidates((prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  input: replacement.input,
+                  editedInput: replacement.input,
+                  expectedOutput: replacement.expectedOutput,
+                  visibility: replacement.visibility || target.visibility || aiVisibility,
+                  runtimeMs: replacement.runtimeMs || c.runtimeMs,
+                  explanation: replacement.explanation || c.explanation,
+                  isEditing: false
+                }
+              : c
+          )
+        );
+        showToast('✓ Candidate regenerated and verified with a new distinct input!');
+      } else {
+        showToast('Could not regenerate this candidate with valid output.');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to regenerate test case.');
+    } finally {
+      setRegeneratingCandidateId(null);
+    }
+  };
+
+  const handleBatchSaveCandidates = async () => {
+    if (!currentQ?._id) return;
+    const selected = candidates.filter((c) => c.selected);
+    if (selected.length === 0) {
+      showToast('Select at least one candidate to save.');
+      return;
+    }
+
+    setIsSavingBatch(true);
+    setBatchSaveError(null);
+    try {
+      const payload = {
+        testCases: selected.map((c) => ({
+          input: c.isEditing ? c.editedInput : c.input,
+          category: c.category,
+          visibility: c.visibility,
+          explanation: c.explanation
+        }))
+      };
+
+      const res = await api.post(`/questions/${currentQ._id}/tests/batch`, payload);
+      const savedCount = res.data?.data?.length || selected.length;
+
+      setIsCandidateModalOpen(false);
+      setCandidates([]);
+      await fetchTests();
+      showToast(`✓ Successfully added ${savedCount} test case${savedCount > 1 ? 's' : ''} to suite!`);
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Failed to batch save test cases.';
+      setBatchSaveError(errMsg);
+      showToast(errMsg);
+    } finally {
+      setIsSavingBatch(false);
     }
   };
 
@@ -1427,7 +1575,7 @@ export const TestCaseStudioView = ({
           <div className="flex flex-wrap gap-1.5 mb-3">
             {[
               { id: 'all', label: 'All' },
-              { id: 'public', label: 'Sample' },
+              { id: 'public', label: 'Public' },
               { id: 'hidden', label: 'Hidden' },
               { id: 'edge', label: 'Edge' }
             ].map((cat) => (
@@ -1488,16 +1636,24 @@ export const TestCaseStudioView = ({
                         <span className="font-bold text-xs font-mono">TC-{idx + 1}</span>
                       </div>
                       <div className="flex items-center gap-1">
+                        {tc.source === 'mutation_derived' && (
+                          <span
+                            title="Adopted from Mutation Testing Report"
+                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200"
+                          >
+                            Mutation
+                          </span>
+                        )}
                         <span
                           className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                             isHidden
                               ? 'bg-[#2A2D33] text-amber-300'
                               : isSelected
                               ? 'bg-white/20 text-white'
-                              : 'bg-white text-[#777D78] border border-[#DDE1DA]'
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           }`}
                         >
-                          {isHidden ? 'Hidden' : 'Sample'}
+                          {isHidden ? 'Hidden' : (tc.category === 'sample' ? 'Sample' : 'Public')}
                         </span>
                       </div>
                     </div>
@@ -1565,6 +1721,11 @@ export const TestCaseStudioView = ({
                     {currentQ?.dataStructure && currentQ.dataStructure !== 'ARRAY' && (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
                         {currentQ.dataStructure}
+                      </span>
+                    )}
+                    {activeTestCase.source === 'mutation_derived' && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
+                        Adopted Mutant Killer
                       </span>
                     )}
                     <span className="text-xs font-bold text-[#777D78]">
@@ -1999,10 +2160,42 @@ export const TestCaseStudioView = ({
                   onChange={(e) => setAiCategory(e.target.value)}
                   className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] outline-none"
                 >
-                  <option value="edge_case">Boundary & Zero Values</option>
-                  <option value="stress">Maximum Input Stress (N=10^5)</option>
-                  <option value="boundary">Degenerate Invariants</option>
+                  <option value="all">Balanced Diversity (All Categories)</option>
+                  <option value="edge_case">Edge Cases & Zero Values</option>
+                  <option value="boundary">Boundary Invariants</option>
+                  <option value="stress">Maximum Input Stress</option>
+                  <option value="sample">Basic Samples</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#171819] block mb-1">Default Visibility</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiVisibility('hidden')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                      aiVisibility === 'hidden'
+                        ? 'bg-[#191A1D] text-white border-[#191A1D]'
+                        : 'bg-[#F2F3F0] text-[#777D78] border-[#DDE1DA]'
+                    }`}
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Hidden (Evaluation)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiVisibility('public')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                      aiVisibility === 'public'
+                        ? 'bg-[#191A1D] text-white border-[#191A1D]'
+                        : 'bg-[#F2F3F0] text-[#777D78] border-[#DDE1DA]'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Public (Sample)</span>
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -2018,11 +2211,12 @@ export const TestCaseStudioView = ({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#171819] block mb-1">Custom Synthesis Hint</label>
+                <label className="text-xs font-bold text-[#171819] block mb-1">Custom Synthesis Hint (Optional)</label>
                 <textarea
                   rows={2}
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g. Focus on empty lists, negative inputs, or off-by-one indices..."
                   className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs outline-none text-[#171819]"
                 />
               </div>
@@ -2040,11 +2234,339 @@ export const TestCaseStudioView = ({
                 type="button"
                 onClick={handleAIAutoGenerate}
                 disabled={isGeneratingAI}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-[#EDFF72] hover:bg-[#e2f560] text-[#191A1D] flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl text-xs font-black bg-[#EDFF72] hover:bg-[#e2f560] text-[#191A1D] flex items-center gap-1.5 disabled:opacity-50"
               >
-                <Sparkles className="w-3.5 h-3.5 fill-current" />
-                <span>{isGeneratingAI ? 'Generating…' : 'Synthesize Cases'}</span>
+                {isGeneratingAI ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Synthesizing…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 fill-current" />
+                    <span>Synthesize Cases</span>
+                  </>
+                )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          MODAL: AI CANDIDATE REVIEW & BATCH STAGING
+          ──────────────────────────────────────────────────────────────────────────── */}
+      {isCandidateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#DDE1DA] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-[#DDE1DA] flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#191A1D] text-[#EDFF72] flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-[#171819] m-0">Review AI Test Candidates</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EDFF72] text-[#191A1D]">
+                      {candidates.length} GENERATED
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#777D78] m-0 mt-0.5">
+                    Verified against authoritative reference solution. Edit inputs, toggle visibility, and batch-save to your suite.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCandidateModalOpen(false);
+                  setCandidates([]);
+                }}
+                className="p-2 rounded-xl hover:bg-[#F2F3F0] text-[#777D78] transition-colors"
+                title="Discard and close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sub-bar: Batch Select & Quick Stats */}
+            <div className="px-5 py-3 bg-[#F9FAF8] border-b border-[#DDE1DA] flex items-center justify-between text-xs font-medium shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllCandidates}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#DDE1DA] hover:border-[#171819] text-[#171819] font-bold transition-colors"
+                >
+                  {candidates.every((c) => c.selected) ? (
+                    <CheckSquare className="w-3.5 h-3.5 text-[#191A1D]" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5 text-[#777D78]" />
+                  )}
+                  <span>
+                    {candidates.every((c) => c.selected) ? 'Deselect All' : 'Select All'}
+                  </span>
+                </button>
+                <span className="text-[#777D78]">
+                  <strong className="text-[#171819] font-mono">
+                    {candidates.filter((c) => c.selected).length}
+                  </strong> of {candidates.length} selected for suite
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-[#777D78]">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#1f9d5a]" />
+                <span>Reference runner verified</span>
+              </div>
+            </div>
+
+            {/* Error banner if batch save fails */}
+            {batchSaveError && (
+              <div className="mx-5 mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 shrink-0">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                <span className="flex-1 font-medium">{batchSaveError}</span>
+                <button
+                  type="button"
+                  onClick={() => setBatchSaveError(null)}
+                  className="text-red-500 hover:text-red-800"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Scrollable Candidates Body */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {candidates.length === 0 ? (
+                <div className="text-center py-12 text-[#777D78]">
+                  <p className="text-sm">No candidate test cases to review.</p>
+                </div>
+              ) : (
+                candidates.map((cand, idx) => {
+                  const isRegenerating = regeneratingCandidateId === cand.id;
+                  return (
+                    <div
+                      key={cand.id}
+                      className={`rounded-2xl border transition-all ${
+                        cand.selected
+                          ? 'border-[#191A1D]/25 bg-white shadow-xs'
+                          : 'border-[#E9ECE7] bg-[#FAFBFA] opacity-70'
+                      } p-4 space-y-3`}
+                    >
+                      {/* Top Bar of Candidate Card */}
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectCandidate(cand.id)}
+                            className="text-[#191A1D] hover:opacity-80 transition-opacity"
+                          >
+                            {cand.selected ? (
+                              <CheckSquare className="w-4 h-4 text-[#191A1D]" />
+                            ) : (
+                              <Square className="w-4 h-4 text-[#777D78]" />
+                            )}
+                          </button>
+                          <span className="text-xs font-mono font-bold text-[#171819]">
+                            Case #{idx + 1}
+                          </span>
+
+                          {/* Category Badge/Dropdown */}
+                          <select
+                            value={cand.category}
+                            onChange={(e) => handleChangeCandidateCategory(cand.id, e.target.value)}
+                            className="bg-[#F2F3F0] border border-[#DDE1DA] rounded-lg px-2.5 py-1 text-[11px] font-bold text-[#171819] outline-none"
+                          >
+                            <option value="edge_case">Edge Case</option>
+                            <option value="boundary">Boundary</option>
+                            <option value="stress">Stress Invariant</option>
+                            <option value="sample">Sample</option>
+                            <option value="standard">Standard</option>
+                            <option value="performance">Performance</option>
+                          </select>
+
+                          {/* Visibility Toggle */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleChangeCandidateVisibility(
+                                cand.id,
+                                cand.visibility === 'public' ? 'hidden' : 'public'
+                              )
+                            }
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1 transition-colors ${
+                              cand.visibility === 'public'
+                                ? 'bg-[#EDFF72]/30 text-[#191A1D] border-[#EDFF72]'
+                                : 'bg-[#F2F3F0] text-[#777D78] border-[#DDE1DA]'
+                            }`}
+                            title="Toggle test visibility for students"
+                          >
+                            {cand.visibility === 'public' ? (
+                              <>
+                                <Eye className="w-3 h-3 text-[#191A1D]" />
+                                <span>Public</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3 h-3 text-[#777D78]" />
+                                <span>Hidden</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* Execution Status Badge */}
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1f9d5a]/10 text-[#1f9d5a] text-[10px] font-mono font-semibold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Passed (~{cand.runtimeMs || 5}ms)</span>
+                          </div>
+                        </div>
+
+                        {/* Candidate Action Buttons */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCandidateEditing(cand.id)}
+                            className="p-1.5 rounded-lg hover:bg-[#F2F3F0] text-[#171819] text-xs font-bold flex items-center gap-1 transition-colors"
+                            title={cand.isEditing ? 'Save input edits' : 'Edit input'}
+                          >
+                            {cand.isEditing ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-[#1f9d5a]" />
+                                <span className="text-[#1f9d5a] text-[11px]">Save Edit</span>
+                              </>
+                            ) : (
+                              <>
+                                <Pencil className="w-3.5 h-3.5 text-[#777D78]" />
+                                <span className="text-[#777D78] text-[11px]">Edit</span>
+                              </>
+                            )}
+                          </button>
+
+                          {cand.isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelCandidateEditing(cand.id)}
+                              className="p-1.5 rounded-lg hover:bg-[#F2F3F0] text-[#777D78] text-[11px] font-medium transition-colors"
+                              title="Cancel input edit"
+                            >
+                              Cancel
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={isRegenerating}
+                            onClick={() => handleRegenerateSingleCandidate(cand.id)}
+                            className="p-1.5 rounded-lg hover:bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] text-xs font-bold flex items-center gap-1 transition-colors disabled:opacity-50"
+                            title="Regenerate only this test case"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-[#191A1D]' : ''}`} />
+                            <span className="text-[11px]">
+                              {isRegenerating ? 'Regenerating…' : 'Regenerate'}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCandidate(cand.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-[#777D78] hover:text-red-600 transition-colors"
+                            title="Remove candidate from batch"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Input & Output Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Input Box */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-[#777D78] flex items-center justify-between">
+                            <span>Input</span>
+                            {cand.isEditing && (
+                              <span className="text-amber-600 font-sans text-[10px] lowercase">
+                                preserving exact whitespace & newlines
+                              </span>
+                            )}
+                          </label>
+                          {cand.isEditing ? (
+                            <textarea
+                              rows={4}
+                              value={cand.editedInput}
+                              onChange={(e) => handleCandidateInputChange(cand.id, e.target.value)}
+                              className="w-full font-mono text-xs bg-[#F2F3F0] border border-[#191A1D] rounded-xl p-3 outline-none text-[#171819] resize-y"
+                            />
+                          ) : (
+                            <pre className="font-mono text-xs bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-[#171819] overflow-x-auto whitespace-pre-wrap max-h-36 m-0">
+                              {cand.input}
+                            </pre>
+                          )}
+                        </div>
+
+                        {/* Expected Output Box */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-[#777D78]">
+                            Authoritative Expected Output
+                          </label>
+                          <pre className="font-mono text-xs bg-[#191A1D] text-[#EDFF72] rounded-xl p-3 overflow-x-auto whitespace-pre-wrap max-h-36 m-0">
+                            {cand.expectedOutput}
+                          </pre>
+                        </div>
+                      </div>
+
+                      {/* Explanation if present */}
+                      {cand.explanation && (
+                        <p className="text-[11px] text-[#777D78] italic m-0 pt-1">
+                          💡 {cand.explanation}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-[#DDE1DA] bg-white flex items-center justify-between shrink-0">
+              <div className="text-xs text-[#777D78]">
+                <strong className="text-[#171819] font-mono">
+                  {candidates.filter((c) => c.selected).length}
+                </strong> of {candidates.length} cases will be persisted atomically.
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCandidateModalOpen(false);
+                    setCandidates([]);
+                  }}
+                  disabled={isSavingBatch}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#F2F3F0] hover:bg-[#E9ECE7] text-[#171819] transition-colors"
+                >
+                  Discard All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBatchSaveCandidates}
+                  disabled={isSavingBatch || candidates.filter((c) => c.selected).length === 0}
+                  className="px-5 py-2.5 rounded-xl text-xs font-black bg-[#EDFF72] hover:bg-[#e2f560] text-[#191A1D] flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {isSavingBatch ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Validating & Saving Batch…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>
+                        Save Selected Test Cases ({candidates.filter((c) => c.selected).length})
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

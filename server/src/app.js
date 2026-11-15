@@ -11,6 +11,7 @@ import questionRouter from './routes/question.routes.js';
 import mcqRouter from './routes/mcq.routes.js';
 import examRouter from './routes/exam.routes.js';
 import attemptRouter from './routes/attempt.routes.js';
+import aiRouter from './routes/ai.routes.js';
 
 const app = express();
 
@@ -63,6 +64,11 @@ app.use('/api/v1/mcq', mcqRouter);
 app.use('/api/v1/mcq-imports', mcqRouter);
 app.use('/api/v1/exams', examRouter);
 app.use('/api/v1/attempts', attemptRouter);
+app.use('/api/v1/ai', aiRouter);
+
+// Direct aliases for /api endpoints
+app.use('/api/questions', questionRouter);
+app.use('/api/ai', aiRouter);
 
 // Catch 404 and route to error handler
 app.use(notFoundHandler);

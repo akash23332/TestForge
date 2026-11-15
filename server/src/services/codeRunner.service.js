@@ -25,6 +25,12 @@ export const getActiveProvider = () => {
  * - JSON / primitive arguments: "nums = [-1,0,3,5,9,12], target = 9"
  */
 export const parseInputArguments = (inputStr) => {
+  if (Array.isArray(inputStr)) {
+    return inputStr;
+  }
+  if (inputStr === undefined || inputStr === null) {
+    return [];
+  }
   if (typeof inputStr !== 'string') {
     return [inputStr];
   }
@@ -82,6 +88,58 @@ export const parseInputArguments = (inputStr) => {
     if (!isNaN(num) && cleaned !== '') return [num];
     return [cleaned];
   }
+};
+
+/**
+ * Normalizes standard input string for STDIN mode execution.
+ * Handles:
+ * - Windows CRLF to Unix LF
+ * - JSON-stringified multiline payloads (e.g. "\"2 4 3\\n5 6 4\"")
+ * - Redundant outer quotes from lines (e.g. "\"2 4 3\"" -> "2 4 3")
+ * - Stray leading/trailing quotes or escape backslashes (e.g. "\"2" or "\\\"2")
+ * - Leading parameter labels (e.g. "l1 = 2 4 3" -> "2 4 3", "nums = [1, 2]" -> "[1, 2]")
+ */
+export const cleanStdinString = (input) => {
+  if (input === undefined || input === null) return '';
+  let str = (typeof input === 'string' ? input : String(input)).replace(/\r\n/g, '\n').trim();
+
+  // 1. Unwrap if the ENTIRE string was a valid JSON-encoded string literal
+  if (str.startsWith('"') && str.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(str);
+      if (typeof parsed === 'string') {
+        str = parsed.replace(/\r\n/g, '\n').trim();
+      }
+    } catch (_) {}
+  }
+
+  // 2. Process each line individually
+  return str
+    .split('\n')
+    .map(line => {
+      let l = line.trim();
+      // Strip leading parameter labels (e.g. "l1 = 2 4 3" -> "2 4 3")
+      l = l.replace(/^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/, '').trim();
+
+      // Unwrap quotes or escaped quotes around the line
+      while (
+        (l.startsWith('"') && l.endsWith('"')) ||
+        (l.startsWith("'") && l.endsWith("'")) ||
+        (l.startsWith('\\"') && l.endsWith('\\"'))
+      ) {
+        if (l.startsWith('\\"') && l.endsWith('\\"')) {
+          l = l.slice(2, -2).trim();
+        } else {
+          l = l.slice(1, -1).trim();
+        }
+      }
+
+      // Strip any stray outer quotes or backslashes that would break token parsers
+      l = l.replace(/^["'\\]+|["'\\]+$/g, '').trim();
+
+      return l;
+    })
+    .join('\n');
 };
 
 /**
@@ -302,7 +360,7 @@ export const extractFunctionName = (code) => {
 /**
  * Executes JavaScript code in an isolated VM sandbox with ListNode/TreeNode support.
  */
-export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => {
+export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000, rawInput = null }) => {
   if (config.env === 'production' || process.env.NODE_ENV === 'production') {
     return {
       status: 'internal_error',
@@ -314,17 +372,20 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
   const startTime = Date.now();
 
   try {
-    const rawInput = typeof inputArgs === 'string'
-      ? inputArgs
-      : Array.isArray(inputArgs)
-        ? inputArgs.map(arg => typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')).join('\n')
-        : String(inputArgs ?? '');
+    const resolvedRawInput = typeof rawInput === 'string'
+      ? rawInput
+      : typeof inputArgs === 'string'
+        ? inputArgs
+        : Array.isArray(inputArgs)
+          ? inputArgs.map(arg => typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')).join('\n')
+          : String(inputArgs ?? '');
 
     const stdout = [];
+    const stderr = [];
     const mockFs = {
       readFileSync: (fd) => {
         if (fd === 0 || fd === '/dev/stdin' || fd === 'dev/stdin') {
-          return rawInput;
+          return resolvedRawInput;
         }
         return '';
       }
@@ -333,7 +394,7 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
     const sandbox = {
       console: {
         log: (...args) => stdout.push(args.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a)).join(' ')),
-        error: (...args) => stdout.push(args.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a)).join(' ')),
+        error: (...args) => stderr.push(args.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a)).join(' ')),
         warn: () => {}
       },
       require: (mod) => {
@@ -348,8 +409,16 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
         stdout: {
           write: (s) => stdout.push(String(s))
         },
+        stderr: {
+          write: (s) => stderr.push(String(s))
+        },
         exit: (code) => {
-          if (code && code !== 0) throw new Error(`Process exited with code ${code}`);
+          if (code && code !== 0) {
+            const errMsg = stderr.length > 0 ? stderr.join('\n') : `Process exited with code ${code}`;
+            const err = new Error(errMsg);
+            err.exitCode = code;
+            throw err;
+          }
         }
       },
       Math,
@@ -367,99 +436,107 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
       Map,
       Set,
       __args: inputArgs,
-      __result: undefined
+      __result: undefined,
+      __hasResult: false
     };
 
-    const helperDataStructures = `
-      function ListNode(val, next) {
-        this.val = (val===undefined ? 0 : val);
-        this.next = (next===undefined ? null : next);
-      }
-      ListNode.fromArray = function(arr) {
-        if (!arr || arr.length === 0) return null;
-        var dummy = new ListNode(0);
-        var curr = dummy;
-        for (var i = 0; i < arr.length; i++) {
-          curr.next = new ListNode(arr[i]);
-          curr = curr.next;
-        }
-        return dummy.next;
-      };
-      ListNode.toArray = function(head, limit) {
-        limit = limit || 100000;
-        var res = [];
-        var curr = head;
-        var count = 0;
-        while (curr) {
-          count++;
-          if (count > limit) {
-            throw new Error("Cycle detected or linked list traversal limit exceeded (max 100,000 nodes)");
-          }
-          res.push(curr.val);
-          curr = curr.next;
-        }
-        return res;
-      };
-
-      function TreeNode(val, left, right) {
-        this.val = (val===undefined ? 0 : val);
-        this.left = (left===undefined ? null : left);
-        this.right = (right===undefined ? null : right);
-      }
-      const Listnode = ListNode;
-      const Treenode = TreeNode;
-    `;
-
-    const fnName = extractFunctionName(code);
-    const hasFunction = Boolean(
-      fnName && (
-        code.includes(`function ${fnName}`) ||
-        code.includes(`const ${fnName}`) ||
-        code.includes(`let ${fnName}`) ||
-        code.includes(`var ${fnName}`) ||
-        code.includes('class Solution')
-      )
-    );
+    const isPreWrapped = code.includes('/* TESTFORGE_JS_WRAPPER */');
 
     let runnerScript = '';
-    if (hasFunction) {
-      runnerScript = `
-        "use strict";
-        ${helperDataStructures}
-        ${code}
-
-        var isListNodeCode = ${code.includes('.next') || code.includes('ListNode') ? 'true' : 'false'};
-        var finalArgs = __args.map(function(arg) {
-          if (Array.isArray(arg) && isListNodeCode) {
-            return ListNode.fromArray(arg);
-          }
-          return arg;
-        });
-
-        var targetFn = typeof ${fnName} === 'function' ? ${fnName} : null;
-        if (!targetFn && typeof Solution === 'function') {
-          var solInst = new Solution();
-          if (typeof solInst.${fnName} === 'function') {
-            targetFn = solInst.${fnName}.bind(solInst);
-          }
-        }
-
-        if (targetFn) {
-          var res = targetFn.apply(null, finalArgs);
-          if (res && res instanceof ListNode) {
-            __result = ListNode.toArray(res);
-          } else {
-            __result = res;
-          }
-        }
-      `;
+    if (isPreWrapped) {
+      runnerScript = code;
     } else {
-      // Plain STDIN top-level script
-      runnerScript = `
-        "use strict";
-        ${helperDataStructures}
-        ${code}
+      const helperDataStructures = `
+        function ListNode(val, next) {
+          this.val = (val===undefined ? 0 : val);
+          this.next = (next===undefined ? null : next);
+        }
+        ListNode.fromArray = function(arr) {
+          if (!arr || arr.length === 0) return null;
+          var dummy = new ListNode(0);
+          var curr = dummy;
+          for (var i = 0; i < arr.length; i++) {
+            curr.next = new ListNode(arr[i]);
+            curr = curr.next;
+          }
+          return dummy.next;
+        };
+        ListNode.toArray = function(head, limit) {
+          limit = limit || 100000;
+          var res = [];
+          var curr = head;
+          var count = 0;
+          while (curr) {
+            count++;
+            if (count > limit) {
+              throw new Error("Cycle detected or linked list traversal limit exceeded (max 100,000 nodes)");
+            }
+            res.push(curr.val);
+            curr = curr.next;
+          }
+          return res;
+        };
+
+        function TreeNode(val, left, right) {
+          this.val = (val===undefined ? 0 : val);
+          this.left = (left===undefined ? null : left);
+          this.right = (right===undefined ? null : right);
+        }
+        const Listnode = ListNode;
+        const Treenode = TreeNode;
       `;
+
+      const fnName = extractFunctionName(code);
+      const hasFunction = Boolean(
+        fnName && (
+          code.includes(`function ${fnName}`) ||
+          code.includes(`const ${fnName}`) ||
+          code.includes(`let ${fnName}`) ||
+          code.includes(`var ${fnName}`) ||
+          code.includes('class Solution')
+        )
+      );
+
+      if (hasFunction) {
+        runnerScript = `
+          "use strict";
+          ${helperDataStructures}
+          ${code}
+
+          var isListNodeCode = ${code.includes('.next') || code.includes('ListNode') ? 'true' : 'false'};
+          var finalArgs = __args.map(function(arg) {
+            if (Array.isArray(arg) && isListNodeCode) {
+              return ListNode.fromArray(arg);
+            }
+            return arg;
+          });
+
+          var targetFn = typeof ${fnName} === 'function' ? ${fnName} : null;
+          if (!targetFn && typeof Solution === 'function') {
+            var solInst = new Solution();
+            if (typeof solInst.${fnName} === 'function') {
+              targetFn = solInst.${fnName}.bind(solInst);
+            }
+          }
+
+          if (targetFn) {
+            var res = targetFn.apply(null, finalArgs);
+            if (res && res instanceof ListNode) {
+              __result = ListNode.toArray(res);
+            } else {
+              __result = res;
+            }
+            __hasResult = true;
+          }
+        `;
+      } else {
+        // Plain STDIN top-level script
+        runnerScript = `
+          "use strict";
+          ${helperDataStructures}
+          ${code}
+        `;
+      }
     }
 
     const script = new vm.Script(runnerScript, { filename: 'sandbox.js' });
@@ -471,8 +548,12 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
     });
 
     const runtimeMs = Date.now() - startTime;
-    let finalOut = sandbox.__result;
-    if (finalOut === undefined && stdout.length > 0) {
+    let finalOut;
+    if (sandbox.__hasResult) {
+      finalOut = sandbox.__result;
+    } else if (sandbox.__result !== undefined) {
+      finalOut = sandbox.__result;
+    } else if (stdout.length > 0) {
       const combined = stdout.join('\n').trim();
       try {
         finalOut = JSON.parse(combined);
@@ -513,7 +594,7 @@ export const runCodeIsolated = async ({ code, inputArgs, timeoutMs = 2000 }) => 
 /**
  * Executes Java code with universal reflection, ListNode, and TreeNode support.
  */
-export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => {
+export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500, rawInput = null }) => {
   if (config.env === 'production' || process.env.NODE_ENV === 'production') {
     return {
       status: 'internal_error',
@@ -537,7 +618,9 @@ export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500 }) => 
       try {
         execSync(`javac "${mainFile}"`, { timeout: timeoutMs, stdio: ['pipe', 'pipe', 'pipe'] });
         let stdinData = '';
-        if (typeof inputArgs === 'string') {
+        if (typeof rawInput === 'string') {
+          stdinData = rawInput;
+        } else if (typeof inputArgs === 'string') {
           stdinData = inputArgs;
         } else if (Array.isArray(inputArgs)) {
           stdinData = inputArgs.map(a => typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a ?? '')).join('\n');
@@ -1064,7 +1147,7 @@ ${cleanCode}
 /**
  * Executes Python code in an isolated process with ListNode/TreeNode support.
  */
-export const runPythonIsolated = async ({ code, inputArgs, timeoutMs = 3500 }) => {
+export const runPythonIsolated = async ({ code, inputArgs, timeoutMs = 3500, rawInput = null }) => {
   if (config.env === 'production' || process.env.NODE_ENV === 'production') {
     return {
       status: 'internal_error',
@@ -1079,14 +1162,16 @@ export const runPythonIsolated = async ({ code, inputArgs, timeoutMs = 3500 }) =
 
   try {
     let serializedInput = '';
-    if (typeof inputArgs === 'string') {
+    if (typeof rawInput === 'string') {
+      serializedInput = rawInput;
+    } else if (typeof inputArgs === 'string') {
       serializedInput = inputArgs;
     } else if (Array.isArray(inputArgs)) {
       serializedInput = inputArgs
-        .map(arg => (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')))
+        .map(arg => ((typeof arg === 'object' && arg !== null) ? JSON.stringify(arg) : String(arg ?? '')))
         .join('\n');
     } else if (inputArgs !== undefined && inputArgs !== null) {
-      serializedInput = String(inputArgs);
+      serializedInput = typeof inputArgs === 'string' ? inputArgs : String(inputArgs);
     }
 
     const isPreWrapped = code.includes("if __name__ == '__main__':");
@@ -1339,7 +1424,7 @@ const jsValueToCppLiteral = (val, rawType) => {
  * Executes C++ code in an isolated process with ListNode/TreeNode support.
  * Compiles with g++ -std=c++17 -O2 and runs the resulting binary.
  */
-export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
+export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000, rawInput = null }) => {
   if (config.env === 'production' || process.env.NODE_ENV === 'production') {
     return {
       status: 'internal_error',
@@ -1356,14 +1441,16 @@ export const runCppIsolated = async ({ code, inputArgs, timeoutMs = 5000 }) => {
 
   try {
     let serializedInput = '';
-    if (typeof inputArgs === 'string') {
+    if (typeof rawInput === 'string') {
+      serializedInput = rawInput;
+    } else if (typeof inputArgs === 'string') {
       serializedInput = inputArgs;
     } else if (Array.isArray(inputArgs)) {
       serializedInput = inputArgs
-        .map(arg => (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')))
+        .map(arg => ((typeof arg === 'object' && arg !== null) ? JSON.stringify(arg) : String(arg ?? '')))
         .join('\n');
     } else if (inputArgs !== undefined && inputArgs !== null) {
-      serializedInput = String(inputArgs);
+      serializedInput = typeof inputArgs === 'string' ? inputArgs : String(inputArgs);
     }
 
     let harness = '';
@@ -1584,7 +1671,18 @@ export const validateSingleTestCase = async ({
     };
   }
 
-  const parsedArgs = parseInputArguments(testCase.input);
+  const isExplicitStdin = String(questionContext.executionMode || '').toUpperCase() === 'STDIN';
+  const isImplicitStdin = !questionContext.executionMode && typeof code === 'string' && (
+    code.includes('Scanner') ||
+    code.includes('System.in') ||
+    code.includes('cin >>') ||
+    code.includes('sys.stdin') ||
+    code.includes('public class Main') ||
+    code.includes('class Main {')
+  );
+  const isStdinMode = isExplicitStdin || isImplicitStdin;
+  const rawInput = isStdinMode ? cleanStdinString(testCase.input) : null;
+  const parsedArgs = isStdinMode ? rawInput : parseInputArguments(testCase.input);
   const lang = detectLanguage(code, questionContext);
 
   // Decoupled Execution: Run code through configured Execution Provider
@@ -1604,9 +1702,12 @@ export const validateSingleTestCase = async ({
     execResult = await activeProvider.executeCode({
       language: lang,
       code: wrappedCode,
-      inputArgs: parsedArgs,
+      inputArgs: isStdinMode ? rawInput : parsedArgs,
       timeoutMs,
-      questionContext,
+      questionContext: {
+        ...questionContext,
+        rawInput
+      },
       signal,
       onTokenCreated
     });
@@ -1621,13 +1722,13 @@ export const validateSingleTestCase = async ({
         runtimeMs: 0
       };
     } else if (lang === 'java') {
-      execResult = await runJavaIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runJavaIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs, rawInput });
     } else if (lang === 'python') {
-      execResult = await runPythonIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runPythonIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs, rawInput });
     } else if (lang === 'cpp') {
-      execResult = await runCppIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runCppIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs, rawInput });
     } else {
-      execResult = await runCodeIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs });
+      execResult = await runCodeIsolated({ code: wrappedCode, inputArgs: parsedArgs, timeoutMs, rawInput });
     }
   }
 

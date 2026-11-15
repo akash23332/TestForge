@@ -173,14 +173,17 @@ export class OnlineCompilerProvider extends ExecutionProvider {
 
     // Input serialization
     let serializedInput = '';
-    if (typeof inputArgs === 'string') {
+    const isStdinMode = String(questionContext?.executionMode || '').toUpperCase() === 'STDIN';
+    if (isStdinMode && questionContext?.rawInput !== undefined && questionContext?.rawInput !== null) {
+      serializedInput = String(questionContext.rawInput);
+    } else if (typeof inputArgs === 'string') {
       serializedInput = inputArgs;
     } else if (Array.isArray(inputArgs)) {
       serializedInput = inputArgs
-        .map(arg => (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg ?? '')))
+        .map(arg => ((typeof arg === 'object' && arg !== null) ? JSON.stringify(arg) : String(arg ?? '')))
         .join('\n');
     } else if (inputArgs !== undefined && inputArgs !== null) {
-      serializedInput = String(inputArgs);
+      serializedInput = typeof inputArgs === 'string' ? inputArgs : String(inputArgs);
     }
 
     const payload = {

@@ -56,8 +56,10 @@ describe('Phase 2.1: Judge Preservation & Grading Engine Regression Tests', () =
     });
 
     test('handles non-string input safely', () => {
-      expect(parseInputArguments(null)).toEqual([null]);
-      expect(parseInputArguments([1, 2, 3])).toEqual([[1, 2, 3]]);
+      expect(parseInputArguments(null)).toEqual([]);
+      expect(parseInputArguments(undefined)).toEqual([]);
+      expect(parseInputArguments([1, 2, 3])).toEqual([1, 2, 3]);
+      expect(parseInputArguments(42)).toEqual([42]);
     });
   });
 
@@ -84,11 +86,35 @@ describe('Phase 2.1: Judge Preservation & Grading Engine Regression Tests', () =
       expect(compareOutputs(actual, expected, context)).toBe(false);
     });
 
-    test('recognizes empty array and null equivalence', () => {
-      expect(compareOutputs([], null)).toBe(true);
-      expect(compareOutputs(null, '[]')).toBe(true);
-      expect(compareOutputs('null', '[]')).toBe(true);
-      expect(compareOutputs('undefined', '')).toBe(true);
+    test('strictly distinguishes empty array, empty object, empty string, and null (Phase 2 contract)', () => {
+      // Null and empty collections remain distinct
+      expect(compareOutputs([], null)).toBe(false);
+      expect(compareOutputs(null, '[]')).toBe(false);
+      expect(compareOutputs('null', '[]')).toBe(false);
+      expect(compareOutputs([], 'null')).toBe(false);
+      expect(compareOutputs('undefined', '')).toBe(false);
+
+      // Null vs Empty String vs Empty Object
+      expect(compareOutputs(null, '')).toBe(false);
+      expect(compareOutputs('', null)).toBe(false);
+      expect(compareOutputs(null, {})).toBe(false);
+      expect(compareOutputs({}, null)).toBe(false);
+      expect(compareOutputs([], '')).toBe(false);
+      expect(compareOutputs('', [])).toBe(false);
+      expect(compareOutputs([], {})).toBe(false);
+      expect(compareOutputs({}, [])).toBe(false);
+      expect(compareOutputs('', {})).toBe(false);
+      expect(compareOutputs({}, '')).toBe(false);
+
+      // Identity and equivalence within same type
+      expect(compareOutputs(null, null)).toBe(true);
+      expect(compareOutputs('null', 'null')).toBe(true);
+      expect(compareOutputs([], [])).toBe(true);
+      expect(compareOutputs('[]', '[]')).toBe(true);
+      expect(compareOutputs('', '')).toBe(true);
+      expect(compareOutputs('""', '""')).toBe(true);
+      expect(compareOutputs({}, {})).toBe(true);
+      expect(compareOutputs('{}', '{}')).toBe(true);
     });
 
     test('compares deep JSON objects correctly regardless of key order', () => {

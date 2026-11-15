@@ -47,15 +47,20 @@ export class LocalExecutionProvider extends ExecutionProvider {
 
     const lang = specifiedLanguage || detectLanguage(code, questionContext);
 
+    const isStdinMode = String(questionContext?.executionMode || '').toUpperCase() === 'STDIN';
+    const rawInput = isStdinMode
+      ? (typeof questionContext?.rawInput === 'string' ? questionContext.rawInput : (typeof inputArgs === 'string' ? inputArgs : null))
+      : null;
+
     let rawResult;
     if (lang === 'java') {
-      rawResult = await runJavaIsolated({ code, inputArgs, timeoutMs });
+      rawResult = await runJavaIsolated({ code, inputArgs, timeoutMs, rawInput });
     } else if (lang === 'python') {
-      rawResult = await runPythonIsolated({ code, inputArgs, timeoutMs });
+      rawResult = await runPythonIsolated({ code, inputArgs, timeoutMs, rawInput });
     } else if (lang === 'cpp') {
-      rawResult = await runCppIsolated({ code, inputArgs, timeoutMs });
+      rawResult = await runCppIsolated({ code, inputArgs, timeoutMs, rawInput });
     } else {
-      rawResult = await runCodeIsolated({ code, inputArgs, timeoutMs });
+      rawResult = await runCodeIsolated({ code, inputArgs, timeoutMs, rawInput });
     }
 
     return {

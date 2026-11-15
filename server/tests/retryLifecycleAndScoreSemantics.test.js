@@ -989,10 +989,12 @@ describe('Phase 4S: Exam Finalization Integrity, BullMQ Recovery & Production Au
       expect(findOneAndUpdateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           _id: subId,
-          $or: [
+          $or: expect.arrayContaining([
             { status: 'EXECUTION_UNAVAILABLE' },
-            { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: expect.any(Date) } }
-          ]
+            { status: 'RECOVERING', recoveryLeaseExpiresAt: { $lt: expect.any(Date) } },
+            { status: 'RUNNING', executionLeaseExpiresAt: { $lt: expect.any(Date) } },
+            { status: 'QUEUED', createdAt: { $lt: expect.any(Date) } }
+          ])
         }),
         expect.objectContaining({
           $set: expect.objectContaining({

@@ -5,6 +5,11 @@ import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { validateQuestionSuite } from '../services/testValidation.service.js';
 import { evaluateAndPublishQuestion, PUBLISHING_STATES } from '../services/publishingGate.service.js';
+import {
+  validateSampleTestCase,
+  computeSampleValidationFingerprint,
+  verifyValidationToken
+} from '../services/sampleValidation.service.js';
 
 export const createQuestion = async (req, res, next) => {
   try {
@@ -44,23 +49,84 @@ export const createQuestion = async (req, res, next) => {
       initialStarterCodes.set(lang, starter);
     }
 
-    // 1. ALWAYS persist the question initially as DRAFT
+    const isPublishRequested = String(requestedStatus).toLowerCase() === 'published';
+
+    // 1. If publishing is requested with a validation token, pre-validate draft binding claims before persistence
+    if (isPublishRequested && req.body.validationToken) {
+      const draftId = req.body.draftId;
+      if (!draftId) {
+        throw ApiError.badRequest('Draft identifier is required for draft publishing token verification.');
+      }
+
+      const expectedSig = req.body.functionSignature && typeof req.body.functionSignature === 'object'
+        ? req.body.functionSignature
+        : {
+            parameters: Array.isArray(req.body.parameters) ? req.body.parameters : [],
+            returnType: req.body.returnType || 'void'
+          };
+
+      const expectedMode = String(req.body.executionMode || 'FUNCTION').toUpperCase().trim();
+      const rawDS = String(req.body.dataStructure || '').toUpperCase().trim();
+      const expectedDS = expectedMode === 'STDIN' ? 'NONE' : (rawDS && rawDS !== 'NONE' ? rawDS : 'ARRAY');
+
+      const expectedDraftFingerprint = computeSampleValidationFingerprint({
+        referenceSolution: refSol,
+        sampleInput: req.body.examples?.[0]?.input || '',
+        expectedOutput: req.body.examples?.[0]?.output || '',
+        language: lang,
+        executionMode: expectedMode,
+        dataStructure: expectedDS,
+        functionName: req.body.functionName || 'solution',
+        functionSignature: expectedSig
+      });
+
+      const isValidDraftToken = verifyValidationToken(
+        req.body.validationToken,
+        expectedDraftFingerprint,
+        'draft',
+        {
+          expectedDraftId: draftId,
+          expectedUserId: req.user?._id
+        }
+      );
+      if (!isValidDraftToken) {
+        throw ApiError.badRequest('Invalid, tampered, or mismatched validation token for draft question.');
+      }
+    }
+
+    // 2. ALWAYS persist the question initially as DRAFT with atomic single-use draftId constraint
     const createData = { ...req.body };
     delete createData.referenceSolutions;
     delete createData.starterCodes;
 
-    const question = await Question.create({
-      ...createData,
-      language: lang,
-      referenceSolution: refSol,
-      referenceSolutions: initialRefSolutions,
-      starterCode: starter,
-      starterCodes: initialStarterCodes,
-      status: PUBLISHING_STATES.DRAFT,
-      ownerId
-    });
+    let question;
+    try {
+      question = await Question.create({
+        ...createData,
+        draftId: req.body.draftId || null,
+        language: lang,
+        supportedLanguages: req.body.supportedLanguages && Array.isArray(req.body.supportedLanguages) && req.body.supportedLanguages.length > 0
+          ? req.body.supportedLanguages
+          : [lang],
+        referenceSolution: refSol,
+        referenceSolutions: initialRefSolutions,
+        starterCode: starter,
+        starterCodes: initialStarterCodes,
+        status: PUBLISHING_STATES.DRAFT,
+        ownerId
+      });
+    } catch (createErr) {
+      if (
+        createErr &&
+        (createErr.code === 11000 || (createErr.name === 'MongoServerError' && createErr.code === 11000)) &&
+        (createErr.keyPattern?.draftId || (createErr.message && createErr.message.includes('draftId')))
+      ) {
+        throw ApiError.badRequest('Validation token / draft identifier has already been consumed by an existing question.');
+      }
+      throw createErr;
+    }
 
-    // 2. Automatically create TestCase documents from examples if provided
+    // 3. Automatically create TestCase documents from examples if provided
     if (Array.isArray(req.body.examples) && req.body.examples.length > 0) {
       const testCasesToCreate = req.body.examples
         .filter((ex) => ex.input !== undefined && ex.output !== undefined && String(ex.input).trim() !== '' && String(ex.output).trim() !== '')
@@ -80,8 +146,7 @@ export const createQuestion = async (req, res, next) => {
       }
     }
 
-    // 3. Single Authoritative Publishing Gate if publishing requested
-    const isPublishRequested = String(requestedStatus).toLowerCase() === 'published';
+    // 4. Single Authoritative Publishing Gate if publishing requested
     if (isPublishRequested) {
       const publishReport = await evaluateAndPublishQuestion({
         questionId: question._id,
@@ -90,6 +155,10 @@ export const createQuestion = async (req, res, next) => {
       });
 
       if (!publishReport.canPublish) {
+        // Clean up the half-created draft and test cases so draftId is not orphaned/consumed on publishing rejection
+        await Question.findByIdAndDelete(question._id).catch(() => {});
+        await TestCase.deleteMany({ questionId: question._id }).catch(() => {});
+
         throw ApiError.badRequest(
           `Question cannot be published. Unresolved issues: ${publishReport.blockingErrors.join('; ')}`,
           publishReport
@@ -102,6 +171,13 @@ export const createQuestion = async (req, res, next) => {
 
     return ApiResponse.success(res, 201, question, 'Question created successfully as draft.');
   } catch (error) {
+    if (
+      error &&
+      (error.code === 11000 || (error.name === 'MongoServerError' && error.code === 11000)) &&
+      (error.keyPattern?.draftId || (error.message && error.message.includes('draftId')))
+    ) {
+      return next(ApiError.badRequest('Validation token / draft identifier has already been consumed by an existing question.'));
+    }
     next(error);
   }
 };
@@ -337,6 +413,21 @@ export const updateQuestion = async (req, res, next) => {
     if (req.body.starterCode) {
       question.starterCode = req.body.starterCode;
     }
+
+    // Invalidate previous sample validation if code, language, mode, or test cases changed
+    if (
+      req.body.referenceSolution !== undefined ||
+      req.body.examples !== undefined ||
+      req.body.language !== undefined ||
+      req.body.executionMode !== undefined ||
+      req.body.dataStructure !== undefined ||
+      req.body.functionName !== undefined ||
+      req.body.functionSignature !== undefined
+    ) {
+      question.sampleValidationFingerprint = null;
+      question.sampleValidationPassedAt = null;
+    }
+
     await question.save();
 
     // 3. Single Authoritative Publishing Gate
@@ -383,6 +474,45 @@ export const publishQuestion = async (req, res, next) => {
 
     const question = await Question.findById(id);
     return ApiResponse.success(res, 200, { question, ...publishReport }, 'Question published successfully to Question Bank');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const validateSampleTest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      code,
+      referenceSolution,
+      sampleInput,
+      expectedOutput,
+      language,
+      executionMode,
+      dataStructure,
+      functionName,
+      functionSignature,
+      title,
+      draftId
+    } = req.body;
+
+    const result = await validateSampleTestCase({
+      questionId: id || null,
+      code,
+      referenceSolution,
+      sampleInput,
+      expectedOutput,
+      language,
+      executionMode,
+      dataStructure,
+      functionName,
+      functionSignature,
+      title,
+      draftId: draftId || null,
+      userId: req.user?._id || null
+    });
+
+    return ApiResponse.success(res, 200, result, 'Sample test validation executed successfully.');
   } catch (error) {
     next(error);
   }

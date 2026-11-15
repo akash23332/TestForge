@@ -23,10 +23,14 @@ import {
   Code,
   List,
   Quote,
-  X
+  X,
+  Play,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import CodeEditor from '../../components/editor/CodeEditor';
+import { buildFingerprintPayload } from './fingerprintContract';
 
 // Helper to smoothly count up numbers like Question Bank
 const AnimatedCount = ({ value, duration = 900 }) => {
@@ -429,6 +433,19 @@ const SUPPORTED_LANGS = [
   { id: 'cpp', label: 'C++' }
 ];
 
+export const AI_TOPIC_PRESETS = [
+  'Two Pointers',
+  'Sliding Window',
+  'Binary Search',
+  'Dynamic Programming',
+  'Tree Traversal',
+  'Graph BFS/DFS',
+  'Hash Map & Set',
+  'String Manipulation',
+  'Stack & Monotonic Queue',
+  'Greedy Algorithms'
+];
+
 export const QuestionCreatorView = ({
   initialQuestion,
   onSuccess,
@@ -580,6 +597,64 @@ export const QuestionCreatorView = ({
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [activeOutlineIndex, setActiveOutlineIndex] = useState(0);
   const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
+
+  // 7. AI Question Generation & Section Regeneration States
+  const [creationMode, setCreationMode] = useState('manual'); // 'manual' | 'ai'
+  const [aiTopic, setAiTopic] = useState('Two Pointers');
+  const [aiCustomTopic, setAiCustomTopic] = useState('');
+  const [aiDifficulty, setAiDifficulty] = useState('Medium');
+  const [aiLanguage, setAiLanguage] = useState('python');
+  const [aiExecutionMode, setAiExecutionMode] = useState('FUNCTION');
+  const [aiRequirements, setAiRequirements] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatusMessage, setAiStatusMessage] = useState('');
+  const [aiError, setAiError] = useState(null);
+  const [regeneratingSection, setRegeneratingSection] = useState(null); // 'statement' | 'solution' | 'starterCode' | 'entireQuestion'
+  const [regenerationPreview, setRegenerationPreview] = useState(null); // Active preview object { action, previewData, invalidations }
+  const [recentGenerations, setRecentGenerations] = useState([]); // Up to 5 recent session generations for diversity exclusion
+  const lastAiGeneratedSnapshotRef = useRef(null);
+
+  // 8. Sample Test Execution & Validation States
+  const [sampleTestVerified, setSampleTestVerified] = useState(Boolean(initialQuestion?.sampleValidationFingerprint));
+  const [validationToken, setValidationToken] = useState(null);
+  const [draftId, setDraftId] = useState(null);
+  const [sampleValidationResult, setSampleValidationResult] = useState(null);
+  const [validatingSample, setValidatingSample] = useState(false);
+
+  // Authoritative 8-field fingerprint contract representation
+  // Binds: referenceSolution, sampleInput, expectedOutput, language, executionMode, dataStructure, functionName, functionSignature
+  const currentFingerprintPayload = buildFingerprintPayload({
+    referenceSolution,
+    sampleInput: examples[0]?.input || '',
+    expectedOutput: examples[0]?.output || '',
+    language,
+    executionMode,
+    dataStructure: dataStructure || (executionMode === 'STDIN' ? 'NONE' : 'ARRAY'),
+    functionName: (functionName || 'solution').trim(),
+    functionSignature: {
+      returnType: returnType || 'void',
+      parameters: []
+    }
+  });
+
+  const lastVerifiedFingerprintPayloadRef = useRef(
+    initialQuestion?.sampleValidationFingerprint ? currentFingerprintPayload : null
+  );
+
+  // Complete 8-field automatic invalidation:
+  // Changes to ANY of the 8 contract fields immediately invalidate sample verification
+  useEffect(() => {
+    if (
+      lastVerifiedFingerprintPayloadRef.current !== null &&
+      lastVerifiedFingerprintPayloadRef.current !== currentFingerprintPayload
+    ) {
+      setSampleTestVerified(false);
+      setValidationToken(null);
+      setDraftId(null);
+      setSampleValidationResult(null);
+      lastVerifiedFingerprintPayloadRef.current = null;
+    }
+  }, [currentFingerprintPayload]);
 
   // Refs for 3D Interactive Tilt & Confetti
   const heroRef = useRef(null);
@@ -828,14 +903,20 @@ export const QuestionCreatorView = ({
         name: 'Reference solution',
         tab: 'reference',
         isComplete: referenceSolution.trim().length > 10
+      },
+      {
+        id: 'f-sample-test',
+        name: 'Sample test verified',
+        tab: 'reference',
+        isComplete: Boolean(sampleTestVerified)
       }
     ];
-  }, [title, statement, inputFormat, outputFormat, constraints, examples, starterCode, referenceSolution]);
+  }, [title, statement, inputFormat, outputFormat, constraints, examples, starterCode, referenceSolution, sampleTestVerified]);
 
   // Derived Completeness: Question CANNOT be published until 100% completeness
   const completedCount = useMemo(() => outlineItems.filter((i) => i.isComplete).length, [outlineItems]);
   const completenessPercent = Math.round((completedCount / outlineItems.length) * 100);
-  const isReadyToPublish = completenessPercent === 100;
+  const isReadyToPublish = completenessPercent === 100 && Boolean(sampleTestVerified);
 
   // Auto-Save to LocalStorage
   const triggerAutoSave = () => {
@@ -1005,6 +1086,434 @@ export const QuestionCreatorView = ({
     }, 10);
   };
 
+  // Helper to detect if teacher made unsaved manual edits to the currently loaded AI question
+  const hasUnsavedManualEdits = () => {
+    if (!lastAiGeneratedSnapshotRef.current) return false;
+    const snap = lastAiGeneratedSnapshotRef.current;
+    return (
+      title !== snap.title ||
+      statement !== snap.statement ||
+      starterCode !== snap.starterCode ||
+      referenceSolution !== snap.referenceSolution ||
+      constraints !== snap.constraints
+    );
+  };
+
+  // AI Generation & Validation Handlers
+  const handleGenerateWithAi = async () => {
+    if (hasUnsavedManualEdits()) {
+      const confirmDiscard = window.confirm(
+        'You have unsaved manual edits on this question.\n\nGenerating a new question will replace the current question formulation.\n\nDo you want to proceed?'
+      );
+      if (!confirmDiscard) return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+    setAiStatusMessage(
+      recentGenerations.length > 0
+        ? `Generating a different ${aiDifficulty} ${aiCustomTopic.trim() || aiTopic} question...`
+        : 'Connecting to AI service...'
+    );
+    try {
+      const effectiveTopic = aiCustomTopic.trim() || aiTopic;
+      setAiStatusMessage(
+        recentGenerations.length > 0
+          ? `Generating different ${aiDifficulty} ${effectiveTopic} question avoiding recent formulations...`
+          : `Generating ${aiDifficulty} ${effectiveTopic} problem in ${aiLanguage} (${aiExecutionMode})...`
+      );
+
+      const res = await api.post('/ai/generate-question', {
+        topic: effectiveTopic,
+        difficulty: aiDifficulty,
+        language: aiLanguage,
+        executionMode: aiExecutionMode,
+        requirements: aiRequirements,
+        recentQuestions: recentGenerations.slice(-5)
+      });
+
+      const q = res.data?.data || res.data;
+      if (!q) throw new Error('No question data returned from AI service');
+
+      if (q.title) setTitle(q.title);
+      if (q.statement) setStatement(q.statement);
+      if (q.constraints) setConstraints(q.constraints);
+      if (q.inputFormat) setInputFormat(q.inputFormat);
+      if (q.outputFormat) setOutputFormat(q.outputFormat);
+      if (q.difficulty) setDifficulty(q.difficulty);
+      const targetLang = (q.language || aiLanguage || 'python').toLowerCase();
+      setLanguage(targetLang);
+      const targetMode = q.executionMode || aiExecutionMode || 'FUNCTION';
+      setExecutionMode(targetMode);
+      if (q.functionName) setFunctionName(q.functionName);
+      if (q.dataStructure) setDataStructure(q.dataStructure);
+      if (q.returnType || q.functionSignature?.returnType) {
+        setReturnType(q.returnType || q.functionSignature?.returnType);
+      }
+      if (Array.isArray(q.tags) && q.tags.length > 0) {
+        setTopics(q.tags);
+      }
+      if (q.starterCode) {
+        setStarterCode(q.starterCode);
+        setLangStarterCodes((prev) => ({
+          ...prev,
+          [`${targetMode}_${targetLang}`]: q.starterCode,
+          [targetLang]: q.starterCode
+        }));
+      }
+      if (q.referenceSolution) {
+        setReferenceSolution(q.referenceSolution);
+        setLangRefSolutions((prev) => ({
+          ...prev,
+          [`${targetMode}_${targetLang}`]: q.referenceSolution,
+          [targetLang]: q.referenceSolution
+        }));
+      }
+      if (q.sampleTestCase) {
+        setExamples([
+          {
+            input: q.sampleTestCase.input || '',
+            output: q.sampleTestCase.expectedOutput || '',
+            explanation: q.sampleTestCase.explanation || ''
+          },
+          ...(Array.isArray(q.examples) ? q.examples.slice(1).map((ex) => ({
+            input: ex.input || '',
+            output: ex.output || '',
+            explanation: ex.explanation || ''
+          })) : [])
+        ]);
+      } else if (Array.isArray(q.examples) && q.examples.length > 0) {
+        setExamples(q.examples.map((ex) => ({
+          input: ex.input || '',
+          output: ex.output || '',
+          explanation: ex.explanation || ''
+        })));
+      }
+
+      // Record snapshot to track subsequent manual edits
+      lastAiGeneratedSnapshotRef.current = {
+        title: q.title,
+        statement: q.statement,
+        starterCode: q.starterCode,
+        referenceSolution: q.referenceSolution,
+        constraints: q.constraints || ''
+      };
+
+      // Add to session exclusion history (maintaining max 5)
+      setRecentGenerations((prev) => [
+        ...prev,
+        {
+          title: q.title,
+          statement: q.statement,
+          functionName: q.functionName,
+          difficulty: q.difficulty,
+          sampleTestCase: q.sampleTestCase
+        }
+      ].slice(-5));
+
+      setSampleTestVerified(false);
+      setValidationToken(null);
+      setDraftId(null);
+      setSampleValidationResult(null);
+
+      showToast(
+        recentGenerations.length > 0
+          ? 'New question variation generated with AI!'
+          : 'Question generated with AI! You can now review, test, and publish.'
+      );
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message || 'AI question generation failed';
+      setAiError(msg);
+      showToast(msg);
+    } finally {
+      setAiLoading(false);
+      setAiStatusMessage('');
+    }
+  };
+
+  // Backward-compatible alias pointing to unified generation handler
+  const handleGenerateAnotherVariation = handleGenerateWithAi;
+
+  // Clears recent generation session history
+  const handleClearSessionHistory = async () => {
+    try {
+      await api.post('/ai/clear-history', {});
+    } catch (_) {}
+    setRecentGenerations([]);
+    lastAiGeneratedSnapshotRef.current = null;
+    showToast('Session generation history cleared.');
+  };
+
+  const handleRequestRegeneration = async (action, customInstructions = '') => {
+    if (regeneratingSection) return;
+    const canonicalAction =
+      action === 'referenceSolution' || action === 'solution' ? 'solution' :
+      action === 'problemStatement' || action === 'statement' ? 'statement' :
+      action === 'all' || action === 'completeQuestion' || action === 'entireQuestion' ? 'entireQuestion' :
+      action === 'starterCode' ? 'starterCode' : action;
+
+    setRegeneratingSection(canonicalAction);
+    try {
+      const currentQuestion = {
+        title,
+        statement,
+        constraints,
+        inputFormat,
+        outputFormat,
+        difficulty,
+        topic: aiTopic || (Array.isArray(topics) && topics.length > 0 ? topics[0] : 'Algorithms and Data Structures'),
+        requirements: aiRequirements || '',
+        language,
+        executionMode,
+        functionName,
+        dataStructure,
+        returnType,
+        starterCode,
+        referenceSolution,
+        sampleTestCase: {
+          input: examples[0]?.input || '',
+          expectedOutput: examples[0]?.output || ''
+        },
+        examples,
+        tags: topics,
+        ownerId: initialQuestion?.ownerId || currentUser?._id || currentUser?.id
+      };
+
+      const res = await api.post('/ai/regenerate-section', {
+        action: canonicalAction,
+        section: canonicalAction,
+        currentQuestion,
+        instructions: customInstructions,
+        recentQuestions: recentGenerations.slice(-5)
+      });
+
+      const data = res.data?.data || res.data;
+      const rawPreview = data.previewData || data.regeneratedData || data.updatedQuestion || data;
+      const previewData = {
+        title: (rawPreview?.title && rawPreview.title !== 'Untitled') ? rawPreview.title : (data?.updatedQuestion?.title && data.updatedQuestion.title !== 'Untitled' ? data.updatedQuestion.title : 'Algorithmic Problem'),
+        statement: rawPreview?.statement || data?.updatedQuestion?.statement || '',
+        constraints: rawPreview?.constraints || data?.updatedQuestion?.constraints || '',
+        inputFormat: rawPreview?.inputFormat || data?.updatedQuestion?.inputFormat || '',
+        outputFormat: rawPreview?.outputFormat || data?.updatedQuestion?.outputFormat || '',
+        difficulty: rawPreview?.difficulty || data?.updatedQuestion?.difficulty || difficulty,
+        functionName: rawPreview?.functionName || data?.updatedQuestion?.functionName || functionName,
+        returnType: rawPreview?.returnType || data?.updatedQuestion?.returnType || returnType,
+        dataStructure: rawPreview?.dataStructure || data?.updatedQuestion?.dataStructure || dataStructure,
+        starterCode: rawPreview?.starterCode || data?.updatedQuestion?.starterCode || '',
+        starterCodes: rawPreview?.starterCodes || data?.updatedQuestion?.starterCodes || {},
+        referenceSolution: rawPreview?.referenceSolution || data?.updatedQuestion?.referenceSolution || '',
+        referenceSolutions: rawPreview?.referenceSolutions || data?.updatedQuestion?.referenceSolutions || {},
+        sampleTestCase: rawPreview?.sampleTestCase || data?.updatedQuestion?.sampleTestCase || null,
+        examples: rawPreview?.examples || data?.updatedQuestion?.examples || [],
+        tags: rawPreview?.tags || data?.updatedQuestion?.tags || topics,
+        ...rawPreview
+      };
+      const invalidations = data.invalidations || {
+        requiresSampleValidation: true,
+        invalidatesSolution: true,
+        invalidatesStarterCode: true,
+        invalidatesSampleTest: true
+      };
+
+      setRegenerationPreview({
+        action: canonicalAction,
+        previewData,
+        invalidations,
+        timestamp: Date.now()
+      });
+
+      showToast('AI preview ready! Please review and Accept or Discard.');
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to regenerate with AI';
+      showToast(msg);
+      setError(msg);
+    } finally {
+      setRegeneratingSection(null);
+    }
+  };
+
+  // Backward-compatible alias for existing callers
+  const handleRegenerateSection = handleRequestRegeneration;
+
+  const handleDiscardRegeneration = () => {
+    setRegenerationPreview(null);
+    showToast('Regeneration discarded. Current draft was preserved.');
+  };
+
+  const handleAcceptRegeneration = () => {
+    if (!regenerationPreview) return;
+    const { previewData } = regenerationPreview;
+    const p = previewData;
+
+    if (p.title && p.title !== 'Untitled') setTitle(p.title);
+    if (p.statement) setStatement(p.statement);
+    if (p.constraints !== undefined) setConstraints(p.constraints);
+    if (p.inputFormat !== undefined) setInputFormat(p.inputFormat);
+    if (p.outputFormat !== undefined) setOutputFormat(p.outputFormat);
+    if (p.difficulty) setDifficulty(p.difficulty);
+    if (p.functionName) setFunctionName(p.functionName);
+    if (p.returnType) setReturnType(p.returnType);
+    if (p.dataStructure) setDataStructure(p.dataStructure);
+    if (Array.isArray(p.tags) && p.tags.length > 0) setTopics(p.tags);
+
+    const targetLang = (p.language || language).toLowerCase();
+    setLanguage(targetLang);
+    const targetMode = p.executionMode || executionMode;
+    setExecutionMode(targetMode);
+
+    if (p.starterCode) {
+      setStarterCode(p.starterCode);
+      setLangStarterCodes((prev) => ({
+        ...prev,
+        [`${targetMode}_${targetLang}`]: p.starterCode,
+        [targetLang]: p.starterCode,
+        ...(p.starterCodes || {})
+      }));
+    }
+
+    if (p.referenceSolution) {
+      setReferenceSolution(p.referenceSolution);
+      setLangRefSolutions((prev) => ({
+        ...prev,
+        [`${targetMode}_${targetLang}`]: p.referenceSolution,
+        [targetLang]: p.referenceSolution,
+        ...(p.referenceSolutions || {})
+      }));
+    }
+
+    if (p.sampleTestCase) {
+      setExamples([
+        {
+          input: p.sampleTestCase.input || '',
+          output: p.sampleTestCase.expectedOutput || '',
+          explanation: p.sampleTestCase.explanation || ''
+        },
+        ...(Array.isArray(p.examples) && p.examples.length > 1
+          ? p.examples.slice(1).map((ex) => ({
+              input: ex.input || '',
+              output: ex.output || '',
+              explanation: ex.explanation || ''
+            }))
+          : [])
+      ]);
+    } else if (Array.isArray(p.examples) && p.examples.length > 0) {
+      setExamples(p.examples);
+    }
+
+    // Add to session exclusion history
+    setRecentGenerations((prev) => [
+      ...prev,
+      {
+        title: p.title,
+        statement: p.statement,
+        functionName: p.functionName,
+        difficulty: p.difficulty,
+        sampleTestCase: p.sampleTestCase
+      }
+    ].slice(-5));
+
+    lastAiGeneratedSnapshotRef.current = {
+      title: p.title,
+      statement: p.statement,
+      starterCode: p.starterCode,
+      referenceSolution: p.referenceSolution,
+      constraints: p.constraints || ''
+    };
+
+    setSampleTestVerified(false);
+    setValidationToken(null);
+    setDraftId(null);
+    setSampleValidationResult(null);
+
+    showToast('✓ Entire new question accepted. Please validate sample test before publishing.');
+
+    triggerAutoSave();
+    setRegenerationPreview(null);
+  };
+
+  const handleRunSampleTest = async () => {
+    if (!referenceSolution || !referenceSolution.trim()) {
+      showToast('Please provide a reference solution to run sample test.');
+      return;
+    }
+    setValidatingSample(true);
+    setSampleValidationResult(null);
+    try {
+      const sampleIn = examples[0]?.input || '';
+      const expectedOut = examples[0]?.output || '';
+
+      const payload = {
+        code: referenceSolution,
+        referenceSolution,
+        sampleInput: sampleIn,
+        expectedOutput: expectedOut,
+        language,
+        executionMode,
+        dataStructure: dataStructure || (executionMode === 'STDIN' ? 'NONE' : 'ARRAY'),
+        functionName: (functionName || 'solution').trim(),
+        functionSignature: {
+          returnType: returnType || 'void',
+          parameters: []
+        },
+        title: title || 'Sample Test',
+        draftId: draftId || undefined
+      };
+
+      const res = await api.post(
+        initialQuestion?._id
+          ? `/questions/${initialQuestion._id}/validate-sample`
+          : '/questions/validate-sample',
+        payload
+      );
+
+      const result = res.data?.data || res.data;
+      setSampleValidationResult(result);
+
+      if (result.passed) {
+        setSampleTestVerified(true);
+        setValidationToken(result.validationToken || null);
+        setDraftId(result.draftId || null);
+        lastVerifiedFingerprintPayloadRef.current = buildFingerprintPayload({
+          referenceSolution,
+          sampleInput: sampleIn,
+          expectedOutput: expectedOut,
+          language,
+          executionMode,
+          dataStructure: dataStructure || (executionMode === 'STDIN' ? 'NONE' : 'ARRAY'),
+          functionName: (functionName || 'solution').trim(),
+          functionSignature: {
+            returnType: returnType || 'void',
+            parameters: []
+          }
+        });
+        showToast('✓ Sample test passed! Reference solution verified.');
+      } else {
+        setSampleTestVerified(false);
+        setValidationToken(null);
+        setDraftId(null);
+        lastVerifiedFingerprintPayloadRef.current = null;
+        showToast(`Sample test failed: ${result.status || 'Validation error'}`);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message || 'Sample test validation failed';
+      setSampleValidationResult({
+        passed: false,
+        status: 'error',
+        compilationStatus: 'Error',
+        executionStatus: 'Error',
+        outputComparisonStatus: 'Failed',
+        error: msg
+      });
+      setSampleTestVerified(false);
+      setValidationToken(null);
+      setDraftId(null);
+      lastVerifiedFingerprintPayloadRef.current = null;
+      showToast(msg);
+    } finally {
+      setValidatingSample(false);
+    }
+  };
+
   // Save to Backend (Published or Draft)
   const handleSaveQuestion = async (targetStatus = 'published') => {
     if (!title.trim()) {
@@ -1020,13 +1529,23 @@ export const QuestionCreatorView = ({
       return;
     }
 
-    // Only block if creating a NEW question with publish status and completeness is less than 100%
-    if (!isEditing && targetStatus === 'published' && completenessPercent < 100) {
-      const incomplete = outlineItems.filter((i) => !i.isComplete).map((i) => i.name).join(', ');
-      const msg = `Question cannot be published until 100% completeness (${completenessPercent}% complete). Missing: ${incomplete}. Please complete all fields.`;
-      setError(msg);
-      showToast(msg);
-      return;
+    // Only block if creating a NEW question with publish status and completeness is less than 100% or sample test is not verified
+    if (!isEditing && targetStatus === 'published') {
+      if (completenessPercent < 100 || !sampleTestVerified) {
+        const incomplete = outlineItems.filter((i) => !i.isComplete).map((i) => i.name).join(', ');
+        const msg = !sampleTestVerified
+          ? 'Sample test must be successfully executed and verified against the reference solution before publishing.'
+          : `Question cannot be published until 100% completeness (${completenessPercent}% complete). Missing: ${incomplete}. Please complete all fields.`;
+        setError(msg);
+        showToast(msg);
+        if (!sampleTestVerified) {
+          setActiveTab('reference');
+          setTimeout(() => {
+            document.getElementById('f-sample-test')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 120);
+        }
+        return;
+      }
     }
 
     setLoading(true);
@@ -1049,13 +1568,15 @@ export const QuestionCreatorView = ({
         [effectiveLang]: currentRef
       };
 
-      // Ensure all 4 supported languages have fallback templates seeded
+      // Seed starter codes and reference solution fallback for current language
       for (const l of ['javascript', 'python', 'java', 'cpp']) {
         if (!updatedStarterCodes[l]) {
           updatedStarterCodes[l] = getStandardTemplate(executionMode, l)?.starterCode || '';
         }
         if (!updatedRefSolutions[l]) {
-          updatedRefSolutions[l] = getStandardTemplate(executionMode, l)?.referenceSolution || '';
+          if (l === effectiveLang) {
+            updatedRefSolutions[l] = getStandardTemplate(executionMode, l)?.referenceSolution || '';
+          }
         }
       }
 
@@ -1066,17 +1587,20 @@ export const QuestionCreatorView = ({
         outputFormat: outputFormat.trim(),
         constraints: constraints.trim(),
         language: effectiveLang,
+        supportedLanguages: [effectiveLang],
         executionMode,
-        ...(executionMode === 'FUNCTION' && {
-          functionName: (functionName || 'solution').trim(),
-          dataStructure: dataStructure || 'ARRAY',
-          returnType: returnType || 'void'
-        }),
+        dataStructure: dataStructure || (executionMode === 'STDIN' ? 'NONE' : 'ARRAY'),
+        functionName: (functionName || 'solution').trim(),
+        returnType: returnType || 'void',
+        functionSignature: {
+          returnType: returnType || 'void',
+          parameters: []
+        },
         difficulty,
         tags: topics,
         examples: examples.map((ex) => ({
-          input: ex.input || 'Sample Input',
-          output: ex.output || 'Sample Output',
+          input: ex.input !== undefined && ex.input !== null ? String(ex.input) : '',
+          output: ex.output !== undefined && ex.output !== null ? String(ex.output) : '',
           explanation: ex.explanation || ''
         })),
         starterCode: currentStarter,
@@ -1084,6 +1608,8 @@ export const QuestionCreatorView = ({
         starterCodes: updatedStarterCodes,
         referenceSolutions: updatedRefSolutions,
         status: targetStatus,
+        validationToken: validationToken || undefined,
+        draftId: draftId || undefined,
         ...(currentUser && { ownerId: currentUser.id || currentUser._id })
       };
 
@@ -1101,7 +1627,7 @@ export const QuestionCreatorView = ({
       showToast(isEditing ? 'Question changes saved successfully!' : 'Question saved and published to Question Bank!');
 
       setTimeout(() => {
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(targetStatus === 'published' ? returnedQ : null);
       }, 850);
     } catch (err) {
       const serverMsg =
@@ -1168,17 +1694,15 @@ export const QuestionCreatorView = ({
           grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
           gap: 14px;
           margin-bottom: 14px;
-          align-items: stretch;
         }
         .tf-cq-root .tf-hero {
           position: relative;
           background: #101112;
           color: #fff;
           border-radius: 28px;
-          padding: 24px 30px;
+          padding: 30px 34px;
           overflow: hidden;
           min-height: 270px;
-          max-height: 285px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1211,10 +1735,10 @@ export const QuestionCreatorView = ({
           box-shadow: 0 0 0 3px rgba(237,255,114,.25);
         }
 
-        /* Hero Title Staggered Letter Animation like Question Bank */
+        /* Hero Title Staggered Letter Animation */
         .tf-cq-root h1.hero-title {
-          font-size: clamp(28px, 3.2vw, 42px);
-          margin: 8px 0 6px;
+          font-size: clamp(32px, 4.5vw, 48px);
+          margin: 14px 0 8px;
           letter-spacing: -.035em;
           line-height: 1.05;
           font-weight: 700;
@@ -1239,11 +1763,11 @@ export const QuestionCreatorView = ({
         }
 
         .tf-cq-root .tf-hero p {
-          margin: 0 0 14px;
+          margin: 0 0 20px;
           color: #b7bdb6;
           max-width: 42ch;
-          font-size: 13.5px;
-          line-height: 1.45;
+          font-size: 14.5px;
+          line-height: 1.5;
         }
         .tf-cq-root .tf-btns {
           display: flex;
@@ -1254,9 +1778,9 @@ export const QuestionCreatorView = ({
           border: 0;
           cursor: pointer;
           border-radius: 99px;
-          padding: 9px 20px;
+          padding: 11px 22px;
           font-weight: 600;
-          font-size: 13px;
+          font-size: 13.5px;
           display: inline-flex;
           gap: 8px;
           align-items: center;
@@ -1291,27 +1815,27 @@ export const QuestionCreatorView = ({
         }
         .tf-cq-root .tf-facts {
           display: flex;
-          gap: 18px;
+          gap: 22px;
           border-top: 1px solid #2b2d30;
-          padding-top: 10px;
-          margin-top: 14px;
-          font-size: 12px;
+          padding-top: 14px;
+          margin-top: 20px;
+          font-size: 13px;
           color: #c8cdc7;
         }
         .tf-cq-root .tf-facts b {
           color: #fff;
-          font-size: 14px;
+          font-size: 15px;
           margin-right: 4px;
         }
 
-        /* 3D Dice (Cube) Stage - Sized & Aligned like the 3D Ball */
+        /* 3D Dice (Cube) Stage */
         .tf-cq-root .stage {
           position: absolute;
-          right: 12px;
+          right: 20px;
           top: 0;
           bottom: 0;
-          width: 46%;
-          perspective: 850px;
+          width: 44%;
+          perspective: 900px;
           display: grid;
           place-items: center;
           pointer-events: none;
@@ -2154,7 +2678,7 @@ export const QuestionCreatorView = ({
             </div>
 
             {/* Staggered Animated Title like Question Bank */}
-            <h1 className="hero-title">
+            <h1 className="hero-title" aria-label="Create Question">
               {titleCharacters.map((ch, idx) => (
                 <span
                   key={idx}
@@ -2366,6 +2890,281 @@ export const QuestionCreatorView = ({
           </div>
         </div>
       </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          AUTHORING MODE SWITCHER & AI GENERATION STUDIO
+          ──────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-white p-2 rounded-2xl border border-[#DDE1DA] shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCreationMode('manual')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              creationMode === 'manual'
+                ? 'bg-[#191A1D] text-white shadow-xs'
+                : 'text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0]'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" /> Create Manually
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreationMode('ai')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              creationMode === 'ai'
+                ? 'bg-[#191A1D] text-white shadow-xs'
+                : 'text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0]'
+            }`}
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${creationMode === 'ai' ? 'text-[#EDFF72]' : 'text-[#777D78]'}`} /> Generate with AI
+          </button>
+          {statement && (
+            <button
+              type="button"
+              disabled={Boolean(regeneratingSection)}
+              onClick={() => handleRequestRegeneration('entireQuestion')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[#171819] hover:bg-[#F2F3F0] border border-[#DDE1DA]"
+              title="Regenerate a completely new problem, reference solution, and sample test"
+            >
+              {regeneratingSection === 'entireQuestion' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#171819]" />
+              ) : (
+                <RotateCcw className="w-3.5 h-3.5 text-[#171819]" />
+              )}
+              Regenerate Entire Question
+            </button>
+          )}
+
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-[11px] font-mono text-[#777D78] px-2 hidden sm:block">
+            {creationMode === 'ai' ? 'AI Assisted • Structured Schema' : 'Authoritative Gate • 100% Completeness Required'}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Generation Studio Form */}
+      {creationMode === 'ai' && (
+        <section className="tf-card rise p-6 mb-6 rounded-3xl border border-[#DDE1DA] bg-white shadow-xs" aria-label="AI Question Generator">
+          <div className="flex items-center justify-between pb-4 border-b border-[#DDE1DA] mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#191A1D] flex items-center justify-center text-[#EDFF72] shadow-xs">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#171819] flex items-center gap-2">
+                  Generate Question with AI
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#171819] border border-[#DDE1DA] uppercase tracking-wider">Structured JSON</span>
+                </h2>
+                <p className="text-xs text-[#777D78]">
+                  Generates title, problem statement, constraints, starter template, reference solution, and sample test case.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreationMode('manual')}
+              className="text-xs font-semibold text-[#777D78] hover:text-[#171819] px-3 py-1.5 rounded-xl hover:bg-[#F2F3F0] transition-colors cursor-pointer"
+            >
+              Back to manual editor
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Topic selection */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-[#171819] block mb-2">
+                Topic & Algorithm Pattern
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                {AI_TOPIC_PRESETS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setAiTopic(t);
+                      setAiCustomTopic('');
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      aiTopic === t && !aiCustomTopic
+                        ? 'bg-[#191A1D] text-white shadow-xs'
+                        : 'bg-white text-[#555A54] border border-[#DDE1DA] hover:border-[#171819] hover:text-[#171819] hover:bg-[#F4F5F2]'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={aiCustomTopic}
+                onChange={(e) => setAiCustomTopic(e.target.value)}
+                placeholder="Or specify custom topic (e.g. Dijkstra's Algorithm, LRU Cache, Bit Manipulation)..."
+                className="w-full text-xs p-2.5 rounded-xl border border-[#DDE1DA] bg-[#F4F5F2] focus:bg-white text-[#171819] placeholder-[#777D78] focus:outline-none focus:border-[#171819] focus:ring-1 focus:ring-[#171819] transition-all"
+              />
+            </div>
+
+            {/* Row: Difficulty, Language, Execution Mode */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#171819] block mb-1.5">Difficulty</label>
+                <div className="grid grid-cols-3 gap-1 bg-[#F2F3F0] p-1 rounded-xl">
+                  {['Easy', 'Medium', 'Hard'].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setAiDifficulty(d)}
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        aiDifficulty === d ? 'bg-white text-[#171819] shadow-xs' : 'text-[#777D78] hover:text-[#171819]'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#171819] block mb-1.5">Language</label>
+                <select
+                  value={aiLanguage}
+                  onChange={(e) => setAiLanguage(e.target.value)}
+                  className="w-full text-xs font-semibold p-2 rounded-xl border border-[#DDE1DA] bg-[#F4F5F2] focus:bg-white text-[#171819] focus:outline-none focus:border-[#171819] focus:ring-1 focus:ring-[#171819] cursor-pointer transition-all"
+                >
+                  <option value="python">Python</option>
+                  <option value="javascript">JavaScript</option>
+                  <option value="java">Java</option>
+                  <option value="cpp">C++</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-[#171819] block mb-1.5">Execution Mode</label>
+                <div className="grid grid-cols-2 gap-1 bg-[#F2F3F0] p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setAiExecutionMode('FUNCTION')}
+                    className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      aiExecutionMode === 'FUNCTION' ? 'bg-[#191A1D] text-white shadow-xs' : 'text-[#777D78] hover:text-[#171819]'
+                    }`}
+                  >
+                    Function
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiExecutionMode('STDIN')}
+                    className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      aiExecutionMode === 'STDIN' ? 'bg-[#191A1D] text-white shadow-xs' : 'text-[#777D78] hover:text-[#171819]'
+                    }`}
+                  >
+                    STDIN
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Requirements */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-[#171819] block mb-1.5">
+                Special Constraints & Instructions <span className="font-normal text-[#777D78] lowercase">(optional)</span>
+              </label>
+              <textarea
+                value={aiRequirements}
+                onChange={(e) => setAiRequirements(e.target.value)}
+                placeholder="e.g. Target O(n) runtime complexity, include edge cases with empty or single-element inputs."
+                className="w-full text-xs p-2.5 rounded-xl border border-[#DDE1DA] bg-[#F4F5F2] focus:bg-white text-[#171819] placeholder-[#777D78] min-h-[64px] focus:outline-none focus:border-[#171819] focus:ring-1 focus:ring-[#171819] transition-all"
+              />
+            </div>
+
+            {/* Active Diversity & Recent Session History Badge */}
+            {recentGenerations.length > 0 && (
+              <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] text-xs text-[#171819] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#171819] shrink-0" />
+                  <span>
+                    <strong className="font-bold">Diversity Engine Active:</strong> {recentGenerations.length} recent question(s) excluded to prevent duplicate problem scenarios.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearSessionHistory}
+                  className="text-[11px] font-semibold text-[#777D78] hover:text-[#171819] underline cursor-pointer ml-2 transition-colors"
+                >
+                  Reset History
+                </button>
+              </div>
+            )}
+
+            {/* Error Banner */}
+            {aiError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="font-bold flex items-center justify-between">
+                    <span>Generation Notice</span>
+                    {aiError.includes('DUPLICATE_GENERATION_LIMIT_EXCEEDED') || aiError.includes('distinct question') ? (
+                      <span className="text-[10px] font-mono bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded">3 ATTEMPTS EXHAUSTED</span>
+                    ) : null}
+                  </div>
+                  <div className="text-[11px] mt-1 font-mono leading-relaxed">{aiError}</div>
+                  {(aiError.includes('distinct question') || aiError.includes('DUPLICATE_GENERATION_LIMIT_EXCEEDED')) && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateWithAi}
+                        className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-bold cursor-pointer transition-all"
+                      >
+                        Try Another Attempt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearSessionHistory}
+                        className="px-3 py-1 bg-white border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-xl text-[11px] font-bold cursor-pointer transition-all"
+                      >
+                        Clear Session History
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Generate CTA Button Row - Single authoritative button as requested */}
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-xs text-[#777D78]">
+                {aiLoading && (
+                  <span className="flex items-center gap-2 text-[#171819] font-semibold">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#171819]" />
+                    {aiStatusMessage || 'Generating question with AI…'}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateWithAi}
+                  disabled={aiLoading}
+                  className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    aiLoading
+                      ? 'bg-[#191A1D] text-white opacity-70 cursor-not-allowed'
+                      : 'bg-[#191A1D] hover:bg-[#2C2E33] text-white shadow-sm hover:shadow-md active:scale-95'
+                  }`}
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#EDFF72]" /> Generating…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-[#EDFF72] stroke-[2.5]" /> Generate with AI
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ────────────────────────────────────────────────────────────────────────────
           MAIN BODY: 3-COLUMN WORKSPACE
@@ -2667,18 +3466,20 @@ export const QuestionCreatorView = ({
                 <label htmlFor="starter" style={{ margin: 0 }}>
                   Starter code (students see this)
                 </label>
-                <button
-                  type="button"
-                  className="link text-xs"
-                  onClick={() => {
-                    const tpl = getStandardTemplate(executionMode, language, dataStructure);
-                    if (tpl) setStarterCode(tpl.starterCode);
-                    triggerAutoSave();
-                    showToast('Reset to default language template');
-                  }}
-                >
-                  Reset template
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="link text-xs"
+                    onClick={() => {
+                      const tpl = getStandardTemplate(executionMode, language, dataStructure);
+                      if (tpl) setStarterCode(tpl.starterCode);
+                      triggerAutoSave();
+                      showToast('Reset to default language template');
+                    }}
+                  >
+                    Reset template
+                  </button>
+                </div>
               </div>
               <div className="rounded-2xl overflow-hidden border border-[#DDE1DA] shadow-inner bg-[#131416]">
                 <CodeEditor
@@ -2740,18 +3541,20 @@ export const QuestionCreatorView = ({
                 <label htmlFor="ref" style={{ margin: 0 }}>
                   Reference solution
                 </label>
-                <button
-                  type="button"
-                  className="link text-xs"
-                  onClick={() => {
-                    const tpl = getStandardTemplate(executionMode, language, dataStructure);
-                    if (tpl) setReferenceSolution(tpl.referenceSolution);
-                    triggerAutoSave();
-                    showToast('Reset to default reference solution');
-                  }}
-                >
-                  Reset template
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="link text-xs"
+                    onClick={() => {
+                      const tpl = getStandardTemplate(executionMode, language, dataStructure);
+                      if (tpl) setReferenceSolution(tpl.referenceSolution);
+                      triggerAutoSave();
+                      showToast('Reset to default reference solution');
+                    }}
+                  >
+                    Reset template
+                  </button>
+                </div>
               </div>
               <div className="rounded-2xl overflow-hidden border border-[#DDE1DA] shadow-inner bg-[#131416]">
                 <CodeEditor
@@ -2764,6 +3567,133 @@ export const QuestionCreatorView = ({
                   language={language}
                   theme="vs-dark"
                 />
+              </div>
+
+              {/* Sample Test Verification Workbench */}
+              <div id="f-sample-test" className="mt-4 p-4 rounded-2xl border border-[#DDE1DA] bg-[#FBFBFA] space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${sampleTestVerified ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'bg-amber-400 ring-2 ring-amber-100'}`} />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#171819]">Sample Test Verification Workbench</h4>
+                    {sampleTestVerified && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Verified for Publishing
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunSampleTest}
+                    disabled={validatingSample || !referenceSolution.trim()}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      referenceSolution.trim()
+                        ? 'bg-[#191A1D] hover:bg-black text-white shadow-xs'
+                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {validatingSample ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Executing Sample Test…
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 text-emerald-400" /> Run Sample Test
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#777D78] mb-1 block">Sample Input (Passed to Reference Solution)</label>
+                    <textarea
+                      value={examples[0]?.input || ''}
+                      onChange={(e) => handleUpdateExample(0, 'input', e.target.value)}
+                      className="w-full font-mono text-xs p-2 rounded-xl border border-[#DDE1DA] bg-white min-h-[70px] resize-y focus:outline-none focus:border-[#191A1D]"
+                      placeholder="Enter sample input..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#777D78] mb-1 block">Expected Output (Compared with Actual Output)</label>
+                    <textarea
+                      value={examples[0]?.output || ''}
+                      onChange={(e) => handleUpdateExample(0, 'output', e.target.value)}
+                      className="w-full font-mono text-xs p-2 rounded-xl border border-[#DDE1DA] bg-white min-h-[70px] resize-y focus:outline-none focus:border-[#191A1D]"
+                      placeholder="Enter expected output..."
+                    />
+                  </div>
+                </div>
+
+                {/* Live Output & Diagnostic Breakdown */}
+                {sampleValidationResult && (
+                  <div className={`p-3 rounded-xl border text-xs space-y-2 ${
+                    sampleValidationResult.passed
+                      ? 'border-emerald-200 bg-emerald-50/50 text-emerald-950'
+                      : 'border-rose-200 bg-rose-50/50 text-rose-950'
+                  }`}>
+                    <div className="flex items-center justify-between font-bold">
+                      <div className="flex items-center gap-2">
+                        {sampleValidationResult.passed ? (
+                          <span className="flex items-center gap-1 text-emerald-700">
+                            <Check className="w-4 h-4 stroke-[3]" /> Passed Execution & Output Comparison
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-rose-700">
+                            <AlertCircle className="w-4 h-4 stroke-[2.5]" /> Validation Failed ({sampleValidationResult.status})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-mono text-neutral-500">
+                        Execution Time: {sampleValidationResult.runtimeMs || 0}ms
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-[11px] font-mono pt-1">
+                      <div className="p-1.5 rounded-lg bg-white/70 border border-black/5">
+                        <span className="text-neutral-500 block">Compilation</span>
+                        <span className={sampleValidationResult.compilationStatus === 'Passed' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                          {sampleValidationResult.compilationStatus || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-white/70 border border-black/5">
+                        <span className="text-neutral-500 block">Execution</span>
+                        <span className={sampleValidationResult.executionStatus === 'Passed' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                          {sampleValidationResult.executionStatus || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-white/70 border border-black/5">
+                        <span className="text-neutral-500 block">Output Match</span>
+                        <span className={sampleValidationResult.outputComparisonStatus === 'Passed' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                          {sampleValidationResult.outputComparisonStatus || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {sampleValidationResult.actualOutput !== undefined && sampleValidationResult.actualOutput !== null && (
+                      <div className="mt-2 pt-2 border-t border-black/5 text-[11px] font-mono">
+                        <div className="flex justify-between text-neutral-500 mb-0.5">
+                          <span>Actual Output:</span>
+                          <span>Expected: {sampleValidationResult.expectedOutput}</span>
+                        </div>
+                        <pre className="p-1.5 rounded bg-black/5 overflow-x-auto whitespace-pre-wrap">
+                          {String(sampleValidationResult.actualOutput)}
+                        </pre>
+                      </div>
+                    )}
+
+                    {sampleValidationResult.error && (
+                      <div className="mt-2 p-2 rounded bg-rose-100/70 border border-rose-200 text-rose-800 text-[11px] font-mono whitespace-pre-wrap">
+                        {sampleValidationResult.error}
+                      </div>
+                    )}
+
+                    {sampleValidationResult.fingerprint && (
+                      <div className="text-[10px] text-neutral-400 font-mono truncate" title={sampleValidationResult.fingerprint}>
+                        Cryptographic Fingerprint: {sampleValidationResult.fingerprint}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2857,6 +3787,130 @@ export const QuestionCreatorView = ({
           </p>
         </section>
       </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────────
+          AI REGENERATION PREVIEW & ACCEPTANCE MODAL
+          ──────────────────────────────────────────────────────────────────────────── */}
+      {regenerationPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-[#DDE1DA] p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#DDE1DA]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#191A1D] text-[#EDFF72] flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-[#171819]">
+                      AI Regeneration Preview
+                    </h3>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#171819] border border-[#DDE1DA] uppercase tracking-wider">
+                      Entire Question
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#777D78]">
+                    Review the candidate replacement below. Accepting will apply changes to your current draft.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDiscardRegeneration}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0] transition-colors cursor-pointer"
+                title="Discard"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Dependency Warning Notification */}
+            {regenerationPreview.invalidations?.requiresSampleValidation && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong>Sample Validation Invalidation Notice:</strong> Accepting this candidate will reset previous sample test verification. You must re-run and pass sample validation on the Reference Solution tab before publishing.
+                </div>
+              </div>
+            )}
+
+            {/* Content Preview Body */}
+            <div className="space-y-3 bg-[#F4F5F2] p-4 rounded-2xl border border-[#DDE1DA] text-xs font-sans">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Generated Title</span>
+                <div className="text-sm font-bold text-[#171819] bg-white p-2.5 rounded-xl border border-[#DDE1DA]">
+                  {regenerationPreview.previewData?.title && regenerationPreview.previewData.title !== 'Untitled'
+                    ? regenerationPreview.previewData.title
+                    : 'Generated Question'}
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Problem Statement</span>
+                <div className="bg-white p-3 rounded-xl border border-[#DDE1DA] text-[#171819] whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
+                  {regenerationPreview.previewData?.statement || 'No statement generated.'}
+                </div>
+              </div>
+              {regenerationPreview.previewData?.constraints && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Constraints</span>
+                  <div className="bg-white p-2.5 rounded-xl border border-[#DDE1DA] text-[#555A54] whitespace-pre-wrap font-mono text-[11px]">
+                    {regenerationPreview.previewData?.constraints}
+                  </div>
+                </div>
+              )}
+              {regenerationPreview.previewData?.sampleTestCase && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Sample Test Case (Input &rarr; Output)</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white p-2.5 rounded-xl border border-[#DDE1DA]">
+                      <span className="text-[10px] font-mono text-[#777D78] block mb-1 font-bold">Input</span>
+                      <code className="font-mono text-xs text-[#171819] block whitespace-pre-wrap">{regenerationPreview.previewData.sampleTestCase.input}</code>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-[#DDE1DA]">
+                      <span className="text-[10px] font-mono text-[#777D78] block mb-1 font-bold">Expected Output</span>
+                      <code className="font-mono text-xs text-[#171819] block whitespace-pre-wrap">{regenerationPreview.previewData.sampleTestCase.expectedOutput}</code>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {regenerationPreview.previewData?.referenceSolution && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Matching Reference Solution ({language})</span>
+                  <pre className="bg-[#191A1D] text-[#EDFF72] p-3 rounded-xl text-[11px] font-mono max-h-36 overflow-y-auto">
+                    {regenerationPreview.previewData.referenceSolution}
+                  </pre>
+                </div>
+              )}
+              {regenerationPreview.previewData?.starterCode && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#777D78] block mb-1">Starter Code Template ({language})</span>
+                  <pre className="bg-[#191A1D] text-white p-3 rounded-xl text-[11px] font-mono max-h-32 overflow-y-auto">
+                    {regenerationPreview.previewData.starterCode}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#DDE1DA]">
+              <button
+                type="button"
+                onClick={handleDiscardRegeneration}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0] transition-colors cursor-pointer"
+              >
+                Discard (Keep Existing)
+              </button>
+              <button
+                type="button"
+                onClick={handleAcceptRegeneration}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-[#191A1D] hover:bg-black text-white shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4 text-[#EDFF72]" /> Accept & Apply to Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && (

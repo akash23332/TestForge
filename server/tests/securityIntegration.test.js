@@ -12,6 +12,7 @@ import { McqQuestion } from '../src/models/McqQuestion.js';
 import { TestCase } from '../src/models/TestCase.js';
 import { StudentAnswer } from '../src/models/StudentAnswer.js';
 import { Submission } from '../src/models/Submission.js';
+import { setExecutionQueueInstance, setRedisOfflineStatus } from '../src/services/queue/executionQueue.js';
 
 describe('Phase 1.1: Security Remediation & Integration Test Suite', () => {
   const jwtSecret = config.jwt.secret || 'test_secret_for_jwt_tokens_min_32_chars';
@@ -72,7 +73,15 @@ describe('Phase 1.1: Security Remediation & Integration Test Suite', () => {
     else done();
   });
 
+  beforeEach(() => {
+    setRedisOfflineStatus(false);
+    setExecutionQueueInstance({
+      add: jest.fn().mockResolvedValue({ id: 'job_test_security_123' })
+    });
+  });
+
   afterEach(() => {
+    setExecutionQueueInstance(null);
     jest.restoreAllMocks();
   });
 
@@ -347,23 +356,28 @@ describe('Phase 1.1: Security Remediation & Integration Test Suite', () => {
       });
       jest.spyOn(StudentAnswer, 'findOne').mockResolvedValue(null);
       jest.spyOn(StudentAnswer, 'create').mockResolvedValue({});
+      const mockSubDoc = {
+        _id: subId,
+        attemptId: attemptId1,
+        questionId: qId,
+        runType: 'SUBMISSION',
+        status: 'COMPLETED',
+        testResults: [
+          { testIndex: 1, category: 'standard', visibility: 'public', isHidden: false, passed: true, input: '121', expectedOutput: 'true', actualOutput: 'true' },
+          { testIndex: 2, category: 'edge_case', visibility: 'hidden', isHidden: true, passed: true, input: '-121000', expectedOutput: 'false', actualOutput: 'false' }
+        ]
+      };
       jest.spyOn(Submission, 'findOne').mockImplementation((query) => {
-        if (query?.status) {
-          // In-flight check
-          return { sort: jest.fn().mockResolvedValue(null) };
+        if (query?._id) {
+          // Status polling lookup by submissionId
+          return {
+            lean: jest.fn().mockResolvedValue(mockSubDoc)
+          };
         }
+        // In-flight or idempotency check during submit -> no existing submission
         return {
-          lean: jest.fn().mockResolvedValue({
-            _id: subId,
-            attemptId: attemptId1,
-            questionId: qId,
-            runType: 'SUBMISSION',
-            status: 'COMPLETED',
-            testResults: [
-              { testIndex: 1, category: 'standard', visibility: 'public', isHidden: false, passed: true, input: '121', expectedOutput: 'true', actualOutput: 'true' },
-              { testIndex: 2, category: 'edge_case', visibility: 'hidden', isHidden: true, passed: true, input: '-121000', expectedOutput: 'false', actualOutput: 'false' }
-            ]
-          })
+          sort: jest.fn().mockResolvedValue(null),
+          then: (resolve) => Promise.resolve(null).then(resolve)
         };
       });
       jest.spyOn(Submission, 'create').mockResolvedValue({

@@ -667,7 +667,7 @@ export class RenderSandboxProvider extends ExecutionProvider {
    * Execution via Judge0 CE API (/submissions?wait=true).
    * Enforces separate connection, response, and execution timeouts.
    */
-  async _executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, signal = null, onTokenCreated = null }) {
+  async _executeViaJudge0({ language, code, inputArgs, timeoutMs, memoryLimitMb, questionContext = {}, signal = null, onTokenCreated = null }) {
     const startTime = Date.now();
     const cleanUrl = this.endpoint.endsWith('/')
       ? `${this.endpoint}submissions?wait=true&base64_encoded=false`
@@ -675,7 +675,19 @@ export class RenderSandboxProvider extends ExecutionProvider {
 
     const langKey = (language || 'javascript').toLowerCase();
     const languageId = JUDGE0_LANGUAGE_IDS[langKey] || 63;
-    const serializedStdin = typeof inputArgs === 'string' ? inputArgs : JSON.stringify(inputArgs);
+    let serializedStdin = '';
+    const isStdinMode = String(questionContext?.executionMode || '').toUpperCase() === 'STDIN';
+    if (isStdinMode && questionContext?.rawInput !== undefined && questionContext?.rawInput !== null) {
+      serializedStdin = String(questionContext.rawInput);
+    } else if (typeof inputArgs === 'string') {
+      serializedStdin = inputArgs;
+    } else if (Array.isArray(inputArgs)) {
+      serializedStdin = inputArgs
+        .map(arg => ((typeof arg === 'object' && arg !== null) ? JSON.stringify(arg) : String(arg ?? '')))
+        .join('\n');
+    } else {
+      serializedStdin = String(inputArgs ?? '');
+    }
 
     // Execution limits passed into Judge0 / Isolate
     const cpuTimeLimitSec = Math.max(1, Math.ceil(timeoutMs / 1000));

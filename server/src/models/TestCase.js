@@ -44,6 +44,20 @@ const testCaseSchema = new mongoose.Schema(
     lastError: {
       type: String,
       default: null
+    },
+    sourceReportId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MutationReport',
+      default: null
+    },
+    sourceCandidateId: {
+      type: String,
+      default: null
+    },
+    inputHash: {
+      type: String,
+      default: null,
+      index: false
     }
   },
   {
@@ -52,6 +66,42 @@ const testCaseSchema = new mongoose.Schema(
 );
 
 testCaseSchema.index({ questionId: 1, visibility: 1 });
+
+// Phase 4A.2: Partial unique index strictly guaranteeing that a single candidate test
+// from a specific mutation report cannot be adopted more than once into the same Question.
+// Ordinary test cases (manual, sample, AI-generated) have sourceReportId: null and
+// are completely excluded by the partialFilterExpression, preventing false-positive collisions.
+testCaseSchema.index(
+  {
+    questionId: 1,
+    sourceReportId: 1,
+    sourceCandidateId: 1
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sourceReportId: { $type: 'objectId' },
+      sourceCandidateId: { $type: 'string' }
+    },
+    name: 'uniq_question_adopted_candidate'
+  }
+);
+
+// Concurrency-safe unique constraint on questionId + inputHash for deduplication.
+// Legacy/ordinary test cases without inputHash are excluded by partialFilterExpression.
+testCaseSchema.index(
+  {
+    questionId: 1,
+    inputHash: 1
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      inputHash: { $type: 'string' }
+    },
+    name: 'uniq_question_test_input'
+  }
+);
 
 export const TestCase = mongoose.model('TestCase', testCaseSchema);
 export default TestCase;
