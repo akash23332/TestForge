@@ -127,21 +127,55 @@ export const runMutations = async (req, res, next) => {
         }).sort({ createdAt: -1 });
 
         if (existingRun) {
-          return ApiResponse.success(
-            res,
-            202,
-            {
-              runId: existingRun._id.toString(),
-              questionId: question._id.toString(),
-              status: existingRun.status,
-              progress: existingRun.progress,
-              alreadyActive: true
-            },
-            'A mutation testing run is already active for this question'
+          const lastTouch = new Date(existingRun.updatedAt || existingRun.createdAt).getTime();
+          if (Date.now() - lastTouch <= 120000) {
+            return ApiResponse.success(
+              res,
+              202,
+              {
+                runId: existingRun._id.toString(),
+                questionId: question._id.toString(),
+                status: existingRun.status,
+                progress: existingRun.progress,
+                alreadyActive: true
+              },
+              'A mutation testing run is already active for this question'
+            );
+          }
+
+          // Existing run is stale (> 2m): release lock and mark failed
+          console.warn(`[MutationController] Clearing stale running report ${existingRun._id} on 11000 conflict.`);
+          existingRun.status = 'FAILED';
+          existingRun.activeLock = null;
+          existingRun.errorMessage = 'Mutation run timed out after remaining unresponsive for > 2 minutes.';
+          existingRun.completedAt = new Date();
+          await existingRun.save();
+        } else {
+          // 11000 occurred without an active PENDING/RUNNING report (orphaned activeLock)
+          console.warn(`[MutationController] Clearing orphaned activeLock on question ${question._id}`);
+          await MutationReport.updateMany(
+            { activeLock: question._id.toString() },
+            { $set: { activeLock: null } }
           );
         }
+
+        // Safe single retry to create new report after clearing stale/orphaned lock
+        report = await MutationReport.create({
+          questionId: question._id,
+          teacherId: req.user ? req.user._id : (question.ownerId || new mongoose.Types.ObjectId()),
+          status: 'PENDING',
+          activeLock: question._id.toString(),
+          totalMutants: 0,
+          progress: {
+            total: 0,
+            completed: 0,
+            currentMutant: 0,
+            currentTestCase: 0
+          }
+        });
+      } else {
+        throw createErr;
       }
-      throw createErr;
     }
 
     // Synchronous execution hook (for legacy test suites passing ?sync=true in test env)
@@ -231,6 +265,19 @@ export const getMutationRun = async (req, res, next) => {
 
     if (report.questionId.toString() !== question._id.toString()) {
       throw ApiError.notFound('Mutation report does not belong to this question');
+    }
+
+    // Staleness check on GET: If report is stuck in PENDING/RUNNING for > 2 minutes without updates, auto-reconcile
+    if (report.status === 'PENDING' || report.status === 'RUNNING') {
+      const lastTouch = new Date(report.updatedAt || report.createdAt).getTime();
+      if (Date.now() - lastTouch > 120000) {
+        console.warn(`[MutationController] Auto-reconciling stale mutation run ${report._id} on GET polling.`);
+        report.status = 'FAILED';
+        report.activeLock = null;
+        report.errorMessage = report.errorMessage || 'Mutation run timed out after remaining unresponsive for > 2 minutes.';
+        report.completedAt = new Date();
+        await report.save();
+      }
     }
 
     // Authorization check

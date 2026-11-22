@@ -9,6 +9,10 @@ export const buildJavaWrapper = ({
   dataStructure = 'ARRAY',
   returnType = 'void'
 }) => {
+  if (!code || typeof code !== 'string') return '';
+  if (code.includes('public class Main') || code.includes('class Main {')) {
+    return code;
+  }
   // Strict metadata precedence: explicit metadata is authoritative.
   const explicitDS = dataStructure && dataStructure !== 'NONE' && dataStructure !== 'ARRAY';
   const isLinkedList =
@@ -41,15 +45,28 @@ export const buildJavaWrapper = ({
 
   const fn = functionName || 'solution';
 
-  // Strip redundant public from class Solution and normalize Treenode/Listnode casing
+  // Normalize Treenode/Listnode casing
   let cleanStudentCode = code
-    .replace(/^\s*public\s+class\s+Solution/m, 'class Solution')
     .replace(/\bListnode\b/g, 'ListNode')
     .replace(/\bTreenode\b/g, 'TreeNode');
 
   if (!/\b(?:class|interface)\s+\w+/.test(cleanStudentCode)) {
     cleanStudentCode = `class Solution {\n${cleanStudentCode}\n}`;
   }
+
+  // Detect target class name (support Solution, Result, or any user-defined class)
+  const classMatches = [...cleanStudentCode.matchAll(/(?:public\s+)?class\s+([A-Za-z0-9_$]+)/g)];
+  let targetClassName = 'Solution';
+  for (const match of classMatches) {
+    const cName = match[1];
+    if (!['ListNode', 'TreeNode', 'Listnode', 'Treenode', 'Main'].includes(cName)) {
+      targetClassName = cName;
+      if (cName === 'Solution' || cName === 'Result') break;
+    }
+  }
+
+  // Strip redundant public from the target class so javac allows multiple classes in Main.java
+  cleanStudentCode = cleanStudentCode.replace(new RegExp(`^\\s*public\\s+class\\s+${targetClassName}`, 'm'), `class ${targetClassName}`);
 
   return `import java.util.*;
 import java.io.*;
@@ -70,8 +87,8 @@ public class Main {
             sc.close();
             String rawInput = sb.toString().trim();
 
-            Class<?> solClass = Class.forName("Solution");
-            Object solInst = solClass.getDeclaredConstructor().newInstance();
+            Class<?> solClass = Class.forName("${targetClassName}");
+            Object solInst = null;
             Method targetMethod = null;
             for (Method m : solClass.getDeclaredMethods()) {
                 if (Modifier.isPublic(m.getModifiers()) && !m.getName().equals("main")) {
@@ -85,8 +102,24 @@ public class Main {
                 }
             }
             if (targetMethod == null) {
-                System.err.println("Method '${fn}' not found in Solution class.");
+                for (Method m : solClass.getDeclaredMethods()) {
+                    if (Modifier.isPublic(m.getModifiers()) && !m.getName().equals("main")) {
+                        targetMethod = m;
+                        break;
+                    }
+                }
+            }
+            if (targetMethod == null) {
+                System.err.println("No public method found in " + solClass.getSimpleName() + " class.");
                 System.exit(1);
+            }
+
+            if (!Modifier.isStatic(targetMethod.getModifiers())) {
+                try {
+                    Constructor<?> ctor = solClass.getDeclaredConstructor();
+                    ctor.setAccessible(true);
+                    solInst = ctor.newInstance();
+                } catch (Exception ignored) {}
             }
 
             Class<?>[] pTypes = targetMethod.getParameterTypes();

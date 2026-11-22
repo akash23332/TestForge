@@ -8,6 +8,10 @@ export const buildCppWrapper = ({
   dataStructure = 'ARRAY',
   returnType = 'void'
 }) => {
+  if (!code || typeof code !== 'string') return '';
+  if (code.includes('int main(') || code.includes('int main (') || code.includes('void main(')) {
+    return code;
+  }
   // Strict metadata precedence: explicit metadata is authoritative.
   // When dataStructure is explicitly ARRAY or NONE, do not allow source heuristics to override it.
   const explicitDS = dataStructure && dataStructure !== 'NONE' && dataStructure !== 'ARRAY';

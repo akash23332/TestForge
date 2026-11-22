@@ -7,7 +7,8 @@ import {
   getSavedMcqs,
   updateSavedMcq,
   deleteSavedMcq,
-  clearSavedMcqs
+  clearSavedMcqs,
+  batchSaveMcqCandidates
 } from '../controllers/mcq.controller.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -19,6 +20,7 @@ router.use(requireAuth, requireRole('teacher', 'admin'));
 router.post('/preview', previewMcq);
 router.post('/generate', generateMcqBatch);
 router.post('/save', saveMcqBatch);
+router.post('/batch', batchSaveMcqCandidates);
 router.post('/', createSingleMcq);
 router.get('/saved', getSavedMcqs);
 router.put('/saved/:id', updateSavedMcq);

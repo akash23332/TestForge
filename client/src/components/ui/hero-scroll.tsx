@@ -334,20 +334,6 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => onNavigateModule?.('paper')}
-                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
-              >
-                Paper Designer
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigateModule?.('exams')}
-                className="text-xs font-medium text-neutral-300 hover:text-white px-3.5 py-1.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
-              >
-                Live Exams
-              </button>
-              <button
-                type="button"
                 onClick={onPrimaryCta || (() => onNavigateModule?.('create'))}
                 className="text-xs font-semibold text-[#121212] bg-[#e8ff5a] hover:bg-[#d6ec4e] px-4 py-1.5 rounded-full transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff5a] cursor-pointer"
               >

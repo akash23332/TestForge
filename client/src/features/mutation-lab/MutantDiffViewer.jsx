@@ -13,7 +13,12 @@ import {
   RotateCcw,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FlaskConical,
+  Flame,
+  XCircle,
+  Info,
+  Loader2
 } from 'lucide-react';
 
 /**
@@ -26,7 +31,8 @@ export const MutantDiffViewer = ({
   activeMutant,
   referenceSolution = '',
   language = 'javascript',
-  onClassifyMutant = null
+  onClassifyMutant = null,
+  isRunning = false
 }) => {
   const [viewMode, setViewMode] = useState('snippet'); // 'snippet' | 'full'
   const [isClassifying, setIsClassifying] = useState(false);
@@ -294,6 +300,209 @@ export const MutantDiffViewer = ({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Test Case Execution Results Section */}
+      <div className="p-3.5 bg-zinc-950 text-zinc-100 rounded-2xl border border-zinc-800 text-xs space-y-3 font-mono">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4 text-[#EDFF72]" />
+            <span className="font-bold text-sm tracking-tight text-white font-sans">
+              Test Case Execution Results
+            </span>
+          </div>
+          {activeMutant.testCaseResults && activeMutant.testCaseResults.length > 0 && (
+            <span className="text-[11px] text-zinc-400">
+              {activeMutant.testCaseResults.length} {activeMutant.testCaseResults.length === 1 ? 'test executed' : 'tests executed'}
+            </span>
+          )}
+        </div>
+
+        {isRunning && (!activeMutant.testCaseResults || activeMutant.testCaseResults.length === 0) ? (
+          <div className="flex items-center justify-center gap-2 py-6 text-zinc-400 text-xs">
+            <Loader2 className="w-4 h-4 animate-spin text-[#EDFF72]" />
+            <span>Executing test-case verification against this mutant...</span>
+          </div>
+        ) : !activeMutant.testCaseResults || activeMutant.testCaseResults.length === 0 ? (
+          <div className="py-4 px-3 text-center text-zinc-400 text-xs bg-zinc-900/60 rounded-xl border border-zinc-800/80">
+            <Info className="w-4 h-4 mx-auto mb-1 text-zinc-500" />
+            <p>Per-test execution details are unavailable for this historical run.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Outcome Banner */}
+            {activeMutant.executionStatus === 'KILLED' || currentClassification === 'KILLED' ? (
+              <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-start gap-2">
+                <Flame className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold font-sans">Mutant Killed:</span>{' '}
+                  {activeMutant.testCaseResults.find((t) => t.killedMutant) ? (
+                    <span>
+                      Killed by <b>Test #{activeMutant.testCaseResults.find((t) => t.killedMutant)?.testCaseNumber}</b> (
+                      {activeMutant.testCaseResults.find((t) => t.killedMutant)?.errorMessage || 'Output mismatch observed'}
+                      ).
+                    </span>
+                  ) : (
+                    <span>{activeMutant.failureReason || 'Output mismatch observed.'}</span>
+                  )}
+                </div>
+              </div>
+            ) : activeMutant.executionStatus === 'SURVIVED' || currentClassification === 'SURVIVED' ? (
+              <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-200 text-xs flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold font-sans">Mutant Survived:</span>{' '}
+                  All {activeMutant.testCaseResults.length} eligible executed test cases passed identically against this mutant.
+                </div>
+              </div>
+            ) : activeMutant.executionStatus === 'RUNTIME_ERROR' ? (
+              <div className="p-2.5 rounded-xl bg-orange-950/40 border border-orange-800/60 text-orange-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold font-sans">Runtime Error:</span>{' '}
+                  {activeMutant.failureReason || 'Program runtime exception encountered during execution.'}
+                </div>
+              </div>
+            ) : activeMutant.executionStatus === 'TIMEOUT' ? (
+              <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-800/60 text-purple-200 text-xs flex items-start gap-2">
+                <Clock className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold font-sans">Execution Timeout:</span>{' '}
+                  {activeMutant.failureReason || 'Mutant timed out (infinite loop or resource limit reached).'}
+                </div>
+              </div>
+            ) : activeMutant.executionStatus === 'COMPILATION_ERROR' ? (
+              <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold font-sans">Compilation Error:</span>{' '}
+                  {activeMutant.failureReason || 'Mutated code failed syntax compilation.'}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Metric Counters Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              <div className="p-2 bg-zinc-900 rounded-xl border border-zinc-800 text-center">
+                <div className="text-[10px] text-zinc-400 font-sans">Executed</div>
+                <div className="text-base font-bold text-white">{activeMutant.testCaseResults.length}</div>
+              </div>
+              <div className="p-2 bg-emerald-950/20 rounded-xl border border-emerald-900/40 text-center">
+                <div className="text-[10px] text-emerald-400 font-sans">Passed</div>
+                <div className="text-base font-bold text-emerald-400">
+                  {activeMutant.testCaseResults.filter((t) => t.status === 'PASSED').length}
+                </div>
+              </div>
+              <div className="p-2 bg-rose-950/20 rounded-xl border border-rose-900/40 text-center">
+                <div className="text-[10px] text-rose-400 font-sans">Failed (Kills)</div>
+                <div className="text-base font-bold text-rose-400">
+                  {activeMutant.testCaseResults.filter((t) => t.status === 'FAILED').length}
+                </div>
+              </div>
+              <div className="p-2 bg-orange-950/20 rounded-xl border border-orange-900/40 text-center">
+                <div className="text-[10px] text-orange-400 font-sans">Runtime Err</div>
+                <div className="text-base font-bold text-orange-400">
+                  {activeMutant.testCaseResults.filter((t) => t.status === 'RUNTIME_ERROR').length}
+                </div>
+              </div>
+              <div className="p-2 bg-purple-950/20 rounded-xl border border-purple-900/40 text-center">
+                <div className="text-[10px] text-purple-400 font-sans">Timeout</div>
+                <div className="text-base font-bold text-purple-400">
+                  {activeMutant.testCaseResults.filter((t) => t.status === 'TIMEOUT').length}
+                </div>
+              </div>
+              <div className="p-2 bg-amber-950/20 rounded-xl border border-amber-900/40 text-center">
+                <div className="text-[10px] text-amber-400 font-sans">Compile Err</div>
+                <div className="text-base font-bold text-amber-400">
+                  {activeMutant.testCaseResults.filter((t) => t.status === 'COMPILATION_ERROR' || t.status === 'EXECUTION_ERROR').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Test Results Table */}
+            <div className="overflow-x-auto rounded-xl border border-zinc-800">
+              <table className="w-full text-left text-[11px] border-collapse">
+                <thead>
+                  <tr className="bg-zinc-900/80 text-zinc-400 border-b border-zinc-800 font-sans">
+                    <th className="py-2 px-3">Test</th>
+                    <th className="py-2 px-3">Input</th>
+                    <th className="py-2 px-3">Expected</th>
+                    <th className="py-2 px-3">Actual</th>
+                    <th className="py-2 px-3 text-right">Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900">
+                  {activeMutant.testCaseResults.map((tc, idx) => {
+                    const isPassed = tc.status === 'PASSED';
+                    const isKilled = tc.status === 'FAILED';
+                    const isRuntimeErr = tc.status === 'RUNTIME_ERROR';
+                    const isTimeout = tc.status === 'TIMEOUT';
+                    const isCompileErr = tc.status === 'COMPILATION_ERROR';
+
+                    return (
+                      <tr
+                        key={tc.testCaseId || idx}
+                        className={`hover:bg-zinc-900/50 transition-colors ${
+                          tc.killedMutant ? 'bg-rose-950/20' : ''
+                        }`}
+                      >
+                        <td className="py-2 px-3 font-bold text-zinc-300 whitespace-nowrap">
+                          #{tc.testCaseNumber || idx + 1}
+                          {tc.killedMutant && (
+                            <span className="ml-1.5 px-1.5 py-0.2 rounded text-[9px] bg-rose-600 text-white font-sans font-bold">
+                              KILLER
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-zinc-300 max-w-[120px] truncate" title={tc.input}>
+                          {tc.input || '(empty)'}
+                        </td>
+                        <td className="py-2 px-3 text-emerald-400 max-w-[120px] truncate" title={tc.expectedOutput}>
+                          {tc.expectedOutput || '(empty)'}
+                        </td>
+                        <td
+                          className={`py-2 px-3 max-w-[120px] truncate ${
+                            isPassed ? 'text-emerald-400' : isKilled ? 'text-rose-400' : 'text-zinc-400'
+                          }`}
+                          title={tc.actualOutput || tc.errorMessage}
+                        >
+                          {tc.actualOutput || tc.errorMessage || '(none)'}
+                        </td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                          {isPassed ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                              PASSED
+                            </span>
+                          ) : isKilled ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                              FAILED (KILLED)
+                            </span>
+                          ) : isRuntimeErr ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                              RUNTIME ERROR
+                            </span>
+                          ) : isTimeout ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                              TIMEOUT
+                            </span>
+                          ) : isCompileErr ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                              COMPILE ERROR
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/30">
+                              {tc.status || 'ERROR'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Equivalent Mutant Management Section (Phase 4A.1) */}

@@ -149,33 +149,68 @@ export const StudentLandingView = ({
     return () => clearInterval(timer);
   }, []);
 
-  // 6. Live Mock Data: Questions counter up & live increment
-  const [questionsCount, setQuestionsCount] = useState(248);
+  // 6. Live Mock Data: Questions counter up (1.4s count-up) & live increment
+  const [questionsCount, setQuestionsCount] = useState(0);
+  const [hasCountedUp, setHasCountedUp] = useState(false);
   const [isPopping, setIsPopping] = useState(false);
   const [avgScore, setAvgScore] = useState(86);
   const [chartBars, setChartBars] = useState([35, 55, 40, 78, 62, 90, 70, 100]);
 
+  // Initial 1.4s smooth count-up from 0 to 248
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setQuestionsCount(248);
+      setHasCountedUp(true);
+      return;
+    }
 
-    // Live question count increment
+    const duration = 1400; // 1.4s count-up
+    const target = 248;
+    const startTime = performance.now();
+
+    let animationFrame;
+    const animateCount = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setQuestionsCount(Math.round(eased * target));
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animateCount);
+      } else {
+        setHasCountedUp(true);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animateCount);
+    return () => cancelAnimationFrame(animationFrame);
+  }, []);
+
+  // Post count-up live question count increment
+  useEffect(() => {
+    if (!hasCountedUp || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     const qInterval = setInterval(() => {
       setQuestionsCount((prev) => prev + Math.ceil(Math.random() * 3));
       setIsPopping(true);
       setTimeout(() => setIsPopping(false), 300);
     }, 2600);
 
-    // Live chart re-randomize
+    return () => clearInterval(qInterval);
+  }, [hasCountedUp]);
+
+  // Live chart re-randomize every 2.2s
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     const cInterval = setInterval(() => {
       setChartBars((prev) =>
         prev.map(() => Math.floor(25 + Math.random() * 75))
       );
     }, 2200);
 
-    return () => {
-      clearInterval(qInterval);
-      clearInterval(cInterval);
-    };
+    return () => clearInterval(cInterval);
   }, []);
 
   // 7. Floating chips cycling
@@ -658,6 +693,20 @@ export const StudentLandingView = ({
               <em>+</em>
               <span id="f2">{m2[chipIdx % m2.length]}</span>
             </div>
+          </div>
+
+          <div
+            className="cap"
+            style={{
+              textAlign: 'center',
+              marginTop: '16px',
+              color: 'var(--t2)',
+              fontSize: '13px',
+              fontStyle: 'italic',
+              letterSpacing: '0.01em'
+            }}
+          >
+            Interactive preview with sample tests.
           </div>
         </div>
 

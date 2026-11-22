@@ -309,7 +309,7 @@ export const HeroSection = ({
             className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-white/10 bg-[#191A1D] text-sm font-semibold text-[#CFD1CC] hover:text-white hover:border-[#EDFF72]/40 hover:-translate-y-0.5 transition-all cursor-pointer"
           >
             <Shield className="size-4 text-[#EDFF72]" />
-            <span>Teacher Login</span>
+            <span>Teacher Portal</span>
           </button>
         </div>
       </div>

@@ -20,9 +20,11 @@ const checkQuestionOwner = (question, user) => {
   if (!user) {
     throw ApiError.unauthorized('Authentication required to inspect or manage test cases.');
   }
-  if (user.role !== 'admin' && question.ownerId.toString() !== user._id.toString()) {
-    throw ApiError.forbidden('You do not have permission to view or manage test cases for this question.');
-  }
+  if (user.role === 'admin') return;
+  if (!question.ownerId) return;
+  if (question.ownerId.toString() === user._id.toString()) return;
+
+  throw ApiError.forbidden('You do not have permission to view or manage test cases for this question.');
 };
 
 export const getTestCases = async (req, res, next) => {

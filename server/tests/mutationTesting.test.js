@@ -4,11 +4,18 @@ import app from '../src/app.js';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
 import { Question } from '../src/models/Question.js';
 import { generateMutants, evaluateMutants, synthesizeCandidateTests, calculateMutationScore } from '../src/services/mutation.service.js';
+import { providerRegistry } from '../src/services/execution/providerRegistry.js';
 
 describe('Mutation Testing & Test Suite Quality Engine', () => {
   let twoSumQId = '';
+  let originalProvider = 'mock';
 
   beforeAll(async () => {
+    try {
+      originalProvider = providerRegistry.activeProviderName || 'mock';
+      providerRegistry.setActiveProvider('local');
+    } catch {}
+
     const uri = process.env.MONGODB_URI || '';
     if (uri && !uri.startsWith('mongodb+srv:')) {
       try {
@@ -24,6 +31,9 @@ describe('Mutation Testing & Test Suite Quality Engine', () => {
   });
 
   afterAll(async () => {
+    try {
+      providerRegistry.setActiveProvider(originalProvider);
+    } catch {}
     try {
       await disconnectDatabase();
     } catch {}

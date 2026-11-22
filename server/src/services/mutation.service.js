@@ -8,8 +8,10 @@ import {
   runCppIsolated,
   detectLanguage,
   compareOutputs,
-  parseInputArguments
+  parseInputArguments,
+  extractFunctionName
 } from './codeRunner.service.js';
+import { wrapCodeForExecution } from './codeContract.service.js';
 import { mutateJavaScriptAst } from './mutation/ast/jsMutator.js';
 import { mutatePythonAstSync } from './mutation/ast/pyMutator.js';
 
@@ -33,6 +35,36 @@ export const executeIsolated = async ({
   const isProd = config.env === 'production' || process.env.NODE_ENV === 'production';
   const activeProvider = provider || providerRegistry.getProvider();
 
+  // Determine effective execution mode: FUNCTION or STDIN
+  const isExplicitStdin = String(questionContext?.executionMode || '').toUpperCase() === 'STDIN';
+  const isImplicitStdin = !questionContext?.executionMode && typeof code === 'string' && (
+    code.includes('Scanner') ||
+    code.includes('System.in') ||
+    code.includes('cin >>') ||
+    code.includes('sys.stdin') ||
+    code.includes('public class Main') ||
+    code.includes('class Main {')
+  );
+  const effectiveMode = isExplicitStdin || isImplicitStdin ? 'STDIN' : 'FUNCTION';
+
+  const detectedFunc = questionContext.functionName || extractFunctionName(code) || 'solution';
+
+  const effectiveContext = {
+    ...questionContext,
+    functionName: detectedFunc,
+    executionMode: effectiveMode
+  };
+
+  const executableCode = wrapCodeForExecution({
+    code,
+    language: lang,
+    executionMode: effectiveMode,
+    dataStructure: questionContext.dataStructure || 'ARRAY',
+    functionName: detectedFunc,
+    returnType: questionContext.returnType || 'void',
+    parameters: questionContext.parameters || []
+  });
+
   // FAIL-CLOSED PRODUCTION GATE:
   // In production, direct host execution is strictly forbidden.
   // Must use configured isolated execution provider (RenderSandboxProvider / Judge0).
@@ -47,36 +79,36 @@ export const executeIsolated = async ({
     }
     return await activeProvider.executeCode({
       language: lang,
-      code,
+      code: executableCode,
       inputArgs,
       timeoutMs,
-      questionContext,
+      questionContext: effectiveContext,
       signal
     });
   }
 
   // In non-production (development / test):
-  // If an explicit provider is passed, use it.
-  if (provider) {
-    return await provider.executeCode({
+  // If an activeProvider is available (OnlineCompiler, RenderSandbox, Mock), use it.
+  if (activeProvider) {
+    return await activeProvider.executeCode({
       language: lang,
-      code,
+      code: executableCode,
       inputArgs,
       timeoutMs,
-      questionContext,
+      questionContext: effectiveContext,
       signal
     });
   }
 
   // Non-production local execution fallback for testing mutant evaluation
   if (lang === 'java') {
-    return await runJavaIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
+    return await runJavaIsolated({ code: executableCode, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
   } else if (lang === 'python') {
-    return await runPythonIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 3000) });
+    return await runPythonIsolated({ code: executableCode, inputArgs, timeoutMs: Math.max(timeoutMs, 3000) });
   } else if (lang === 'cpp') {
-    return await runCppIsolated({ code, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
+    return await runCppIsolated({ code: executableCode, inputArgs, timeoutMs: Math.max(timeoutMs, 4000) });
   } else {
-    return await runCodeIsolated({ code, inputArgs, timeoutMs: Math.min(timeoutMs, 2000) });
+    return await runCodeIsolated({ code: executableCode, inputArgs, timeoutMs: Math.min(timeoutMs, 2000) });
   }
 };
 
@@ -492,6 +524,13 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
     let execDuration = 0;
     let isCompilationError = false;
     let compilationErrorMessage = null;
+    let isRuntimeError = false;
+    let runtimeErrorMessage = null;
+    let isTimeout = false;
+    let timeoutMessage = null;
+    let isInternalError = false;
+    let internalErrorMessage = null;
+    const testCaseResults = [];
 
     for (let idx = 0; idx < testCases.length; idx++) {
       const tc = testCases[idx];
@@ -508,38 +547,80 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
 
       execDuration += res.runtimeMs || 0;
 
+      const tcRecord = {
+        testCaseId: tc._id || null,
+        testCaseNumber: idx + 1,
+        input: String(tc.input || '').slice(0, 5000),
+        expectedOutput: String(tc.expectedOutput || '').slice(0, 5000),
+        actualOutput: null,
+        status: 'PASSED',
+        runtimeMs: res.runtimeMs || 0,
+        errorMessage: null,
+        killedMutant: false
+      };
+
       // Syntax error or compilation error: classified as compilation_error/invalid, NOT killed!
-      if (res.status === 'compilation_error') {
+      if (res.status === 'compilation_error' || res.status === 'invalid') {
         isCompilationError = true;
         compilationErrorMessage = res.error || 'Compilation or syntax error occurred';
+        tcRecord.status = 'COMPILATION_ERROR';
+        tcRecord.errorMessage = compilationErrorMessage;
+        tcRecord.actualOutput = null;
+        tcRecord.killedMutant = false;
+        testCaseResults.push(tcRecord);
         break;
       }
 
-      // Infrastructure errors from runner must fail evaluation and never be counted as killed mutants
+      // Infrastructure errors from runner
       if (res.status === 'internal_error') {
-        throw new Error(`[MutationService] Runner infrastructure error during mutant execution: ${res.error || 'Internal error'}`);
+        throw new Error(`[MutationService] Runner infrastructure error during mutant evaluation: ${res.error || 'runner unreachable'}`);
       }
 
-      // Mutant is killed if it threw a runtime exception or timed out on valid compiled code
-      if (res.status === 'timeout' || res.status === 'runtime_error') {
-        killed = true;
-        killedByTest = `Test #${idx + 1} (${tc.category || 'test'})`;
-        testInput = tc.input;
-        expectedOutput = String(tc.expectedOutput);
-        mutantOutput = res.status;
-        failureReason = `Mutant execution failed: ${res.error || res.status}`;
-        break;
+      // Mutant timeout (infinite loop)
+      if (res.status === 'timeout') {
+        isTimeout = true;
+        timeoutMessage = `Execution timed out after ${res.runtimeMs || 2500}ms`;
+        tcRecord.status = 'TIMEOUT';
+        tcRecord.errorMessage = timeoutMessage;
+        tcRecord.actualOutput = 'timeout';
+        tcRecord.killedMutant = false;
+        testCaseResults.push(tcRecord);
+        continue;
       }
 
+      // Runtime error on mutant must NOT be counted as killed!
+      if (res.status === 'runtime_error') {
+        isRuntimeError = true;
+        runtimeErrorMessage = res.error || 'Runtime error occurred';
+        tcRecord.status = 'RUNTIME_ERROR';
+        tcRecord.errorMessage = runtimeErrorMessage;
+        tcRecord.actualOutput = res.output ? String(res.output) : 'runtime_error';
+        tcRecord.killedMutant = false;
+        testCaseResults.push(tcRecord);
+        continue;
+      }
+
+      tcRecord.actualOutput = typeof res.output === 'object' ? JSON.stringify(res.output) : String(res.output ?? '');
       const matchesExpected = compareOutputs(res.output, tc.expectedOutput, questionContext);
+
       if (!matchesExpected) {
+        // Output mismatch kills the mutant
         killed = true;
         killedByTest = `Test #${idx + 1} (${tc.category || 'test'})`;
         testInput = tc.input;
         expectedOutput = String(tc.expectedOutput);
-        mutantOutput = typeof res.output === 'object' ? JSON.stringify(res.output) : String(res.output);
+        mutantOutput = tcRecord.actualOutput;
         failureReason = `Output mismatch. Expected: ${tc.expectedOutput}, got: ${mutantOutput}`;
+
+        tcRecord.status = 'FAILED';
+        tcRecord.killedMutant = true;
+        tcRecord.errorMessage = failureReason;
+        testCaseResults.push(tcRecord);
         break;
+      } else {
+        tcRecord.status = 'PASSED';
+        tcRecord.killedMutant = false;
+        testCaseResults.push(tcRecord);
       }
     }
 
@@ -559,7 +640,45 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
         expectedOutput: null,
         mutantOutput: null,
         failureReason: compilationErrorMessage || 'Compilation or syntax error occurred',
-        runtimeMs: Math.max(execDuration, 4)
+        runtimeMs: Math.max(execDuration, 4),
+        testCaseResults
+      });
+    } else if (isRuntimeError && !killed) {
+      mutantResults.push({
+        id: mutant.id,
+        operator: mutant.operator,
+        description: mutant.description,
+        originalSnippet: mutant.originalSnippet,
+        mutatedSnippet: mutant.mutatedSnippet,
+        mutatedFullCode: mutant.mutatedFullCode,
+        status: 'runtime_error',
+        runtimeError: runtimeErrorMessage || 'Runtime exception encountered',
+        error: runtimeErrorMessage || 'Runtime exception encountered',
+        killedByTest: null,
+        testInput: null,
+        expectedOutput: null,
+        mutantOutput: null,
+        failureReason: `Runtime exception encountered: ${runtimeErrorMessage || 'Exception'}`,
+        runtimeMs: Math.max(execDuration, 4),
+        testCaseResults
+      });
+    } else if (isTimeout && !killed) {
+      mutantResults.push({
+        id: mutant.id,
+        operator: mutant.operator,
+        description: mutant.description,
+        originalSnippet: mutant.originalSnippet,
+        mutatedSnippet: mutant.mutatedSnippet,
+        mutatedFullCode: mutant.mutatedFullCode,
+        status: 'timeout',
+        error: timeoutMessage || 'Execution timed out',
+        killedByTest: null,
+        testInput: null,
+        expectedOutput: null,
+        mutantOutput: 'timeout',
+        failureReason: timeoutMessage || 'Execution timed out',
+        runtimeMs: Math.max(execDuration, 4),
+        testCaseResults
       });
     } else {
       mutantResults.push({
@@ -575,7 +694,8 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
         expectedOutput: killed ? expectedOutput : null,
         mutantOutput: killed ? mutantOutput : null,
         failureReason: killed ? failureReason : 'All configured test cases passed identically against this mutant.',
-        runtimeMs: Math.max(execDuration, 4)
+        runtimeMs: Math.max(execDuration, 4),
+        testCaseResults
       });
     }
   }
@@ -647,6 +767,10 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
         questionContext,
         provider
       });
+
+      if (refRes.status === 'internal_error') {
+        throw new Error(`[MutationService] Runner infrastructure error during candidate reference evaluation: ${refRes.error || 'runner failed'}`);
+      }
 
       if (refRes.status !== 'success' || refRes.output === null || refRes.output === undefined) {
         continue;

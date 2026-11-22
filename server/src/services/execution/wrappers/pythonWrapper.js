@@ -7,6 +7,10 @@ export const buildPythonWrapper = ({
   dataStructure = 'ARRAY',
   returnType = 'void'
 }) => {
+  if (!code || typeof code !== 'string') return '';
+  if (code.includes('__testforge_harness__') || code.includes('if __name__ == "__main__":')) {
+    return code;
+  }
   // Strict metadata precedence: explicit metadata is authoritative.
   const explicitDS = dataStructure && dataStructure !== 'NONE' && dataStructure !== 'ARRAY';
   const isLinkedList =

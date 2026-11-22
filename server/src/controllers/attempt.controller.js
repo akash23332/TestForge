@@ -257,11 +257,17 @@ export const joinExamByCode = async (req, res, next) => {
           const mcqId = (q.mcqQuestionId?._id || q.mcqQuestionId || q._id).toString();
           const mcqData = q.mcqData || q.mcqQuestionId || {};
 
+          const sanitizedOptions = Array.isArray(mcqData.options) && mcqData.options.length > 0
+            ? mcqData.options.map((opt) => ({ id: opt.id, text: opt.text }))
+            : undefined;
+
           sanitizedQuestions.push({
             _id: mcqId,
             type: 'mcq',
-            title: `MCQ: ${(mcqData.question || 'Multiple Choice Question').slice(0, 50)}...`,
-            statement: mcqData.question || '',
+            title: `MCQ: ${(mcqData.statement || mcqData.question || 'Multiple Choice Question').slice(0, 50)}...`,
+            statement: mcqData.statement || mcqData.question || '',
+            options: sanitizedOptions,
+            answerType: mcqData.answerType || 'single',
             optionA: mcqData.optionA || '',
             optionB: mcqData.optionB || '',
             optionC: mcqData.optionC || '',
@@ -269,7 +275,7 @@ export const joinExamByCode = async (req, res, next) => {
             topic: mcqData.topic || 'General',
             difficulty: mcqData.difficulty || 'Medium',
             maxMarks: qMarks
-            // ZERO LEAK: correctAnswer and explanation are completely withheld
+            // ZERO LEAK: correctAnswers, correctAnswer and explanation are completely withheld
           });
         } else {
           const qDoc = q.questionId;
@@ -939,13 +945,34 @@ export const submitQuestion = async (req, res, next) => {
     // ── MCQ EVALUATION ────────────────────────────────────────────────────────
     if (isMcq) {
       let correctAnswer = mcqTarget?.mcqData?.correctAnswer;
-      if (!correctAnswer && mcqTarget?.mcqQuestionId) {
+      let correctAnswers = mcqTarget?.mcqData?.correctAnswers;
+      let answerType = mcqTarget?.mcqData?.answerType || 'single';
+      if ((!correctAnswer && (!correctAnswers || correctAnswers.length === 0)) && mcqTarget?.mcqQuestionId) {
         const mcqDoc = await McqQuestion.findById(mcqTarget.mcqQuestionId).lean();
         correctAnswer = mcqDoc?.correctAnswer;
+        correctAnswers = mcqDoc?.correctAnswers;
+        answerType = mcqDoc?.answerType || answerType;
       }
 
-      const candidateChoice = (selectedOption || studentAnswer?.selectedOption || '').trim().toUpperCase();
-      const isCorrect = correctAnswer && candidateChoice === correctAnswer.trim().toUpperCase();
+      const candidateChoice = (selectedOption || studentAnswer?.selectedOption || '').trim();
+      let isCorrect = false;
+
+      if (answerType === 'multiple' && Array.isArray(correctAnswers) && correctAnswers.length > 0) {
+        let studentPicks = [];
+        try {
+          const parsed = JSON.parse(candidateChoice);
+          studentPicks = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (_) {
+          studentPicks = candidateChoice.split(',').map((s) => s.trim()).filter(Boolean);
+        }
+        const studentSet = new Set(studentPicks.map((p) => String(p).toUpperCase()));
+        const correctSet = new Set(correctAnswers.map((a) => String(a).toUpperCase()));
+        isCorrect = studentSet.size === correctSet.size && [...studentSet].every((s) => correctSet.has(s));
+      } else {
+        const targetAns = (correctAnswer || (correctAnswers && correctAnswers[0]) || '').trim().toUpperCase();
+        isCorrect = Boolean(targetAns && candidateChoice.toUpperCase() === targetAns);
+      }
+
       const scoreAwarded = isCorrect ? maxMarks : 0;
       const verdict = isCorrect ? 'ACCEPTED' : 'WRONG_ANSWER';
 

@@ -301,9 +301,14 @@ export const App = () => {
           }
         }}
         onNavigateTeacherLogin={() => {
-          setAuthRole('teacher');
-          setActiveTab('login');
-          window.history.pushState(null, '', '/teacher/login');
+          if (currentUser && currentUser.role?.toLowerCase() !== 'student') {
+            setActiveTab('dashboard');
+            window.history.pushState(null, '', '/dashboard');
+          } else {
+            setAuthRole('teacher');
+            setActiveTab('login');
+            window.history.pushState(null, '', '/teacher/login');
+          }
         }}
         onNavigateStudentLogin={() => {
           setAuthRole('student');

@@ -286,68 +286,74 @@ export const McqImportView = ({ currentUser }) => {
     setNotification(null);
 
     try {
-      // Synthesize realistic Bloom-calibrated MCQ dataset based on input parameters
-      await new Promise((r) => setTimeout(r, 1400));
+      const payload = {
+        subject: 'Computer Science',
+        topic: aiTopic || 'General Computer Science',
+        subtopics: aiSubtopic ? [aiSubtopic] : [],
+        count: Math.min(Math.max(Number(aiCount) || 3, 1), 10),
+        difficulty: aiDifficulty || 'Medium',
+        style: aiIncludeCode ? 'application_based' : 'conceptual',
+        answerType: 'single',
+        instructions: `Language focus: ${aiLanguage}. Target Bloom's taxonomy: ${aiBloomLevel}. ${aiIncludeCode ? 'Include programming questions and code snippets where appropriate.' : 'Conceptual, no code snippets required.'}`
+      };
 
-      const mockGenerations = [
-        {
-          _id: `gen-${Date.now()}-1`,
-          question: `Given a memoized function for ${aiSubtopic || aiTopic}, which condition verifies an optimal substructure in ${aiLanguage}?`,
-          codeSnippet: aiIncludeCode
-            ? `def memoized_solver(n, dp={}):\n    if n in dp: return dp[n]\n    dp[n] = memoized_solver(n-1) + memoized_solver(n-2)\n    return dp[n]`
-            : null,
-          optionA: 'Each subproblem solution contributes directly to the globally optimal choice without recomputing subtrees.',
-          optionB: 'All recursive branches must execute independently in separate kernel processes.',
-          optionC: 'Memoization tables require synchronized locks across multi-threaded execution pools.',
-          optionD: 'The recursion depth is strictly bounded to log(N) irrespective of memo hit frequency.',
-          correctAnswer: 'A',
-          marks: 2,
-          topic: aiTopic || 'Algorithms',
-          difficulty: aiDifficulty,
-          bloomLevel: aiBloomLevel,
-          explanation: 'Optimal substructure requires that the optimal solution to the overarching problem contains within it optimal solutions to its subproblems.'
-        },
-        {
-          _id: `gen-${Date.now()}-2`,
-          question: `In an empirical runtime profiling benchmark, what is the asymptotic space complexity of the cache allocation?`,
-          codeSnippet: aiIncludeCode
-            ? `const cache = new Map();\nfunction solve(k) {\n  if (cache.has(k)) return cache.get(k);\n  return cache.set(k, compute(k)).get(k);\n}`
-            : null,
-          optionA: 'O(1) auxiliary space overhead.',
-          optionB: 'O(N) proportional to distinct input states evaluated.',
-          optionC: 'O(N!) space scaling factor.',
-          optionD: 'O(log N) bounded binary partitioning tree.',
-          correctAnswer: 'B',
-          marks: 2,
-          topic: aiTopic || 'Algorithms',
-          difficulty: aiDifficulty,
-          bloomLevel: aiBloomLevel,
-          explanation: 'The Map data structure stores an entry for every distinct subproblem key k encountered, resulting in O(N) linear space.'
-        },
-        {
-          _id: `gen-${Date.now()}-3`,
-          question: `When evaluating cognitive trade-offs under the ${aiBloomLevel} taxonomy level, which hazard degrades memoized speed?`,
-          codeSnippet: null,
-          optionA: 'Cache thrashing caused by high hash collision distribution.',
-          optionB: 'Non-deterministic pure function returns with unisolated side effects.',
-          optionC: 'Recursive stack frames exceeding maximum execution limits before reaching base case.',
-          optionD: 'All of the above.',
-          correctAnswer: 'D',
-          marks: 2,
-          topic: aiTopic || 'Algorithms',
-          difficulty: aiDifficulty,
-          bloomLevel: aiBloomLevel,
-          explanation: 'Hash collisions, impure side effects causing corrupted memo caches, and unbounded call stack depths all cause failure in production systems.'
+      const res = await api.post('/ai/generate-mcq', payload);
+      const candidates = res.data?.data?.candidates || [];
+
+      if (!candidates || candidates.length === 0) {
+        throw new Error('No candidate MCQs were generated. Please try adjusting your parameters.');
+      }
+
+      const formatted = candidates.map((c, idx) => {
+        let statement = c.statement || c.question || '';
+        let extractedCode = null;
+        const codeBlockMatch = statement.match(/```(?:[a-zA-Z0-9_-]+)?\s*\n([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          extractedCode = codeBlockMatch[1].trim();
+          statement = statement.replace(/```(?:[a-zA-Z0-9_-]+)?\s*\n[\s\S]*?```/, '').trim();
         }
-      ].slice(0, aiCount);
 
-      setGeneratedBatch(mockGenerations);
+        const optA = c.options?.find((o) => o.id === 'A')?.text || c.optionA || '';
+        const optB = c.options?.find((o) => o.id === 'B')?.text || c.optionB || '';
+        const optC = c.options?.find((o) => o.id === 'C')?.text || c.optionC || '';
+        const optD = c.options?.find((o) => o.id === 'D')?.text || c.optionD || '';
+
+        return {
+          _id: c.candidateId || `gen-${Date.now()}-${idx}`,
+          candidateId: c.candidateId,
+          question: statement,
+          statement: c.statement || c.question,
+          codeSnippet: extractedCode || c.codeSnippet || null,
+          optionA: optA,
+          optionB: optB,
+          optionC: optC,
+          optionD: optD,
+          options: c.options || [
+            { id: 'A', text: optA },
+            { id: 'B', text: optB },
+            { id: 'C', text: optC },
+            { id: 'D', text: optD }
+          ],
+          correctAnswer: c.correctAnswer || c.correctAnswers?.[0] || 'A',
+          correctAnswers: c.correctAnswers || [c.correctAnswer || 'A'],
+          marks: c.marks || 2,
+          topic: c.topic || aiTopic || 'Computer Science',
+          difficulty: c.difficulty || aiDifficulty,
+          bloomLevel: c.bloomTaxonomy || c.bloomLevel || aiBloomLevel,
+          bloomTaxonomy: c.bloomTaxonomy || c.bloomLevel || aiBloomLevel,
+          explanation: c.explanation || ''
+        };
+      });
+
+      setGeneratedBatch(formatted);
       setNotification({
         type: 'success',
-        text: `Synthesized ${mockGenerations.length} high-fidelity MCQs calibrated to ${aiBloomLevel} taxonomy.`
+        text: `Synthesized ${formatted.length} live MCQs calibrated to ${aiBloomLevel} taxonomy via Gemini!`
       });
-    } catch {
-      setNotification({ type: 'error', text: 'AI Synthesis encountered an error. Please retry.' });
+    } catch (err) {
+      console.error('AI Generation Error:', err);
+      const errMsg = err.customMessage || err.response?.data?.message || err.message || 'AI Synthesis encountered an error. Please retry.';
+      setNotification({ type: 'error', text: errMsg });
     } finally {
       setIsAiGenerating(false);
     }
@@ -356,13 +362,22 @@ export const McqImportView = ({ currentUser }) => {
   // Commit AI Generated Question to Bank
   const handleCommitToBank = async (q) => {
     try {
+      const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
       const payload = {
-        question: q.question + (q.codeSnippet ? `\n\n\`\`\`${aiLanguage.toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : ''),
+        question: formattedStatement,
+        statement: formattedStatement,
+        options: q.options || [
+          { id: 'A', text: q.optionA },
+          { id: 'B', text: q.optionB },
+          { id: 'C', text: q.optionC },
+          { id: 'D', text: q.optionD }
+        ],
         optionA: q.optionA,
         optionB: q.optionB,
         optionC: q.optionC,
         optionD: q.optionD,
         correctAnswer: q.correctAnswer,
+        correctAnswers: q.correctAnswers || [q.correctAnswer],
         marks: q.marks || 2,
         topic: q.topic || 'Algorithms',
         difficulty: q.difficulty || 'Medium',
@@ -372,12 +387,92 @@ export const McqImportView = ({ currentUser }) => {
       const res = await api.post('/mcq', payload);
       const saved = res.data?.data || { ...payload, _id: `local-${Date.now()}` };
       setQuestions((prev) => [saved, ...prev]);
-      setGeneratedBatch((prev) => prev.filter((item) => item._id !== q._id));
+      setGeneratedBatch((prev) => prev.filter((item) => (item.candidateId ? item.candidateId !== q.candidateId : item._id !== q._id)));
 
       setNotification({ type: 'success', text: 'Question added to Question Bank!' });
       setTimeout(() => setNotification(null), 3000);
-    } catch {
-      alert('Failed to save question to bank.');
+    } catch (err) {
+      console.error('Failed to commit question to bank:', err);
+      const msg = err.customMessage || err.response?.data?.message || err.message || 'Failed to save question to bank.';
+      setNotification({ type: 'error', text: msg });
+    }
+  };
+
+  // Commit All AI Generated to Bank
+  const handleCommitAllGenerated = async () => {
+    if (generatedBatch.length === 0) return;
+    setSaving(true);
+    try {
+      const candidatesPayload = generatedBatch.map((q) => {
+        const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
+        return {
+          statement: formattedStatement,
+          question: formattedStatement,
+          options: q.options || [
+            { id: 'A', text: q.optionA },
+            { id: 'B', text: q.optionB },
+            { id: 'C', text: q.optionC },
+            { id: 'D', text: q.optionD }
+          ],
+          correctAnswers: q.correctAnswers || [q.correctAnswer || 'A'],
+          correctAnswer: q.correctAnswer || 'A',
+          answerType: 'single',
+          subject: 'Computer Science',
+          topic: q.topic || aiTopic || 'Computer Science',
+          difficulty: q.difficulty || aiDifficulty,
+          style: aiIncludeCode ? 'application_based' : 'conceptual',
+          marks: q.marks || 2,
+          explanation: q.explanation || '',
+          bloomTaxonomy: q.bloomLevel || 'Understand'
+        };
+      });
+
+      const res = await api.post('/mcq/batch', { candidates: candidatesPayload });
+      const savedDocs = res.data?.data?.savedQuestions || [];
+      if (savedDocs.length > 0) {
+        setQuestions((prev) => [...savedDocs, ...prev]);
+      }
+      setGeneratedBatch([]);
+      setNotification({
+        type: 'success',
+        text: `Successfully committed ${savedDocs.length || candidatesPayload.length} questions to your Question Bank!`
+      });
+      setTimeout(() => setNotification(null), 3500);
+    } catch (err) {
+      console.error('Batch commit failed:', err);
+      let count = 0;
+      for (const q of generatedBatch) {
+        try {
+          const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
+          const payload = {
+            question: formattedStatement,
+            statement: formattedStatement,
+            optionA: q.optionA,
+            optionB: q.optionB,
+            optionC: q.optionC,
+            optionD: q.optionD,
+            correctAnswer: q.correctAnswer,
+            marks: q.marks || 2,
+            topic: q.topic || 'Algorithms',
+            difficulty: q.difficulty || 'Medium',
+            explanation: q.explanation || ''
+          };
+          const res = await api.post('/mcq', payload);
+          if (res.data?.data) {
+            setQuestions((prev) => [res.data.data, ...prev]);
+            count++;
+          }
+        } catch {}
+      }
+      setGeneratedBatch([]);
+      if (count > 0) {
+        setNotification({ type: 'success', text: `Saved ${count} questions to Question Bank!` });
+      } else {
+        const errMsg = err.customMessage || err.response?.data?.message || 'Failed to commit generated questions to bank.';
+        setNotification({ type: 'error', text: errMsg });
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1197,9 +1292,31 @@ export const McqImportView = ({ currentUser }) => {
               <h3 className="text-base font-black text-[#171819]">
                 Generated Preview & Curation Queue
               </h3>
-              <span className="text-xs font-mono font-bold text-[#777D78]">
-                {generatedBatch.length} generated in session
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-[#777D78]">
+                  {generatedBatch.length} generated in session
+                </span>
+                {generatedBatch.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleCommitAllGenerated}
+                    disabled={saving}
+                    className="px-3.5 py-1 rounded-full bg-[#101112] text-[#EDFF72] text-xs font-bold hover:bg-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
+                  >
+                    <Check className="w-3 h-3" />
+                    <span>{saving ? 'Saving...' : 'Commit All to Bank'}</span>
+                  </button>
+                )}
+                {generatedBatch.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setGeneratedBatch([])}
+                    className="px-2.5 py-1 rounded-full text-xs font-bold text-[#777D78] hover:text-rose-600 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {isAiGenerating ? (

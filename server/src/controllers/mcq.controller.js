@@ -1,7 +1,9 @@
+import mongoose from 'mongoose';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 import { McqQuestion } from '../models/McqQuestion.js';
 import { User } from '../models/User.js';
+import { validateMcqCandidate, computeMcqStatementHash } from '../services/ai/mcqValidator.service.js';
 
 // Pre-seeded algorithmic & CS question templates for procedural generation
 const QUESTION_KNOWLEDGE_BASE = {
@@ -225,7 +227,7 @@ export const saveMcqBatch = async (req, res, next) => {
  */
 export const getSavedMcqs = async (req, res, next) => {
   try {
-    const { topic = '', search = '' } = req.query;
+    const { topic = '', subject = '', difficulty = '', status = '', answerType = '', search = '' } = req.query;
 
     if (!req.user) {
       return ApiResponse.success(
@@ -244,9 +246,27 @@ export const getSavedMcqs = async (req, res, next) => {
     if (topic && topic !== 'All') {
       filter.topic = topic;
     }
+    if (subject && subject !== 'All') {
+      filter.subject = subject;
+    }
+    if (difficulty && difficulty !== 'All') {
+      filter.difficulty = difficulty;
+    }
+    if (status && status !== 'All') {
+      filter.status = status;
+    }
+    if (answerType && answerType !== 'All') {
+      filter.answerType = answerType;
+    }
 
-    if (search) {
-      filter.question = { $regex: search, $options: 'i' };
+    if (search && search.trim()) {
+      const qRegex = { $regex: search.trim(), $options: 'i' };
+      filter.$or = [
+        { question: qRegex },
+        { statement: qRegex },
+        { topic: qRegex },
+        { subject: qRegex }
+      ];
     }
 
     const items = await McqQuestion.find(filter).sort('-createdAt').lean();
@@ -307,33 +327,83 @@ export const clearSavedMcqs = async (req, res, next) => {
 };
 
 /**
- * Creates a single MCQ directly in MongoDB.
+ * Creates a single MCQ directly in MongoDB with validation and persistent duplicate check.
  */
 export const createSingleMcq = async (req, res, next) => {
   try {
-    const { question, optionA, optionB, optionC, optionD, correctAnswer, marks, topic, explanation } = req.body;
-
-    if (!question || !optionA || !optionB || !optionC || !optionD) {
-      throw ApiError.badRequest('Question statement and all 4 options (A, B, C, D) are required.');
-    }
-
     if (!req.user || !req.user._id) {
       throw ApiError.unauthorized('Authentication required to save MCQs.');
     }
     const ownerId = req.user._id;
 
-    const created = await McqQuestion.create({
+    // Support modern and legacy payload structure
+    const statement = req.body.statement || req.body.question;
+    let options = req.body.options;
+    let correctAnswers = req.body.correctAnswers;
+    const answerType = req.body.answerType || 'single';
+
+    if (!options && (req.body.optionA || req.body.optionB)) {
+      options = [
+        { id: 'A', text: req.body.optionA || '' },
+        { id: 'B', text: req.body.optionB || '' },
+        { id: 'C', text: req.body.optionC || '' },
+        { id: 'D', text: req.body.optionD || '' }
+      ];
+    }
+
+    if (!correctAnswers && req.body.correctAnswer) {
+      correctAnswers = [String(req.body.correctAnswer).trim().toUpperCase()];
+    }
+
+    const candidateData = {
+      statement,
+      options,
+      correctAnswers,
+      answerType,
+      subject: req.body.subject,
+      topic: req.body.topic,
+      difficulty: req.body.difficulty,
+      style: req.body.style,
+      marks: req.body.marks,
+      explanation: req.body.explanation
+    };
+
+    const validation = validateMcqCandidate(candidateData);
+    if (!validation.isValid) {
+      throw ApiError.badRequest(`MCQ validation failed: ${validation.errors.join('; ')}`);
+    }
+
+    const statementHash = computeMcqStatementHash(validation.data.statement);
+
+    // Persistent duplicate detection for this teacher
+    const existing = await McqQuestion.findOne({ ownerId, statementHash });
+    if (existing) {
+      throw ApiError.conflict('An identical MCQ already exists in your question bank.', {
+        existingId: existing._id
+      });
+    }
+
+    const docToCreate = {
       ownerId,
-      question: question.trim(),
-      optionA: optionA.trim(),
-      optionB: optionB.trim(),
-      optionC: optionC.trim(),
-      optionD: optionD.trim(),
-      correctAnswer: (correctAnswer || 'A').toString().trim().toUpperCase(),
-      marks: Number(marks) || 1,
-      topic: (topic || 'General').trim(),
-      explanation: (explanation || '').trim()
-    });
+      statement: validation.data.statement,
+      question: validation.data.statement,
+      options: validation.data.options,
+      correctAnswers: validation.data.correctAnswers,
+      answerType: validation.data.answerType,
+      subject: req.body.subject || 'Computer Science',
+      topic: req.body.topic || 'General',
+      difficulty: req.body.difficulty || 'Medium',
+      style: req.body.style || 'conceptual',
+      bloomTaxonomy: req.body.bloomTaxonomy || 'Understand',
+      marks: Number(req.body.marks) || 1,
+      explanation: validation.data.explanation,
+      tags: Array.isArray(req.body.tags) ? req.body.tags : [],
+      status: req.body.status === 'published' ? 'published' : 'draft',
+      isAiGenerated: Boolean(req.body.isAiGenerated),
+      statementHash
+    };
+
+    const created = await McqQuestion.create(docToCreate);
 
     return ApiResponse.success(res, 201, created, 'MCQ created successfully in MongoDB');
   } catch (error) {
@@ -347,8 +417,6 @@ export const createSingleMcq = async (req, res, next) => {
 export const updateSavedMcq = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { question, optionA, optionB, optionC, optionD, correctAnswer, marks, topic, explanation } = req.body;
-
     const mcq = await McqQuestion.findById(id);
     if (!mcq) {
       throw ApiError.notFound('MCQ question not found');
@@ -362,19 +430,146 @@ export const updateSavedMcq = async (req, res, next) => {
     }
 
     const updateData = {};
-    if (question !== undefined) updateData.question = question.trim();
-    if (optionA !== undefined) updateData.optionA = optionA.trim();
-    if (optionB !== undefined) updateData.optionB = optionB.trim();
-    if (optionC !== undefined) updateData.optionC = optionC.trim();
-    if (optionD !== undefined) updateData.optionD = optionD.trim();
-    if (correctAnswer !== undefined) updateData.correctAnswer = correctAnswer.toString().trim().toUpperCase();
-    if (marks !== undefined) updateData.marks = Number(marks) || 1;
-    if (topic !== undefined) updateData.topic = (topic || 'General').trim();
-    if (explanation !== undefined) updateData.explanation = (explanation || '').trim();
+    if (req.body.statement !== undefined || req.body.question !== undefined) {
+      const stmt = (req.body.statement || req.body.question).trim();
+      updateData.statement = stmt;
+      updateData.question = stmt;
+      updateData.statementHash = computeMcqStatementHash(stmt);
+    }
+    if (Array.isArray(req.body.options)) {
+      updateData.options = req.body.options;
+    }
+    if (Array.isArray(req.body.correctAnswers)) {
+      updateData.correctAnswers = req.body.correctAnswers;
+    }
+    if (req.body.optionA !== undefined) updateData.optionA = req.body.optionA.trim();
+    if (req.body.optionB !== undefined) updateData.optionB = req.body.optionB.trim();
+    if (req.body.optionC !== undefined) updateData.optionC = req.body.optionC.trim();
+    if (req.body.optionD !== undefined) updateData.optionD = req.body.optionD.trim();
+    if (req.body.correctAnswer !== undefined) {
+      updateData.correctAnswer = req.body.correctAnswer.toString().trim().toUpperCase();
+    }
+    if (req.body.answerType !== undefined) updateData.answerType = req.body.answerType;
+    if (req.body.subject !== undefined) updateData.subject = req.body.subject.trim();
+    if (req.body.topic !== undefined) updateData.topic = (req.body.topic || 'General').trim();
+    if (req.body.difficulty !== undefined) updateData.difficulty = req.body.difficulty;
+    if (req.body.style !== undefined) updateData.style = req.body.style;
+    if (req.body.marks !== undefined) updateData.marks = Number(req.body.marks) || 1;
+    if (req.body.explanation !== undefined) updateData.explanation = (req.body.explanation || '').trim();
+    if (req.body.status !== undefined) updateData.status = req.body.status;
+    if (Array.isArray(req.body.tags)) updateData.tags = req.body.tags;
 
-    const updated = await McqQuestion.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    Object.assign(mcq, updateData);
+    const updated = await mcq.save();
 
     return ApiResponse.success(res, 200, updated, 'MCQ updated successfully in MongoDB');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Atomically batch-saves a set of validated MCQ candidates to MongoDB.
+ */
+export const batchSaveMcqCandidates = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user._id) {
+      throw ApiError.unauthorized('Authentication required to save MCQs.');
+    }
+    const ownerId = req.user._id;
+
+    const rawList = req.body.candidates || req.body.questions || [];
+    if (!Array.isArray(rawList) || rawList.length === 0) {
+      throw ApiError.badRequest('A non-empty array of candidate MCQs is required in candidates or questions.');
+    }
+
+    if (rawList.length > 25) {
+      throw ApiError.badRequest('Batch save limit exceeded. Maximum 25 MCQs allowed per batch.');
+    }
+
+    const validatedDocs = [];
+    const batchHashes = new Set();
+
+    // 1. Validate candidates and check duplicate hashes within the batch
+    for (let i = 0; i < rawList.length; i++) {
+      const item = rawList[i];
+      const validation = validateMcqCandidate(item);
+      if (!validation.isValid) {
+        throw ApiError.badRequest(`Candidate #${i + 1} validation failed: ${validation.errors.join('; ')}`);
+      }
+
+      const stHash = computeMcqStatementHash(validation.data.statement);
+      if (batchHashes.has(stHash)) {
+        throw ApiError.badRequest(`Duplicate MCQ statement detected within batch at item #${i + 1}.`);
+      }
+      batchHashes.add(stHash);
+
+      validatedDocs.push({
+        ownerId,
+        statement: validation.data.statement,
+        question: validation.data.statement,
+        options: validation.data.options,
+        correctAnswers: validation.data.correctAnswers,
+        answerType: validation.data.answerType,
+        subject: item.subject || 'Computer Science',
+        topic: item.topic || 'General',
+        difficulty: item.difficulty || 'Medium',
+        style: item.style || 'conceptual',
+        bloomTaxonomy: item.bloomTaxonomy || 'Understand',
+        marks: Number(item.marks) || 1,
+        explanation: validation.data.explanation,
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        status: item.status === 'published' ? 'published' : 'draft',
+        isAiGenerated: true,
+        statementHash: stHash
+      });
+    }
+
+    // 2. Check for persistent duplicates against this teacher's existing collection
+    const existingDuplicates = await McqQuestion.find({
+      ownerId,
+      statementHash: { $in: Array.from(batchHashes) }
+    }).select('statement statementHash').lean();
+
+    if (existingDuplicates.length > 0) {
+      throw ApiError.conflict(
+        `Batch contains ${existingDuplicates.length} candidate(s) that already exist in your question bank.`,
+        { duplicateCount: existingDuplicates.length }
+      );
+    }
+
+    // 3. Atomic persistence using MongoDB transaction with safe fallback
+    let session;
+    let savedDocs;
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+
+      savedDocs = await McqQuestion.create(validatedDocs, { session, ordered: true });
+      await session.commitTransaction();
+    } catch (txErr) {
+      if (session) {
+        try {
+          await session.abortTransaction();
+        } catch (_) {}
+      }
+      if (txErr.message && txErr.message.includes('Transactions are not supported')) {
+        savedDocs = await McqQuestion.create(validatedDocs);
+      } else {
+        throw ApiError.internal('Failed to persist MCQ batch atomically: ' + txErr.message);
+      }
+    } finally {
+      if (session) {
+        session.endSession();
+      }
+    }
+
+    return ApiResponse.success(
+      res,
+      201,
+      savedDocs,
+      `Successfully saved ${savedDocs.length} MCQs to question bank.`
+    );
   } catch (error) {
     next(error);
   }

@@ -195,7 +195,8 @@ export async function adoptCandidateTest({
         executionMode: baseQuestion.executionMode,
         functionName: baseQuestion.functionName,
         dataStructure: baseQuestion.dataStructure,
-        returnType: baseQuestion.returnType
+        returnType: baseQuestion.returnType,
+        parameters: baseQuestion.parameters
       },
       timeoutMs: 4000,
       signal: abortController.signal
@@ -225,7 +226,8 @@ export async function adoptCandidateTest({
         executionMode: baseQuestion.executionMode,
         functionName: baseQuestion.functionName,
         dataStructure: baseQuestion.dataStructure,
-        returnType: baseQuestion.returnType
+        returnType: baseQuestion.returnType,
+        parameters: baseQuestion.parameters
       },
       timeoutMs: 4000,
       signal: abortController.signal

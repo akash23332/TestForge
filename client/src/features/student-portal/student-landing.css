@@ -592,18 +592,16 @@
   background: var(--bg);
   border-radius: 40px 40px 0 0;
   box-shadow: 0 -30px 80px rgba(0, 0, 0, 0.55);
-  padding: clamp(56px, 8vw, 110px) clamp(14px, 4vw, 56px) 28px;
-}
-
-@media (min-width: 768px) {
-  .tf-student-portal-page .site {
-    padding-left: clamp(80px, 10vw, 140px);
-  }
+  padding: clamp(56px, 8vw, 110px) 0 28px;
+  overflow-x: clip;
 }
 
 .tf-student-portal-page .w {
-  max-width: 1240px;
+  width: 100%;
+  max-width: 1920px;
   margin: 0 auto;
+  padding: 0 clamp(16px, 3.4vw, 64px);
+  box-sizing: border-box;
 }
 
 .tf-student-portal-page .eb {
@@ -1215,6 +1213,30 @@
 
 .tf-student-portal-page .cd:hover {
   box-shadow: 0 36px 56px -30px rgba(0, 0, 0, 0.4);
+}
+
+.tf-student-portal-page .cd::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(350px circle at var(--mx, 50%) var(--my, 50%), rgba(237, 255, 114, 0.22), transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.tf-student-portal-page .cd:hover::after {
+  opacity: 1;
+}
+
+.tf-student-portal-page .cd.d::after {
+  background: radial-gradient(350px circle at var(--mx, 50%) var(--my, 50%), rgba(237, 255, 114, 0.16), transparent 70%);
+}
+
+.tf-student-portal-page .cd.l::after {
+  background: radial-gradient(350px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.4), transparent 70%);
 }
 
 .tf-student-portal-page .cd.w8 {

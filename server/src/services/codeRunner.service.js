@@ -101,14 +101,22 @@ export const parseInputArguments = (inputStr) => {
  */
 export const cleanStdinString = (input) => {
   if (input === undefined || input === null) return '';
-  let str = (typeof input === 'string' ? input : String(input)).replace(/\r\n/g, '\n').trim();
+  let str = (typeof input === 'string' ? input : String(input))
+    .replace(/[\u00A0\u1680\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
 
   // 1. Unwrap if the ENTIRE string was a valid JSON-encoded string literal
   if (str.startsWith('"') && str.endsWith('"')) {
     try {
       const parsed = JSON.parse(str);
       if (typeof parsed === 'string') {
-        str = parsed.replace(/\r\n/g, '\n').trim();
+        str = parsed
+          .replace(/[\u00A0\u1680\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, ' ')
+          .replace(/\r\n/g, '\n')
+          .replace(/\r/g, '\n')
+          .trim();
       }
     } catch (_) {}
   }
@@ -627,6 +635,9 @@ export const runJavaIsolated = async ({ code, inputArgs, timeoutMs = 4500, rawIn
         } else if (inputArgs !== undefined && inputArgs !== null) {
           stdinData = String(inputArgs);
         }
+        stdinData = stdinData
+          .replace(/[\u00A0\u1680\u2000-\u200B\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, ' ')
+          .replace(/\r\n/g, '\n');
         const out = execSync(`java -cp "${javaDir}" Main`, {
           input: stdinData,
           encoding: 'utf-8',

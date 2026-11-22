@@ -47,6 +47,15 @@ export class AIProvider {
   async generateTestCases(options) {
     throw new Error(`generateTestCases() not implemented in provider '${this.name}'`);
   }
+
+  /**
+   * Generates multiple-choice questions.
+   * @param {Object} options
+   * @returns {Promise<{ questions: Array<Object> }>}
+   */
+  async generateMcqs(options) {
+    throw new Error(`generateMcqs() not implemented in provider '${this.name}'`);
+  }
 }
 
 export default AIProvider;

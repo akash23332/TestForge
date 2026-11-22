@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateQuestion, regenerateSection, clearSessionHistory } from '../controllers/ai.controller.js';
+import { generateQuestion, regenerateSection, clearSessionHistory, generateMcq } from '../controllers/ai.controller.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
 
@@ -20,6 +20,14 @@ router.post(
   requireRole('teacher', 'admin'),
   aiRateLimiter,
   generateQuestion
+);
+
+router.post(
+  '/generate-mcq',
+  requireAuth,
+  requireRole('teacher', 'admin'),
+  aiRateLimiter,
+  generateMcq
 );
 
 router.post(

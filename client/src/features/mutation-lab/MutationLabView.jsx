@@ -862,9 +862,9 @@ export const MutationLabView = ({
                       type="button"
                       onClick={resetRun}
                       title="Reset or cancel stalled run"
-                      className="text-[10px] text-zinc-400 hover:text-red-400 underline cursor-pointer ml-1"
+                      className="px-2 py-0.5 text-[11px] font-medium text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 rounded-md transition-colors cursor-pointer ml-1"
                     >
-                      Reset
+                      Reset Run
                     </button>
                   </span>
                 </div>
@@ -874,7 +874,7 @@ export const MutationLabView = ({
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                {progress.currentMutant && (
+                {Boolean(progress.currentMutant) && (
                   <div className="text-[10px] font-mono text-zinc-400 truncate">
                     Processing {progress.currentMutant} {progress.currentTestCase ? `against ${progress.currentTestCase}` : ''}
                   </div>
@@ -1054,7 +1054,7 @@ export const MutationLabView = ({
             <span className="text-[10px] font-mono font-bold text-[#777D78] uppercase block">Runtime Errors</span>
             <span className="text-base font-bold text-orange-600">{report?.runtimeErrorCount || 0}</span>
           </div>
-          <span className="text-[10px] text-zinc-400 font-mono">Counted</span>
+          <span className="text-[10px] text-zinc-400 font-mono">Excluded</span>
         </div>
 
         <div className="p-3 bg-white rounded-2xl border border-[#DDE1DA] flex items-center justify-between">
@@ -1256,6 +1256,7 @@ export const MutationLabView = ({
             referenceSolution={currentQ?.referenceSolution || currentQ?.starterCode || ''}
             language={currentQ?.language || 'javascript'}
             onClassifyMutant={handleClassifyMutant}
+            isRunning={isRunning}
           />
         </section>
 

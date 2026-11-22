@@ -81,7 +81,10 @@ export const processMutationJob = async (job) => {
       tags: question.tags || [],
       language: question.language || 'javascript',
       dataStructure: question.dataStructure || 'ARRAY',
-      functionName: question.functionName || 'solution'
+      functionName: question.functionName || 'solution',
+      executionMode: question.executionMode || (question.referenceSolution?.includes('class Solution') ? 'FUNCTION' : 'STDIN'),
+      returnType: question.returnType || 'void',
+      parameters: question.parameters || []
     };
 
     const lang = detectLanguage(referenceCode, questionContext);
@@ -137,7 +140,8 @@ export const processMutationJob = async (job) => {
         auditHistory: [],
         failureReason: null,
         equivalent: false,
-        runtimeMs: 0
+        runtimeMs: 0,
+        testCaseResults: []
       }));
       await report.save();
     }
@@ -162,6 +166,13 @@ export const processMutationJob = async (job) => {
       let failureReason = null;
       let execDuration = 0;
       let finalStatus = 'SURVIVED'; // Default if all test cases pass
+      let hasRuntimeError = false;
+      let runtimeErrorMessage = null;
+      let hasTimeout = false;
+      let timeoutMessage = null;
+      let hasInternalError = false;
+      let internalErrorMessage = null;
+      const testCaseResults = [];
 
       for (let j = 0; j < testCases.length; j++) {
         report.progress.currentTestCase = j + 1;
@@ -179,58 +190,113 @@ export const processMutationJob = async (job) => {
 
         execDuration += res.runtimeMs || 0;
 
-        // Compilation / Syntax Error
+        const tcRecord = {
+          testCaseId: tc._id || null,
+          testCaseNumber: j + 1,
+          input: String(tc.input || '').slice(0, 5000),
+          expectedOutput: String(tc.expectedOutput || '').slice(0, 5000),
+          actualOutput: null,
+          status: 'PASSED',
+          runtimeMs: res.runtimeMs || 0,
+          errorMessage: null,
+          killedMutant: false
+        };
+
+        // 1. Compilation / Syntax Error
         if (res.status === 'compilation_error' || res.status === 'invalid') {
           finalStatus = 'COMPILATION_ERROR';
           failureReason = res.error || 'Compilation or syntax error occurred';
+          tcRecord.status = 'COMPILATION_ERROR';
+          tcRecord.errorMessage = failureReason;
+          tcRecord.actualOutput = null;
+          tcRecord.killedMutant = false;
+          testCaseResults.push(tcRecord);
           break;
         }
 
-        // Infrastructure internal error
+        // 2. Infrastructure internal error
         if (res.status === 'internal_error') {
-          throw new Error(`[MutationProcessor] Runner infrastructure error during mutant execution: ${res.error || 'Internal error'}`);
+          tcRecord.status = 'EXECUTION_ERROR';
+          tcRecord.errorMessage = res.error || 'Runner infrastructure error during mutant execution';
+          tcRecord.actualOutput = null;
+          tcRecord.killedMutant = false;
+          testCaseResults.push(tcRecord);
+
+          hasInternalError = true;
+          internalErrorMessage = tcRecord.errorMessage;
+          continue;
         }
 
-        // Timeout (infinite loop / CPU limit)
+        // 3. Timeout (infinite loop / CPU limit)
         if (res.status === 'timeout') {
-          finalStatus = 'TIMEOUT';
-          killed = true;
-          killedByTest = `Test #${j + 1} (${tc.category || 'test'})`;
-          testInput = tc.input;
-          expectedOutput = String(tc.expectedOutput);
-          mutantOutput = 'timeout';
-          failureReason = `Execution timed out after ${res.runtimeMs || 2500}ms (infinite loop or resource exhaustion)`;
-          break;
+          hasTimeout = true;
+          timeoutMessage = `Execution timed out after ${res.runtimeMs || 2500}ms (infinite loop or resource exhaustion)`;
+          tcRecord.status = 'TIMEOUT';
+          tcRecord.errorMessage = timeoutMessage;
+          tcRecord.actualOutput = 'timeout';
+          tcRecord.killedMutant = false; // Timeouts must not be presented as successful kills
+          testCaseResults.push(tcRecord);
+          continue;
         }
 
-        // Runtime Exception
+        // 4. Runtime Exception - Must NOT be counted as killed!
         if (res.status === 'runtime_error') {
-          finalStatus = 'RUNTIME_ERROR';
-          killed = true;
-          killedByTest = `Test #${j + 1} (${tc.category || 'test'})`;
-          testInput = tc.input;
-          expectedOutput = String(tc.expectedOutput);
-          mutantOutput = res.output ? String(res.output) : 'runtime_error';
-          failureReason = `Runtime exception encountered: ${res.error || 'Exception'}`;
-          break;
+          hasRuntimeError = true;
+          runtimeErrorMessage = res.error || 'Runtime exception encountered';
+          tcRecord.status = 'RUNTIME_ERROR';
+          tcRecord.errorMessage = runtimeErrorMessage;
+          tcRecord.actualOutput = res.output ? String(res.output) : 'runtime_error';
+          tcRecord.killedMutant = false; // Runtime errors must not be presented as successful kills
+          testCaseResults.push(tcRecord);
+          continue;
         }
 
-        // Output Mismatch (Killed)
+        // 5. Output Verification
+        tcRecord.actualOutput = typeof res.output === 'object' ? JSON.stringify(res.output) : String(res.output ?? '');
         const matchesExpected = compareOutputs(res.output, tc.expectedOutput, questionContext);
+
         if (!matchesExpected) {
+          // Output Mismatch (Killed!)
           finalStatus = 'KILLED';
           killed = true;
           killedByTest = `Test #${j + 1} (${tc.category || 'test'})`;
           testInput = tc.input;
           expectedOutput = String(tc.expectedOutput);
-          mutantOutput = typeof res.output === 'object' ? JSON.stringify(res.output) : String(res.output);
+          mutantOutput = tcRecord.actualOutput;
           failureReason = `Output mismatch. Expected: ${tc.expectedOutput}, got: ${mutantOutput}`;
-          break;
+
+          tcRecord.status = 'FAILED';
+          tcRecord.killedMutant = true;
+          tcRecord.errorMessage = failureReason;
+          testCaseResults.push(tcRecord);
+          break; // Stop execution on first kill
+        } else {
+          tcRecord.status = 'PASSED';
+          tcRecord.killedMutant = false;
+          testCaseResults.push(tcRecord);
+        }
+      }
+
+      // If not killed by any test case, classify based on non-fatal errors or survival
+      if (!killed && finalStatus !== 'COMPILATION_ERROR') {
+        if (hasTimeout) {
+          finalStatus = 'TIMEOUT';
+          failureReason = timeoutMessage || 'Execution timed out';
+        } else if (hasRuntimeError) {
+          finalStatus = 'RUNTIME_ERROR';
+          failureReason = `Runtime exception encountered: ${runtimeErrorMessage || 'Exception'}`;
+        } else if (hasInternalError) {
+          finalStatus = 'RUNTIME_ERROR';
+          failureReason = `Runner infrastructure error: ${internalErrorMessage || 'Execution error'}`;
+        } else {
+          finalStatus = 'SURVIVED';
+          failureReason = 'All test cases passed identically against this mutant.';
         }
       }
 
       // Record results for this mutant with bounded sizes to protect against document explosion
       if (targetMutantEntry) {
+        targetMutantEntry.testCaseResults = testCaseResults;
         targetMutantEntry.executionStatus = finalStatus;
         targetMutantEntry.baselineExecutionStatus = finalStatus;
         targetMutantEntry.currentClassification = finalStatus;
@@ -300,6 +366,10 @@ export const processMutationJob = async (job) => {
     report.mutationScore = totalEligible > 0
       ? calculateMutationScore(report.killedCount, report.survivedCount)
       : null;
+
+    if (totalEligible === 0 && (report.runtimeErrorCount > 0 || report.compilationErrorCount > 0)) {
+      report.errorMessage = `Testing incomplete: All mutants encountered execution or compilation errors (${report.runtimeErrorCount} runtime, ${report.compilationErrorCount} compile).`;
+    }
 
     report.status = 'COMPLETED';
     report.activeLock = null;

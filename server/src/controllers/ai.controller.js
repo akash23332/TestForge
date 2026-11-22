@@ -1,4 +1,5 @@
 import { questionGeneratorService } from '../services/ai/questionGenerator.service.js';
+import { mcqGeneratorService } from '../services/ai/mcqGenerator.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 
@@ -128,8 +129,55 @@ export const regenerateSection = async (req, res, next) => {
   }
 };
 
+/**
+ * Generates candidate Multiple Choice Questions using Gemini with structured outputs,
+ * strict server-side validation, and persistent duplicate filtering.
+ * Returns reviewable in-memory candidate objects without persisting to the database.
+ */
+export const generateMcq = async (req, res, next) => {
+  try {
+    const {
+      subject = 'Computer Science',
+      topic = 'General',
+      subtopics = [],
+      count = 5,
+      difficulty = 'Medium',
+      style = 'conceptual',
+      answerType = 'single',
+      instructions = '',
+      sessionKey = null
+    } = req.body;
+
+    const ownerId = req.user ? req.user._id : null;
+    const effectiveSessionKey = sessionKey || (ownerId ? ownerId.toString() : 'default_session');
+
+    const result = await mcqGeneratorService.generateCandidateMcqs({
+      subject,
+      topic,
+      subtopics,
+      count,
+      difficulty,
+      style,
+      answerType,
+      instructions,
+      ownerId,
+      sessionKey: effectiveSessionKey
+    });
+
+    return ApiResponse.success(
+      res,
+      200,
+      result,
+      `Synthesized ${result.acceptedCount} candidate MCQs ready for review.`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   generateQuestion,
   regenerateSection,
-  clearSessionHistory
+  clearSessionHistory,
+  generateMcq
 };

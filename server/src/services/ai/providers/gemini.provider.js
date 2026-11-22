@@ -11,6 +11,10 @@ import {
   TEST_CASE_GENERATION_JSON_SCHEMA,
   buildTestCaseGenerationPrompt
 } from '../prompts/testCaseGeneration.prompt.js';
+import {
+  MCQ_GENERATION_JSON_SCHEMA,
+  buildMcqGenerationPrompt
+} from '../prompts/mcqGeneration.prompt.js';
 import { config } from '../../../config/env.js';
 import { ApiError } from '../../../utils/apiError.js';
 
@@ -300,6 +304,68 @@ export class GeminiProvider extends AIProvider {
 
         if (!parsedData || !Array.isArray(parsedData.testCases)) {
           throw ApiError.badGateway('Gemini test case response missing testCases array.', {
+            code: 'GEMINI_MALFORMED_RESPONSE',
+            parsedData
+          });
+        }
+
+        return parsedData;
+      } catch (err) {
+        clearTimeout(timer);
+        const mappedError = err instanceof ApiError ? err : this._handleApiError(err);
+        const isTransient = mappedError.statusCode === 503 || mappedError.details?.code === 'GEMINI_SERVICE_UNAVAILABLE';
+        if (isTransient && attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw mappedError;
+      }
+    }
+  }
+
+  /**
+   * Generates multiple-choice questions using Google Gemini with structured schema output.
+   */
+  async generateMcqs(options = {}) {
+    this._ensureConfigured();
+
+    const promptText = buildMcqGenerationPrompt(options);
+    const timeoutMs = options.timeoutMs || 45000;
+    const maxRetries = options.maxRetries ?? 2;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await this.client.models.generateContent({
+          model: this.modelName,
+          contents: promptText,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: MCQ_GENERATION_JSON_SCHEMA,
+            temperature: 0.3
+          }
+        });
+        clearTimeout(timer);
+
+        const rawText = response.text || (typeof response.text === 'function' ? response.text() : '');
+        if (!rawText || !rawText.trim()) {
+          throw ApiError.badGateway('Gemini returned an empty MCQ response.', { code: 'GEMINI_EMPTY_RESPONSE' });
+        }
+
+        let parsedData;
+        try {
+          parsedData = JSON.parse(rawText.trim());
+        } catch (parseErr) {
+          throw ApiError.badGateway(`Gemini MCQ response is not valid JSON: ${parseErr.message}`, {
+            code: 'GEMINI_MALFORMED_RESPONSE',
+            rawText
+          });
+        }
+
+        if (!parsedData || !Array.isArray(parsedData.questions)) {
+          throw ApiError.badGateway('Gemini MCQ response missing questions array.', {
             code: 'GEMINI_MALFORMED_RESPONSE',
             parsedData
           });

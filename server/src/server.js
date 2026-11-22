@@ -3,6 +3,7 @@ import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { User } from './models/User.js';
 import { runStartupRecovery, recoverUnavailableSubmissions } from './services/queue/executionRecovery.js';
+import { recoverStaleMutationRuns } from './services/queue/mutationRecovery.js';
 
 const ensureDemoAccounts = async () => {
   try {
@@ -50,6 +51,16 @@ const startServer = async () => {
       console.log(`✔ [TestForge] Startup recovery sweep completed: ${recoveryResult.recovered} recovered, ${recoveryResult.skipped} skipped (${recoveryResult.scanned} scanned).`);
     } catch (recErr) {
       console.warn('[TestForge] Notice: Startup recovery sweep skipped or non-fatal:', recErr.message);
+    }
+
+    // Startup mutation run recovery: safely recover stalled or abandoned mutation testing runs
+    try {
+      const mutRec = await recoverStaleMutationRuns();
+      if (mutRec.recovered > 0 || mutRec.unlocked > 0) {
+        console.log(`✔ [TestForge] Startup mutation recovery: ${mutRec.recovered} stalled runs reconciled, ${mutRec.unlocked} orphaned locks cleared.`);
+      }
+    } catch (mutRecErr) {
+      console.warn('[TestForge] Notice: Startup mutation recovery skipped or non-fatal:', mutRecErr.message);
     }
 
     // Start HTTP listener

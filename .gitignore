@@ -12,3 +12,9 @@ __pycache__/
 
 .git-backup/
 
+# AI & Agent metadata
+.agents/
+.claude/
+skills-lock.json
+
+

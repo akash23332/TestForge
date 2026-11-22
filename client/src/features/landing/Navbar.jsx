@@ -97,16 +97,7 @@ export const Navbar = ({
       </div>
 
       {/* Right Action CTAs */}
-      <div className="hidden sm:flex items-center gap-2.5">
-        <button
-          type="button"
-          onClick={onJoinTest}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-white/20 bg-white/[0.06] text-xs font-semibold text-white hover:bg-white/15 hover:border-white/30 transition-all cursor-pointer"
-        >
-          <KeyRound className="size-3.5 text-[#EDFF72]" />
-          <span>Join a Test</span>
-        </button>
-
+      <div className="hidden sm:flex items-center gap-2">
         <button
           type="button"
           onClick={onNavigateStudentPortal}
@@ -119,10 +110,19 @@ export const Navbar = ({
         <button
           type="button"
           onClick={onNavigateTeacherLogin}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#EDFF72] text-xs font-bold text-[#111] shadow-[0_4px_18px_rgba(237,255,114,0.35)] hover:shadow-[0_6px_22px_rgba(237,255,114,0.45)] hover:-translate-y-0.5 transition-all cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-transparent text-xs font-semibold text-[#CFD1CC] hover:text-white hover:bg-white/10 transition-all cursor-pointer"
         >
           <Shield className="size-3.5" />
-          <span>Teacher Login</span>
+          <span>Teacher Portal</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onJoinTest}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#EDFF72] text-xs font-bold text-[#111] shadow-[0_4px_18px_rgba(237,255,114,0.35)] hover:shadow-[0_6px_22px_rgba(237,255,114,0.45)] hover:-translate-y-0.5 transition-all cursor-pointer ml-1"
+        >
+          <KeyRound className="size-3.5 text-[#111]" />
+          <span>Join a Test</span>
         </button>
       </div>
 
@@ -191,24 +191,15 @@ export const Navbar = ({
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onJoinTest();
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/20 bg-white/10 text-xs font-bold text-white"
-            >
-              <KeyRound className="size-4 text-[#EDFF72]" />
-              <span>Join a Test</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
                 onNavigateStudentPortal();
               }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/15 bg-white/5 text-xs font-bold text-[#CFD1CC]"
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/5 text-xs font-bold text-[#CFD1CC] hover:text-white hover:bg-white/10 transition-colors"
             >
-              <GraduationCap className="size-4 text-[#EDFF72]" />
-              <span>Student Portal</span>
+              <span className="flex items-center gap-2">
+                <GraduationCap className="size-4 text-[#EDFF72]" />
+                <span>Student Portal</span>
+              </span>
+              <ArrowRight className="size-3.5 text-[#CFD1CC]" />
             </button>
 
             <button
@@ -217,10 +208,25 @@ export const Navbar = ({
                 setMobileMenuOpen(false);
                 onNavigateTeacherLogin();
               }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#EDFF72] text-xs font-extrabold text-[#111]"
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/5 text-xs font-bold text-[#CFD1CC] hover:text-white hover:bg-white/10 transition-colors"
             >
-              <Shield className="size-4" />
-              <span>Teacher Login</span>
+              <span className="flex items-center gap-2">
+                <Shield className="size-4 text-[#EDFF72]" />
+                <span>Teacher Portal</span>
+              </span>
+              <ArrowRight className="size-3.5 text-[#CFD1CC]" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onJoinTest();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#EDFF72] text-xs font-extrabold text-[#111] shadow-md hover:bg-[#e2f560] transition-colors mt-1"
+            >
+              <KeyRound className="size-4" />
+              <span>Join a Test</span>
             </button>
           </div>
         </div>

@@ -37,6 +37,54 @@ const mutantAuditEntrySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const mutantTestCaseResultSchema = new mongoose.Schema(
+  {
+    testCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TestCase',
+      default: null
+    },
+    testCaseNumber: {
+      type: Number,
+      required: true
+    },
+    input: {
+      type: String,
+      default: '',
+      maxlength: 10000
+    },
+    expectedOutput: {
+      type: String,
+      default: '',
+      maxlength: 10000
+    },
+    actualOutput: {
+      type: String,
+      default: null,
+      maxlength: 10000
+    },
+    status: {
+      type: String,
+      enum: ['PASSED', 'FAILED', 'RUNTIME_ERROR', 'COMPILATION_ERROR', 'EXECUTION_ERROR', 'TIMEOUT'],
+      required: true
+    },
+    runtimeMs: {
+      type: Number,
+      default: 0
+    },
+    errorMessage: {
+      type: String,
+      default: null,
+      maxlength: 5000
+    },
+    killedMutant: {
+      type: Boolean,
+      default: false
+    }
+  },
+  { _id: false }
+);
+
 const mutantResultSchema = new mongoose.Schema(
   {
     mutantId: {
@@ -142,6 +190,10 @@ const mutantResultSchema = new mongoose.Schema(
     runtimeMs: {
       type: Number,
       default: 0
+    },
+    testCaseResults: {
+      type: [mutantTestCaseResultSchema],
+      default: []
     }
   },
   { _id: false }
