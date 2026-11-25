@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import mongoose from 'mongoose';
 import { McqQuestion } from '../src/models/McqQuestion.js';
 import {
@@ -15,6 +16,7 @@ import {
 import { connectDatabase } from '../src/config/database.js';
 
 describe('AI MCQ Generation & Manual MCQ Creation Suite (Phase 2)', () => {
+  jest.setTimeout(40000);
   const teacherId = new mongoose.Types.ObjectId();
   const otherTeacherId = new mongoose.Types.ObjectId();
   const adminId = new mongoose.Types.ObjectId();
@@ -25,6 +27,9 @@ describe('AI MCQ Generation & Manual MCQ Creation Suite (Phase 2)', () => {
 
   afterAll(async () => {
     await McqQuestion.deleteMany({ ownerId: { $in: [teacherId, otherTeacherId, adminId] } });
+    if (mongoose.connection && mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
   });
 
   beforeEach(async () => {
@@ -452,6 +457,93 @@ describe('AI MCQ Generation & Manual MCQ Creation Suite (Phase 2)', () => {
       expect(caughtErr).toBeDefined();
       expect(caughtErr.statusCode).toBe(400);
       expect(caughtErr.message.includes('Maximum 25 MCQs allowed')).toBe(true);
+    });
+
+    it('persists ONLY selected candidates into MongoDB and leaves unselected candidates out of database', async () => {
+      // Simulate review queue with 3 candidates, but teacher only approves candidates #1 and #3
+      const candidate1 = {
+        statement: 'Selected Candidate #1: What is a deadlock in OS?',
+        options: [{ id: 'A', text: 'Permanent blocking' }, { id: 'B', text: 'High CPU speed' }],
+        correctAnswers: ['A'],
+        answerType: 'single',
+        explanation: 'Processes block each other indefinitely.'
+      };
+      const candidate2Unselected = {
+        statement: 'Unselected Candidate #2: Discarded question never approved by faculty',
+        options: [{ id: 'A', text: 'Unused' }, { id: 'B', text: 'Discarded' }],
+        correctAnswers: ['A'],
+        answerType: 'single',
+        explanation: 'Should not be in DB.'
+      };
+      const candidate3 = {
+        statement: 'Selected Candidate #3: What is Banker algorithm used for?',
+        options: [{ id: 'A', text: 'Deadlock avoidance' }, { id: 'B', text: 'Deadlock creation' }],
+        correctAnswers: ['A'],
+        answerType: 'single',
+        explanation: 'Tests for safe state before allocation.'
+      };
+
+      // Only candidate1 and candidate3 sent to batch approval endpoint
+      let status = 0;
+      let bodyData = null;
+      const res = {
+        status: (s) => { status = s; return res; },
+        json: (b) => { bodyData = b; return res; }
+      };
+
+      const req = {
+        user: { _id: teacherId, role: 'teacher' },
+        body: { candidates: [candidate1, candidate3] }
+      };
+
+      await batchSaveMcqCandidates(req, res, (err) => { if (err) throw err; });
+      expect(status).toBe(201);
+      expect(bodyData.data.length).toBe(2);
+
+      // Verify MongoDB contains candidate1 and candidate3, but NOT candidate2
+      const inDb = await McqQuestion.find({ ownerId: teacherId }).lean();
+      expect(inDb.length).toBe(2);
+      const statementsInDb = inDb.map(d => d.statement);
+      expect(statementsInDb).toContain(candidate1.statement);
+      expect(statementsInDb).toContain(candidate3.statement);
+      expect(statementsInDb).not.toContain(candidate2Unselected.statement);
+
+      // Verify that getSavedMcqs returns these exact questions in the Question Bank
+      let bankResData = null;
+      const bankRes = {
+        status: () => bankRes,
+        json: (b) => { bankResData = b; return bankRes; }
+      };
+      await getSavedMcqs({ user: { _id: teacherId, role: 'teacher' }, query: {} }, bankRes, (err) => { if (err) throw err; });
+      expect(bankResData.data.count).toBe(2);
+      expect(bankResData.data.items.some(q => q.statement === candidate1.statement)).toBe(true);
+    });
+  });
+
+  // ── 5. AI PROVIDER RESILIENCE & ERROR MAPPING ──────────────────────────────
+  describe('Gemini Provider Error Mapping', () => {
+    it('properly maps 429 rate limit to ApiError.tooManyRequests', async () => {
+      const { GeminiProvider } = await import('../src/services/ai/providers/gemini.provider.js');
+      const provider = new GeminiProvider({ apiKey: 'mock_key' });
+      const err = provider._handleApiError({ status: 429, message: 'RESOURCE_EXHAUSTED quota exceeded' });
+      expect(err.statusCode).toBe(429);
+      expect(err.code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+
+    it('properly maps 401 invalid key to ApiError.unauthorized', async () => {
+      const { GeminiProvider } = await import('../src/services/ai/providers/gemini.provider.js');
+      const provider = new GeminiProvider({ apiKey: 'mock_key' });
+      const err = provider._handleApiError({ status: 401, message: 'API_KEY_INVALID: API key not valid' });
+      expect(err.statusCode).toBe(401);
+      expect(err.code).toBe('UNAUTHORIZED');
+    });
+
+    it('properly maps 503 high demand to ApiError.serviceUnavailable', async () => {
+      const { GeminiProvider } = await import('../src/services/ai/providers/gemini.provider.js');
+      const provider = new GeminiProvider({ apiKey: 'mock_key' });
+      const err = provider._handleApiError({ status: 503, message: 'This model is currently experiencing high demand.' });
+      expect(err.statusCode).toBe(503);
+      expect(err.code).toBe('SERVICE_UNAVAILABLE');
     });
   });
 

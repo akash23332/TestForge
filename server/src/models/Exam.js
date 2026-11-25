@@ -150,13 +150,25 @@ const examSchema = new mongoose.Schema(
         type: Boolean,
         default: true
       },
+      detectWindowBlur: {
+        type: Boolean,
+        default: true
+      },
       maxTabSwitchesAllowed: {
         type: Number,
-        default: 5
+        default: 3
       },
       enforceFullscreen: {
         type: Boolean,
-        default: false
+        default: true
+      },
+      preventClipboard: {
+        type: Boolean,
+        default: true
+      },
+      preventContextMenu: {
+        type: Boolean,
+        default: true
       }
     },
     status: {

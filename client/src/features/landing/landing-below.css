@@ -169,7 +169,6 @@
   height: 100svh;
   display: flex;
   align-items: center;
-  overflow: hidden;
 }
 
 .tf-editorial-landing .tf-tour-grid {
@@ -853,25 +852,55 @@
   width: 100%;
   height: clamp(220px, 26vw, 400px);
   overflow: visible;
+  display: block;
 }
 
-.tf-editorial-landing .tf-chart-path-main {
-  stroke-dasharray: 1400;
-  stroke-dashoffset: 1400;
-  transition: stroke-dashoffset 2.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+/* Floating dark pin labels over chart */
+.tf-editorial-landing .tf-pin-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #171819;
+  color: #FFFFFF;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  z-index: 5;
+  pointer-events: none;
 }
 
-.tf-editorial-landing .on .tf-chart-path-main {
-  stroke-dashoffset: 0;
+.tf-editorial-landing .tf-pin-label .tf-pin-val {
+  color: var(--lime);
+  font-weight: 700;
 }
 
-.tf-editorial-landing .tf-chart-gradient-area {
-  opacity: 0;
-  transition: opacity 1s ease 1.4s;
+.tf-editorial-landing .tf-pin-label .tf-pin-pointer {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #171819;
 }
 
-.tf-editorial-landing .on .tf-chart-gradient-area {
-  opacity: 1;
+@keyframes tfPinBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.tf-editorial-landing .tf-pin-float {
+  animation: tfPinBob 5s ease-in-out infinite;
 }
 
 .tf-editorial-landing .tf-stat-counter {
@@ -1156,12 +1185,6 @@
   }
   .tf-editorial-landing h2 u {
     background-size: 100% 100% !important;
-  }
-  .tf-editorial-landing .tf-chart-path-main {
-    stroke-dashoffset: 0 !important;
-  }
-  .tf-editorial-landing .tf-chart-gradient-area {
-    opacity: 1 !important;
   }
   .tf-editorial-landing .tf-steps-draw-overlay {
     transform: none !important;

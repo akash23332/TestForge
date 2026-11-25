@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
+  ShieldCheck,
   Clock,
   Award,
   Layers,
@@ -10,20 +11,61 @@ import {
   CheckSquare,
   Square,
   ArrowRight,
-  Maximize2
+  Maximize2,
+  Minimize2,
+  Lock,
+  Eye,
+  FileCheck
 } from 'lucide-react';
 
 export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) => {
   const [hasAgreed, setHasAgreed] = useState(false);
-  const { exam, attempt, questions = [] } = sessionData;
+  const [isFullscreenActive, setIsFullscreenActive] = useState(false);
+  const [fullscreenTested, setFullscreenTested] = useState(false);
+
+  const { exam, attempt, questions = [], securityPolicy } = sessionData;
 
   const totalQuestions = questions.length;
   const duration = exam.durationMinutes || 60;
   const totalMarks = exam.totalMarks || totalQuestions * 10;
-  const maxTabSwitches = exam.proctoringSettings?.maxTabSwitchesAllowed || 5;
+  const maxTabSwitches = exam.proctoringSettings?.maxTabSwitchesAllowed || 3;
 
-  const handleStart = () => {
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreenActive(active);
+      if (active) {
+        setFullscreenTested(true);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleToggleFullscreenTest = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Fullscreen request blocked or unsupported:', err);
+    }
+  };
+
+  const handleStart = async () => {
     if (!hasAgreed) return;
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch {
+      // User gesture might still pass through or browser may restrict, workspace handles fallback
+    }
     onStartExam();
   };
 
@@ -92,6 +134,93 @@ export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) =>
         </div>
       </div>
 
+      {/* Global Secure Exam Mode Card */}
+      <div className="bg-[#191A1D] text-white border border-[#2D3139] rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-[#EDFF72]/15 text-[#EDFF72] border border-[#EDFF72]/20">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white tracking-tight">Global Secure Exam Mode</h3>
+                <span className="px-2 py-0.5 rounded-md bg-[#EDFF72] text-[#191A1D] text-[10px] font-extrabold uppercase tracking-wide">
+                  Active
+                </span>
+              </div>
+              <p className="text-xs text-[#9FA6B2] mt-0.5">
+                Standard platform security applies automatically. Zero software or extension downloads required.
+              </p>
+            </div>
+          </div>
+
+          {/* Test Fullscreen interactive button */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreenTest}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+              isFullscreenActive
+                ? 'bg-[#EDFF72] text-[#191A1D] shadow-sm'
+                : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+            }`}
+          >
+            {isFullscreenActive ? (
+              <>
+                <Minimize2 className="h-4 w-4" />
+                <span>Exit Fullscreen Test</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-4 w-4 text-[#EDFF72]" />
+                <span>{fullscreenTested ? '✓ Fullscreen Verified (Test Again)' : 'Test Fullscreen Compatibility'}</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-[#EDFF72] mb-1.5">
+              <Maximize2 className="h-4 w-4" />
+              <span className="text-xs font-bold">Fullscreen Required</span>
+            </div>
+            <p className="text-[11px] text-[#C2C8D2] leading-relaxed">
+              Begins on start. If exited, a prompt allows you to return immediately.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-[#EDFF72] mb-1.5">
+              <Eye className="h-4 w-4" />
+              <span className="text-xs font-bold">Tab & Focus Guard</span>
+            </div>
+            <p className="text-[11px] text-[#C2C8D2] leading-relaxed">
+              Switching tabs or minimizing logs an activity event with graduated notices.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-[#EDFF72] mb-1.5">
+              <Lock className="h-4 w-4" />
+              <span className="text-xs font-bold">Restricted Clipboard</span>
+            </div>
+            <p className="text-[11px] text-[#C2C8D2] leading-relaxed">
+              External copy, cut, paste, and context menu triggers are intercepted.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-[#EDFF72] mb-1.5">
+              <FileCheck className="h-4 w-4" />
+              <span className="text-xs font-bold">Atomic Autosave</span>
+            </div>
+            <p className="text-[11px] text-[#C2C8D2] leading-relaxed">
+              Progress is continuously preserved. You will never lose answers on interruption.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Rules and Guidelines */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Assessment Regulations */}
@@ -111,19 +240,19 @@ export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) =>
             <li className="flex items-start gap-2.5">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Continuous Autosave:</strong> Your code is persisted every 5 seconds. In case of unexpected connection loss, your progress is recovered automatically.
+                <strong className="text-[#171819]">Continuous Autosave:</strong> Your draft is preserved continuously. In case of browser reload, your work resumes seamlessly.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Runtime Limits:</strong> Hard execution limit is 2.0s per test case with a 64MB memory quota.
+                <strong className="text-[#171819]">Runtime Limits:</strong> Hard execution limit is 2.0s per test case with standard execution memory bounds.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Supported Languages:</strong> Select from JavaScript (Node.js 22), Python 3, Java (OpenJDK 17), or C++20.
+                <strong className="text-[#171819]">Multi-Language Support:</strong> Code in JavaScript (Node.js), Python 3, Java, or C++.
               </span>
             </li>
           </ul>
@@ -132,27 +261,33 @@ export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) =>
         {/* Proctoring & Security Guard */}
         <div className="bg-white border border-[#DDE1DA] rounded-3xl p-6 space-y-4 shadow-xs">
           <div className="flex items-center gap-2.5 text-[#171819] font-bold text-base pb-3 border-b border-[#DDE1DA]">
-            <ShieldAlert className="h-4 w-4 text-rose-600" />
-            <h3>Integrity & Anti-Cheat System</h3>
+            <ShieldAlert className="h-4 w-4 text-[#191A1D]" />
+            <h3>Violation & Graduated Notice Policy</h3>
           </div>
 
           <ul className="space-y-3 text-xs text-[#777D78] leading-relaxed">
             <li className="flex items-start gap-2.5">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Tab Switching Audited:</strong> Leaving the active browser tab or minimizing the window logs an infraction event. (Limit: {maxTabSwitches} infractions).
+                <strong className="text-[#171819]">1st Infraction:</strong> Standard reminder. Return to fullscreen mode to continue testing.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Zero-Leak Test Suite:</strong> Hidden edge cases evaluate your code in server memory. Private inputs and answers are never leaked to client tools.
+                <strong className="text-[#171819]">2nd Infraction:</strong> Elevated warning regarding repeated focus or fullscreen loss.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-[#171819]">Strict Atomic Clock:</strong> Time countdown is governed by server time. When time reaches 00:00, remaining answers are auto-locked and finalized.
+                <strong className="text-[#171819]">3rd Infraction:</strong> Attempt is flagged for teacher review. <em className="text-[#171819]">Non-destructive: You will NOT be locked out and your answers remain safe.</em>
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-[#171819]">Fair Assessment:</strong> Browser notifications or accidental touches do not automatically cancel your attempt.
               </span>
             </li>
           </ul>
@@ -177,7 +312,7 @@ export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) =>
               Candidate Academic Integrity Declaration
             </p>
             <p className="text-xs text-[#777D78] leading-relaxed">
-              I certify that I am <strong className="text-[#171819]">{attempt.candidateInfo?.name}</strong> and that all solutions submitted during this session will be solely my own original work, completed without unauthorized aids, generative bots, or peer collaboration.
+              I certify that I am <strong className="text-[#171819]">{attempt.candidateInfo?.name}</strong> and that all solutions submitted during this session will be solely my own original work, completed in fullscreen mode without unauthorized aids, external applications, or peer collaboration.
             </p>
           </div>
         </div>
@@ -197,7 +332,7 @@ export const StudentInstructionsView = ({ sessionData, onStartExam, onBack }) =>
             disabled={!hasAgreed}
             className="w-full sm:w-auto bg-[#191A1D] hover:bg-[#2A2B2F] active:scale-[0.99] text-white font-bold py-3 px-8 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <span>Launch Coding Environment</span>
+            <span>Launch Coding Environment & Begin Exam</span>
             <ArrowRight className="h-4 w-4 text-[#EDFF72]" />
           </button>
         </div>

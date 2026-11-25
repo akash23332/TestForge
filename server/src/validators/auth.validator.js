@@ -15,8 +15,8 @@ export const validateRegister = (req, res, next) => {
       'any.required': 'Password is required.',
       'string.min': 'Password must be at least 6 characters.'
     }),
-    role: Joi.string().valid('student').default('student').messages({
-      'any.only': 'Public registration only permits student accounts.'
+    role: Joi.string().trim().lowercase().valid('student', 'teacher', 'faculty', 'candidate').default('student').messages({
+      'any.only': 'Role must be either student or teacher.'
     })
   });
 

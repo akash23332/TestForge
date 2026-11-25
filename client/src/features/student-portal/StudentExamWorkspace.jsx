@@ -175,18 +175,31 @@ export const StudentExamWorkspace = ({
   const [submissionResults, setSubmissionResults] = useState(null);
   const [isTestDrawerExpanded, setIsTestDrawerExpanded] = useState(true);
 
-  // Proctoring & Autosave state
+  // Proctoring & Global Secure Exam Mode state
   const [saveStatus, setSaveStatus] = useState('synced'); // 'saving' | 'synced' | 'error'
   const [tabSwitches, setTabSwitches] = useState(attempt.tabSwitchCount || 0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [blurCount, setBlurCount] = useState(attempt.blurCount || 0);
+  const [fullscreenExits, setFullscreenExits] = useState(attempt.fullscreenExitCount || 0);
+  const [clipboardViolations, setClipboardViolations] = useState(attempt.clipboardViolationCount || 0);
+  const [totalViolations, setTotalViolations] = useState(attempt.totalViolations || 0);
+  const [needsReview, setNeedsReview] = useState(Boolean(attempt.needsReview));
+  const [violationLevel, setViolationLevel] = useState(
+    (attempt.totalViolations || 0) <= 1 ? 1 : (attempt.totalViolations || 0) === 2 ? 2 : 3
+  );
+  const [isFullscreen, setIsFullscreen] = useState(
+    typeof document !== 'undefined' ? Boolean(document.fullscreenElement) : false
+  );
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [warningTitle, setWarningTitle] = useState('Security Notice');
   const [warningMessage, setWarningMessage] = useState('');
+  const [isExamLocked, setIsExamLocked] = useState(false);
+  const [isAutoSubmitted, setIsAutoSubmitted] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showProctoringPopover, setShowProctoringPopover] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
-  const maxTabSwitches = exam.proctoringSettings?.maxTabSwitchesAllowed || 5;
+  const maxTabSwitches = exam.proctoringSettings?.maxTabSwitchesAllowed || 3;
 
   // ── Sync Code / Option on Question Switch ─────────────────────────────────
   useEffect(() => {
@@ -410,54 +423,226 @@ export const StudentExamWorkspace = ({
     triggerAutosave(currentCode, selectedLanguage, selectedOption, nextReview);
   };
 
-  // ── Proctoring Anti-Cheat Event Listener ──────────────────────────────────
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.hidden && attempt._id) {
-        try {
-          const res = await api.post(`/attempts/${attempt._id}/activity`, {
-            eventType: 'TAB_SWITCH',
-            details: 'Candidate navigated away from examination tab.'
-          });
-          const newCount = res.data.data?.tabSwitchCount || (tabSwitches + 1);
-          setTabSwitches(newCount);
-          setWarningMessage(
-            `Tab switch detected. You navigated away from the active examination window. Infraction recorded: ${newCount} of ${maxTabSwitches}. Please stay on this tab to avoid assessment cancellation.`
-          );
-          setShowWarningModal(true);
-        } catch {
-          // ignore
-        }
-      }
-    };
+  // ── Global Secure Exam Mode Monitoring & Deduplicated Event Listeners ──
+  const lastEventRef = useRef({ type: null, time: 0 });
+  const lastModalRef = useRef(0);
 
-    const handleWindowBlur = async () => {
+  const logSecurityEvent = useCallback(
+    async (eventType, details) => {
       if (!attempt._id) return;
+      const now = Date.now();
+
+      // Client-side deduplication / throttle:
+      // Suppress repeated identical events within 2000ms or paired TAB_SWITCH + WINDOW_BLUR within 2000ms
+      const isPair =
+        (lastEventRef.current.type === 'TAB_SWITCH' && eventType === 'WINDOW_BLUR') ||
+        (lastEventRef.current.type === 'WINDOW_BLUR' && eventType === 'TAB_SWITCH');
+      const isRapidSame =
+        lastEventRef.current.type === eventType && now - lastEventRef.current.time < 2000;
+
+      if (isRapidSame || (isPair && now - lastEventRef.current.time < 2000)) {
+        return; // Suppressed on client
+      }
+
+      lastEventRef.current = { type: eventType, time: now };
+
       try {
-        await api.post(`/attempts/${attempt._id}/activity`, {
-          eventType: 'WINDOW_BLUR',
-          details: 'Window lost focus.'
+        const res = await api.post(`/attempts/${attempt._id}/activity`, {
+          eventType,
+          details
         });
-      } catch {
-        // ignore
+
+        const data = res.data?.data;
+        if (data) {
+          if (data.tabSwitchCount !== undefined) setTabSwitches(data.tabSwitchCount);
+          if (data.blurCount !== undefined) setBlurCount(data.blurCount);
+          if (data.fullscreenExitCount !== undefined) setFullscreenExits(data.fullscreenExitCount);
+          if (data.clipboardViolationCount !== undefined) setClipboardViolations(data.clipboardViolationCount);
+          if (data.totalViolations !== undefined) setTotalViolations(data.totalViolations);
+          if (data.needsReview !== undefined) setNeedsReview(data.needsReview);
+          if (data.violationLevel !== undefined) setViolationLevel(data.violationLevel);
+
+          // ── Automatic Submission on 4th Confirmed Tab Switch ──
+          if (data.autoSubmitted) {
+            setIsAutoSubmitted(true);
+            setIsExamLocked(true);
+            setShowWarningModal(false);
+            if (typeof document !== 'undefined' && document.fullscreenElement) {
+              document.exitFullscreen().catch(() => {});
+            }
+            alert(
+              'Your examination has been automatically submitted because the maximum permitted tab switches (4 violations) was reached.\n\nAll saved answers have been persisted and submitted for teacher review.'
+            );
+            if (onExamSubmitted) {
+              onExamSubmitted(data.attempt || {
+                ...attempt,
+                status: 'SUBMITTED',
+                autoSubmitted: true,
+                autoSubmitReason: data.autoSubmitReason || 'Exceeded maximum permitted tab switches (4 violations)'
+              });
+            }
+            return;
+          }
+
+          // ── Progressive Violation Modals & Lock Enforcement ──
+          if (data.isLocked || (data.tabSwitchCount !== undefined && data.tabSwitchCount >= 3)) {
+            setIsExamLocked(true);
+          }
+
+          const isInfraction = [
+            'TAB_SWITCH',
+            'WINDOW_BLUR',
+            'FULLSCREEN_EXIT',
+            'COPY_ATTEMPT',
+            'CUT_ATTEMPT',
+            'PASTE_ATTEMPT'
+          ].includes(eventType);
+
+          if (isInfraction && now - lastModalRef.current > 2000) {
+            lastModalRef.current = now;
+            const tabCount = data.tabSwitchCount !== undefined ? data.tabSwitchCount : tabSwitches;
+
+            if (data.isLocked || tabCount >= 3) {
+              setIsExamLocked(true);
+              setWarningTitle('Exam Locked: Repeated Tab Switching');
+              setWarningMessage(
+                'Your exam interface is temporarily locked because 3 tab switches have been recorded. Your session has been flagged for instructor review. All saved code and selected answers remain safe. Note: Time continues to run. Click Resume below to re-enter fullscreen and unlock. WARNING: A 4th tab switch will immediately and permanently auto-submit your exam.'
+              );
+            } else if (tabCount === 2) {
+              setWarningTitle('Final Warning: Second Tab Switch Detected');
+              setWarningMessage(
+                'Second tab switch detected. The next (3rd) tab switch will lock your exam interface, and a fourth will automatically submit your exam. Please remain in fullscreen and focused on TestForge.'
+              );
+            } else if (tabCount === 1 && (eventType === 'TAB_SWITCH' || eventType === 'WINDOW_BLUR')) {
+              setWarningTitle('Security Notice: Tab Switch Detected');
+              setWarningMessage(
+                'First tab switch detected. Secure Exam Mode monitors browser focus and tab changes. Repeated tab switches will lock your exam and result in automatic submission. Please stay on this screen.'
+              );
+            } else if (eventType === 'FULLSCREEN_EXIT') {
+              setWarningTitle('Fullscreen Mode Exited');
+              setWarningMessage(
+                'TestForge Secure Exam Mode requires active fullscreen. Fullscreen exits are recorded separately in your activity audit and do not count as tab switches. Please click Resume to return to fullscreen mode.'
+              );
+            } else {
+              setWarningTitle('Security Notice: Interruption Logged');
+              setWarningMessage(
+                details || 'Activity interruption recorded. Standard monitoring is active on all TestForge exams.'
+              );
+            }
+            setShowWarningModal(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Security activity recording notice:', err);
+      }
+    },
+    [attempt, onExamSubmitted, tabSwitches]
+  );
+
+  useEffect(() => {
+    // 1. Initial fullscreen check/enforcement
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement
+        .requestFullscreen()
+        .then(() => {
+          setIsFullscreen(true);
+          logSecurityEvent('FULLSCREEN_ENTER', 'Candidate entered fullscreen on exam workspace start.');
+        })
+        .catch(() => {
+          // Handled gracefully if browser requires user gesture
+        });
+    }
+
+    // 2. Fullscreen change listener
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active) {
+        logSecurityEvent('FULLSCREEN_EXIT', 'Candidate exited fullscreen mode.');
+      } else {
+        logSecurityEvent('FULLSCREEN_ENTER', 'Candidate resumed fullscreen mode.');
       }
     };
 
+    // 3. Tab visibility listener
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        logSecurityEvent('TAB_SWITCH', 'Candidate switched browser tab or minimized window.');
+      }
+    };
+
+    // 4. Window blur/focus listeners
+    const handleWindowBlur = () => {
+      logSecurityEvent('WINDOW_BLUR', 'Browser window lost focus.');
+    };
+    const handleWindowFocus = () => {
+      logSecurityEvent('WINDOW_FOCUS', 'Browser window regained focus.');
+    };
+
+    // 5. Clipboard restrictions (copy, cut, paste)
+    const handleCopy = () => {
+      logSecurityEvent('COPY_ATTEMPT', 'Clipboard copy action intercepted.');
+    };
+    const handleCut = () => {
+      logSecurityEvent('CUT_ATTEMPT', 'Clipboard cut action intercepted.');
+    };
+    const handlePaste = () => {
+      logSecurityEvent('PASTE_ATTEMPT', 'Clipboard paste action intercepted.');
+    };
+
+    // 6. Context menu restriction
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      logSecurityEvent('CONTEXT_MENU', 'Context menu trigger intercepted.');
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('cut', handleCut);
+    document.addEventListener('paste', handlePaste);
+    document.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('cut', handleCut);
+      document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('contextmenu', handleContextMenu);
+
+      // GUARANTEE: Never leave browser in fullscreen when navigating away from exam workspace
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     };
-  }, [attempt._id, tabSwitches, maxTabSwitches]);
+  }, [logSecurityEvent]);
 
   // ── Fullscreen Support ────────────────────────────────────────────────────
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      document.documentElement
+        .requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  const handleResumeFromWarning = async () => {
+    setShowWarningModal(false);
+    setIsExamLocked(false);
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -702,10 +887,16 @@ export const StudentExamWorkspace = ({
     setIsFinalizing(true);
     try {
       const res = await api.post(`/attempts/${attempt._id}/finalize`);
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => {});
+      }
       if (onExamSubmitted) {
         onExamSubmitted(res.data.data);
       }
     } catch (err) {
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => {});
+      }
       alert(err.response?.data?.message || err.customMessage || 'Submission error');
       setIsFinalizing(false);
     }
@@ -804,31 +995,45 @@ export const StudentExamWorkspace = ({
             </span>
           </div>
 
-          {/* Discreet Proctoring Indicator */}
+          {/* Secure Exam Mode Indicator */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowProctoringPopover(!showProctoringPopover)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors cursor-pointer ${
-                tabSwitches > 0
+                needsReview
+                  ? 'bg-rose-50 border-rose-300 text-rose-800'
+                  : totalViolations > 0
                   ? 'bg-amber-50 border-amber-300 text-amber-800'
                   : 'bg-[#FFFFFF] border-[#DDE1DA] text-[#171819] hover:bg-[#F5F6F3]'
               }`}
-              title="Click to view academic integrity and proctoring status"
+              title="Click to view Secure Exam Mode and integrity audit status"
             >
-              <ShieldCheck className={`h-3.5 w-3.5 ${tabSwitches > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
+              <ShieldCheck
+                className={`h-3.5 w-3.5 ${
+                  needsReview
+                    ? 'text-rose-600'
+                    : totalViolations > 0
+                    ? 'text-amber-600'
+                    : 'text-emerald-600'
+                }`}
+              />
               <span className="hidden sm:inline">
-                {tabSwitches > 0 ? `${tabSwitches}/${maxTabSwitches} Warnings` : 'Monitored'}
+                {needsReview
+                  ? 'Review Flagged'
+                  : totalViolations > 0
+                  ? `${totalViolations} Events`
+                  : 'Secure Mode Active'}
               </span>
             </button>
 
-            {/* Discreet Proctoring Popover */}
+            {/* Secure Exam Mode Popover */}
             {showProctoringPopover && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xl z-50 text-xs space-y-3">
+              <div className="absolute right-0 top-full mt-2 w-80 bg-[#FFFFFF] border border-[#DDE1DA] rounded-2xl p-4 shadow-xl z-50 text-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-[#DDE1DA]">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold text-[#171819]">Proctoring Active</span>
+                    <span className="font-bold text-[#171819]">Secure Exam Mode</span>
                   </div>
                   <button
                     type="button"
@@ -841,29 +1046,51 @@ export const StudentExamWorkspace = ({
 
                 <div className="space-y-2 text-[#777D78]">
                   <div className="flex items-center justify-between">
-                    <span>Window Status:</span>
-                    <span className="font-semibold text-emerald-700">Focused & Active</span>
+                    <span>Fullscreen Status:</span>
+                    <span className={`font-semibold ${isFullscreen ? 'text-emerald-700' : 'text-amber-600'}`}>
+                      {isFullscreen ? 'Active (Locked)' : 'Exited'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Tab Switch Infractions:</span>
+                    <span>Tab Switches:</span>
                     <span className={`font-bold ${tabSwitches > 0 ? 'text-amber-600' : 'text-[#171819]'}`}>
-                      {tabSwitches} / {maxTabSwitches}
+                      {tabSwitches}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Candidate:</span>
-                    <span className="font-medium text-[#171819]">
-                      {attempt.candidateInfo?.name || 'Verified Student'}
+                    <span>Window Blurs:</span>
+                    <span className={`font-bold ${blurCount > 0 ? 'text-amber-600' : 'text-[#171819]'}`}>
+                      {blurCount}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Autosave Cloud:</span>
-                    <span className="font-medium text-emerald-700">Continuous Sync</span>
+                    <span>Fullscreen Exits:</span>
+                    <span className={`font-bold ${fullscreenExits > 0 ? 'text-amber-600' : 'text-[#171819]'}`}>
+                      {fullscreenExits}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Total Events:</span>
+                    <span
+                      className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                        needsReview
+                          ? 'bg-rose-100 text-rose-800'
+                          : totalViolations > 0
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {needsReview ? `${totalViolations} (Flagged for Review)` : `${totalViolations} (Normal)`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Autosave:</span>
+                    <span className="font-medium text-emerald-700">Continuous Cloud Sync</span>
                   </div>
                 </div>
 
                 <p className="text-[10px] text-[#777D78] pt-1 border-t border-[#DDE1DA] leading-relaxed">
-                  Examination rules prohibit switching tabs or using unauthorized external windows.
+                  Platform policy automatically monitors tab, focus, and fullscreen activity.
                 </p>
               </div>
             )}
@@ -1737,17 +1964,35 @@ export const StudentExamWorkspace = ({
 
       </div>
 
-      {/* ── 4. TAB SWITCH WARNING MODAL ──────────────────────────────────── */}
+      {/* ── 4. GRADUATED SECURE EXAM WARNING MODAL ────────────────────── */}
       {showWarningModal && (
-        <div className="fixed inset-0 z-50 bg-[#171819]/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-[#171819]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-3xl p-6 sm:p-7 max-w-md w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600">
+              <div
+                className={`p-3 rounded-2xl border ${
+                  isExamLocked || tabSwitches >= 3
+                    ? 'bg-rose-50 border-rose-200 text-rose-600'
+                    : tabSwitches === 2
+                    ? 'bg-amber-50 border-amber-200 text-amber-600'
+                    : 'bg-amber-50 border-amber-200 text-amber-600'
+                }`}
+              >
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#171819]">Security Notice: Tab Navigation</h3>
-                <span className="text-xs text-amber-700 font-medium">Proctoring Infraction Logged</span>
+                <h3 className="text-base font-bold text-[#171819]">{warningTitle}</h3>
+                <span
+                  className={`text-[11px] font-semibold ${
+                    isExamLocked || tabSwitches >= 3 ? 'text-rose-700' : 'text-amber-700'
+                  }`}
+                >
+                  {isExamLocked || tabSwitches >= 3
+                    ? 'Locked (Level 3 of 4) • Review Flagged'
+                    : tabSwitches === 2
+                    ? 'Final Warning (Level 2 of 4)'
+                    : `Security Warning (Level 1 of 4)`}
+                </span>
               </div>
             </div>
 
@@ -1755,17 +2000,23 @@ export const StudentExamWorkspace = ({
               {warningMessage}
             </p>
 
-            <div className="p-3 rounded-xl bg-[#F5F6F3] border border-[#DDE1DA] text-[11px] text-[#777D78] space-y-1">
-              <div>• Window switching is monitored by TestForge integrity guard.</div>
-              <div>• Exceeding {maxTabSwitches} infractions may result in automatic submission.</div>
+            <div className="p-3.5 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA] text-[11px] text-[#555A57] space-y-1.5">
+              <div className="font-semibold text-[#171819] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Fairness & Autosave Protection Active
+              </div>
+              <div>• All answers and code drafts are continuously saved to the cloud.</div>
+              <div>• Assessment timer continues to run while exam is locked.</div>
+              <div>• 4th confirmed tab switch will automatically submit this assessment.</div>
             </div>
 
             <button
               type="button"
-              onClick={() => setShowWarningModal(false)}
-              className="w-full py-2.5 bg-[#191A1D] hover:bg-[#2A2B2F] text-[#FFFFFF] font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-xs"
+              onClick={handleResumeFromWarning}
+              className="w-full py-3 bg-[#191A1D] hover:bg-[#2A2B2F] active:scale-[0.99] text-[#EDFF72] font-bold text-xs rounded-xl cursor-pointer transition-all shadow-xs flex items-center justify-center gap-2"
             >
-              I Understand & Return to Exam
+              <span>{isExamLocked ? 'Unlock Exam & Re-enter Fullscreen' : 'Resume Exam & Re-enter Fullscreen'}</span>
+              <Maximize className="h-3.5 w-3.5 text-[#EDFF72]" />
             </button>
           </div>
         </div>

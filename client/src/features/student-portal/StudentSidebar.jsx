@@ -9,16 +9,16 @@ import {
   BookOpen,
   Settings,
   LogOut,
-  Sparkles,
+  Sparkles
 } from 'lucide-react';
 
 export const STUDENT_NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-  { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: FileText },
+  { id: 'overview', label: 'Student Overview', path: '/student/overview', icon: FileText },
   { id: 'join-test', label: 'Join Test', path: '/student/join-test', icon: KeyRound },
-  { id: 'upcoming-tests', label: 'Upcoming Tests', path: '/student/upcoming', icon: Calendar },
+  { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: Calendar },
   { id: 'test-history', label: 'Test History', path: '/student/history', icon: History },
-  { id: 'analytics', label: 'Analytics', path: '/student/analytics', icon: BarChart3 },
+  { id: 'analytics', label: 'Performance Analytics', path: '/student/analytics', icon: BarChart3 },
   { id: 'learning', label: 'My Learning', path: '/student/learning', icon: BookOpen },
   { id: 'settings', label: 'Settings', path: '/student/settings', icon: Settings },
 ];
@@ -32,21 +32,21 @@ export const StudentSidebar = ({
 }) => {
   const [tooltip, setTooltip] = useState({ text: '', top: 0, visible: false });
 
-  // Main items in vertical stack
+  // Main navigation items in strict requested order
   const mainNavItems = [
     { id: 'dashboard', label: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-    { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: FileText },
+    { id: 'overview', label: 'Student Overview', path: '/student/overview', icon: FileText },
     { id: 'join-test', label: 'Join Test', path: '/student/join-test', icon: KeyRound },
-    { id: 'upcoming-tests', label: 'Upcoming Tests', path: '/student/upcoming', icon: Calendar },
+    { id: 'my-tests', label: 'My Tests', path: '/student/tests', icon: Calendar },
     { id: 'test-history', label: 'Test History', path: '/student/history', icon: History },
-    { id: 'analytics', label: 'Analytics', path: '/student/analytics', icon: BarChart3 },
+    { id: 'analytics', label: 'Performance Analytics', path: '/student/analytics', icon: BarChart3 },
     { id: 'learning', label: 'My Learning', path: '/student/learning', icon: BookOpen },
   ];
 
   // Bottom action buttons
   const bottomActions = [
     { id: 'settings', label: 'Settings', path: '/student/settings', icon: Settings },
-    { id: 'logout', label: 'Sign Out', path: '', icon: LogOut },
+    { id: 'logout', label: 'Logout', path: '', icon: LogOut },
   ];
 
   const showTooltip = (e, label) => {
@@ -72,17 +72,14 @@ export const StudentSidebar = ({
   };
 
   const isItemActive = (itemId) => {
-    if (itemId === 'dashboard') {
-      return activeTab === 'dashboard' || activeTab === 'overview';
-    }
     return itemId === activeTab;
   };
 
   return (
     <>
-      {/* ── DESKTOP VERTICAL CAPSULE SIDEBAR (78px, matching Teacher BentoSidebar) ── */}
+      {/* ── DESKTOP VERTICAL CAPSULE SIDEBAR (68px wide, 34px radius, #191A1D) ── */}
       <aside
-        className={`hidden md:flex flex-col items-center w-[78px] shrink-0 h-[calc(100vh-36px)] max-h-[850px] bg-[#191A1D] rounded-[32px] py-4 px-3 shadow-2xl z-40 select-none ${className}`}
+        className={`hidden md:flex flex-col items-center w-[68px] shrink-0 h-[calc(100vh-36px)] max-h-[850px] bg-[#191A1D] rounded-[34px] py-4 px-2.5 shadow-2xl z-40 select-none ${className}`}
         aria-label="Student Navigation"
       >
         {/* 1. TOP LOGO SECTION */}
@@ -90,17 +87,19 @@ export const StudentSidebar = ({
           <button
             type="button"
             onClick={() => handleItemClick('dashboard', '/student/dashboard')}
-            onMouseEnter={(e) => showTooltip(e, 'Student Dashboard')}
+            onMouseEnter={(e) => showTooltip(e, 'Dashboard')}
             onMouseLeave={hideTooltip}
-            title="TestForge Student Portal"
-            className="w-11 h-11 rounded-2xl bg-[#26282E] hover:bg-[#32353D] text-[#EDFF72] flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer group"
+            onFocus={(e) => showTooltip(e, 'Dashboard')}
+            onBlur={hideTooltip}
+            title="TestForge Dashboard"
+            className="w-[46px] h-[46px] rounded-[16px] bg-[#26282E] hover:bg-[#32353D] text-[#EDFF72] flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer group"
           >
-            <div className="w-6 h-6 rounded-full border-1.5 border-[#EDFF72] flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full border-[1.5px] border-[#EDFF72] flex items-center justify-center">
               <Sparkles className="w-3.5 h-3.5 fill-current transition-transform group-hover:scale-110" />
             </div>
           </button>
 
-          {/* Subtle Divider under Logo */}
+          {/* Subtle Hairline Divider under Logo */}
           <div className="w-8 h-px bg-white/10 my-3" />
         </div>
 
@@ -117,19 +116,22 @@ export const StudentSidebar = ({
                 onClick={() => handleItemClick(item.id, item.path)}
                 onMouseEnter={(e) => showTooltip(e, item.label)}
                 onMouseLeave={hideTooltip}
+                onFocus={(e) => showTooltip(e, item.label)}
+                onBlur={hideTooltip}
                 aria-label={item.label}
-                className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
+                className={`w-[46px] h-[46px] rounded-[16px] flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
                   isActive
                     ? 'bg-[#EDFF72] text-[#191A1D] shadow-md font-bold'
-                    : 'text-[#777D78] hover:text-white hover:bg-white/10'
+                    : 'text-[#8F938D] hover:text-white hover:bg-white/10'
                 }`}
               >
                 <Icon
-                  className="w-5 h-5 transition-transform group-hover:scale-110"
-                  strokeWidth={isActive ? 2.5 : 2}
+                  className="w-[21px] h-[21px] transition-transform group-hover:scale-105"
+                  strokeWidth={isActive ? 2.4 : 1.9}
+                  fill={isActive ? 'currentColor' : 'none'}
                 />
                 {isActive && (
-                  <span className="absolute -right-1 w-1 h-3.5 rounded-full bg-[#EDFF72]" />
+                  <span className="absolute -right-[13px] top-1/2 -translate-y-1/2 w-1.5 h-4 rounded-l-full bg-[#EDFF72] z-50 pointer-events-none" />
                 )}
               </button>
             );
@@ -137,9 +139,9 @@ export const StudentSidebar = ({
         </nav>
 
         {/* 3. FLEXIBLE EMPTY SPACE SEPARATOR */}
-        <div className="flex-1 min-h-[32px] w-full" />
+        <div className="flex-1 min-h-[28px] w-full" />
 
-        {/* 4. BOTTOM UTILITY GROUP (Divider line + Settings & Logout) */}
+        {/* 4. BOTTOM UTILITY GROUP (Hairline Divider + Settings & Logout) */}
         <div className="flex flex-col items-center gap-2 w-full pt-2">
           <div className="w-8 h-px bg-white/10 my-1" />
 
@@ -154,26 +156,32 @@ export const StudentSidebar = ({
                 onClick={() => handleItemClick(item.id, item.path)}
                 onMouseEnter={(e) => showTooltip(e, item.label)}
                 onMouseLeave={hideTooltip}
+                onFocus={(e) => showTooltip(e, item.label)}
+                onBlur={hideTooltip}
                 aria-label={item.label}
-                className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
+                className={`w-[46px] h-[46px] rounded-[16px] flex items-center justify-center transition-all duration-200 cursor-pointer relative group ${
                   isActive
                     ? 'bg-[#EDFF72] text-[#191A1D] shadow-md font-bold'
-                    : 'text-[#777D78] hover:text-white hover:bg-white/10'
+                    : 'text-[#8F938D] hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                <Icon
+                  className="w-[21px] h-[21px] transition-transform group-hover:scale-105"
+                  strokeWidth={isActive ? 2.4 : 1.9}
+                  fill={isActive ? 'currentColor' : 'none'}
+                />
                 {isActive && (
-                  <span className="absolute -right-1 w-1 h-3.5 rounded-full bg-[#EDFF72]" />
+                  <span className="absolute -right-[13px] top-1/2 -translate-y-1/2 w-1.5 h-4 rounded-l-full bg-[#EDFF72] z-50 pointer-events-none" />
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* FLOATING HOVER TOOLTIP */}
+        {/* FLOATING HOVER / FOCUS TOOLTIP (Dark pill with name to the right) */}
         {tooltip.visible && (
           <div
-            className="fixed left-[98px] -translate-y-1/2 bg-[#191A1D] text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none animate-fadeIn flex items-center gap-1.5"
+            className="fixed left-[88px] -translate-y-1/2 bg-[#191A1D] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-xl border border-white/15 whitespace-nowrap z-50 pointer-events-none flex items-center gap-1.5"
             style={{ top: `${tooltip.top}px` }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#EDFF72]" />
@@ -183,7 +191,7 @@ export const StudentSidebar = ({
       </aside>
 
       {/* ── MOBILE SCROLLING PILL TAB BAR (Under 860px) ── */}
-      <div className="md:hidden w-full overflow-x-auto no-scrollbar py-2 px-1 flex items-center gap-2 sticky top-2 z-40 bg-[#E9ECE7]/95 backdrop-blur-md rounded-2xl shadow-xs">
+      <div className="md:hidden w-full overflow-x-auto no-scrollbar py-2 px-2 flex items-center gap-2 sticky top-2 z-40 bg-[#191A1D] rounded-full shadow-lg border border-white/10">
         {STUDENT_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = isItemActive(item.id);
@@ -193,13 +201,13 @@ export const StudentSidebar = ({
               key={item.id}
               type="button"
               onClick={() => handleItemClick(item.id, item.path)}
-              className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-[#191A1D] text-[#EDFF72] shadow-sm font-bold'
-                  : 'bg-white text-[#171819] hover:bg-white/80 border border-[#DDE1DA]'
+                  ? 'bg-[#EDFF72] text-[#191A1D] font-bold shadow-xs'
+                  : 'bg-transparent text-[#8F938D] hover:text-white'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-4 h-4" />
               <span>{item.label}</span>
             </button>
           );

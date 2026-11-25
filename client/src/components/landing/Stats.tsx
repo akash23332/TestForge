@@ -24,7 +24,7 @@ const StatCard: React.FC<{ item: StatItem; index: number; isInView: boolean }> =
       <div>
         <div className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.05em] text-[#121212] flex items-baseline">
           <span>{animatedValue}</span>
-          <span className="text-[#e8ff5a] drop-shadow-[0_0_12px_rgba(232,255,90,0.5)]">
+          <span className="text-[#121212]">
             {item.suffix}
           </span>
         </div>

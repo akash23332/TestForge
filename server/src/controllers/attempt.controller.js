@@ -17,6 +17,7 @@ import { validateSingleTestCase } from '../services/codeRunner.service.js';
 import { enqueueExecutionJob } from '../services/queue/executionQueue.js';
 import { recalculateAttemptGrading } from '../services/attemptGrading.service.js';
 import { clearUnresolvedRemoteExecution } from '../services/queue/executionRecovery.js';
+import { getEffectiveSecurityPolicy } from '../config/securityPolicy.js';
 
 /**
  * Deterministic Idempotency Key Generator for Distributed Concurrency
@@ -75,6 +76,162 @@ export const sanitizeQuestionForStudent = (question, maxMarks = 10) => {
     examples: question.examples || [],
     maxMarks
   };
+};
+
+/**
+ * Verifies an examination access code and returns eligibility status + sanitized preview
+ */
+export const verifyExamCode = async (req, res, next) => {
+  try {
+    const { examCode } = req.body;
+    const cleanEmail = (req.user?.email || req.body?.candidateEmail || '').trim().toLowerCase();
+
+    if (!examCode || typeof examCode !== 'string' || !examCode.trim()) {
+      return ApiResponse.success(res, 200, {
+        eligible: false,
+        status: 'INVALID_CODE',
+        message: 'Invalid code. Check the code with your teacher and try again.'
+      });
+    }
+
+    const cleanCode = examCode.trim().toUpperCase();
+    const exam = await Exam.findOne({ examCode: cleanCode })
+      .populate('createdBy', 'name email')
+      .lean();
+
+    if (!exam) {
+      return ApiResponse.success(res, 200, {
+        eligible: false,
+        status: 'INVALID_CODE',
+        message: 'Invalid code. Check the code with your teacher and try again.'
+      });
+    }
+
+    if (exam.status === 'DRAFT' || exam.status === 'ARCHIVED') {
+      return ApiResponse.success(res, 200, {
+        eligible: false,
+        status: 'UNPUBLISHED',
+        message: 'This test is unpublished or inactive. Check with your instructor.'
+      });
+    }
+
+    const now = Date.now();
+
+    // Check if test has expired
+    if (exam.status === 'COMPLETED' || (exam.schedule?.endTime && now > new Date(exam.schedule.endTime).getTime())) {
+      return ApiResponse.success(res, 200, {
+        eligible: false,
+        status: 'EXPIRED',
+        message: 'This test has expired and can no longer be started.'
+      });
+    }
+
+    // Check if test is scheduled for future
+    if (exam.schedule?.startTime && now < new Date(exam.schedule.startTime).getTime()) {
+      const openTime = new Date(exam.schedule.startTime).toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+      return ApiResponse.success(res, 200, {
+        eligible: false,
+        status: 'NOT_OPEN_YET',
+        message: `This test is not open yet. It will open on ${openTime}.`,
+        canStart: false
+      });
+    }
+
+    // Check if user has already attempted this test
+    if (cleanEmail || req.user?._id) {
+      const query = { examId: exam._id };
+      if (req.user?._id && cleanEmail) {
+        query.$or = [{ studentId: req.user._id }, { 'candidateInfo.email': cleanEmail }];
+      } else if (req.user?._id) {
+        query.studentId = req.user._id;
+      } else {
+        query['candidateInfo.email'] = cleanEmail;
+      }
+
+      const existingAttempt = await ExamAttempt.findOne(query).sort({ createdAt: -1 });
+
+      if (existingAttempt) {
+        if (existingAttempt.status === 'SUBMITTED' || existingAttempt.status === 'DISQUALIFIED') {
+          return ApiResponse.success(res, 200, {
+            eligible: false,
+            status: 'ALREADY_ATTEMPTED',
+            message: 'You have already attempted this test. Each test can be attempted once.',
+            attemptId: existingAttempt._id,
+            hasResult: true
+          });
+        }
+
+        if (existingAttempt.status === 'IN_PROGRESS') {
+          if (now > new Date(existingAttempt.expiresAt).getTime()) {
+            existingAttempt.status = 'TIMED_OUT';
+            await existingAttempt.save();
+            return ApiResponse.success(res, 200, {
+              eligible: false,
+              status: 'ALREADY_ATTEMPTED',
+              message: 'You have already attempted this test. Each test can be attempted once.',
+              attemptId: existingAttempt._id,
+              hasResult: true
+            });
+          }
+
+          // Active attempt available to resume
+          return ApiResponse.success(res, 200, {
+            eligible: true,
+            status: 'IN_PROGRESS',
+            message: 'You have an active in-progress attempt for this test.',
+            canStart: true,
+            attemptId: existingAttempt._id,
+            isResuming: true,
+            preview: {
+              examCode: exam.examCode,
+              title: exam.title,
+              teacher: exam.createdBy?.name || 'Instructor',
+              subject: exam.sections?.[0]?.name || 'Assessment',
+              duration: `${exam.durationMinutes || 60} mins`,
+              durationMinutes: exam.durationMinutes || 60,
+              totalMarks: exam.totalMarks || 100,
+              questions: (exam.sections || []).reduce((acc, s) => acc + (s.questions?.length || 0), 0)
+            }
+          });
+        }
+      }
+    }
+
+    // Calculate metadata
+    const questionCount = (exam.sections || []).reduce((acc, s) => acc + (s.questions?.length || 0), 0);
+    const defaultInstructions = [
+      'The examination timer cannot be paused once started.',
+      'Answers autosave automatically and can also be saved manually.',
+      'Questions can be flagged for review and navigated via the question palette.',
+      'The test will automatically submit when the allotted time ends.'
+    ];
+
+    return ApiResponse.success(res, 200, {
+      eligible: true,
+      status: 'ELIGIBLE',
+      message: 'You are eligible to take this test.',
+      canStart: true,
+      preview: {
+        examCode: exam.examCode,
+        title: exam.title,
+        teacher: exam.createdBy?.name || 'Instructor',
+        subject: exam.sections?.[0]?.name || 'Computer Science',
+        duration: `${exam.durationMinutes || 60} mins`,
+        durationMinutes: exam.durationMinutes || 60,
+        totalMarks: exam.totalMarks || 100,
+        questions: questionCount,
+        deadline: exam.schedule?.endTime
+          ? new Date(exam.schedule.endTime).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+          : 'No strict deadline',
+        instructions: (exam.instructions && exam.instructions.length > 0) ? exam.instructions : defaultInstructions
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
@@ -323,7 +480,12 @@ export const joinExamByCode = async (req, res, next) => {
           startedAt: attempt.startedAt,
           expiresAt: attempt.expiresAt,
           status: attempt.status,
-          tabSwitchCount: attempt.tabSwitchCount,
+          tabSwitchCount: attempt.tabSwitchCount || 0,
+          fullscreenExitCount: attempt.fullscreenExitCount || 0,
+          blurCount: attempt.blurCount || 0,
+          clipboardViolationCount: attempt.clipboardViolationCount || 0,
+          totalViolations: attempt.totalViolations || 0,
+          needsReview: attempt.needsReview || false,
           candidateInfo: attempt.candidateInfo
         },
         remainingSeconds,
@@ -338,6 +500,7 @@ export const joinExamByCode = async (req, res, next) => {
           settings: exam.settings,
           totalMarks: exam.totalMarks
         },
+        securityPolicy: getEffectiveSecurityPolicy(exam),
         questions: sanitizedQuestions,
         savedAnswers: answersMap
       },
@@ -359,6 +522,8 @@ export const getAttemptState = async (req, res, next) => {
     if (!attempt) {
       throw ApiError.notFound('Attempt session not found.');
     }
+
+    const exam = await Exam.findById(attempt.examId).lean();
 
     const now = Date.now();
     const isExpired = now > new Date(attempt.expiresAt).getTime();
@@ -384,6 +549,17 @@ export const getAttemptState = async (req, res, next) => {
       200,
       {
         attempt,
+        exam: exam
+          ? {
+              _id: exam._id,
+              title: exam.title,
+              examCode: exam.examCode,
+              durationMinutes: exam.durationMinutes,
+              proctoringSettings: exam.proctoringSettings,
+              settings: exam.settings
+            }
+          : null,
+        securityPolicy: getEffectiveSecurityPolicy(exam),
         remainingSeconds,
         answers: answersMap,
         isExpired
@@ -1359,7 +1535,7 @@ export const finalizeExam = async (req, res, next) => {
 };
 
 /**
- * Log candidate activity (tab-switches, window blurs, full-screen events)
+ * Log candidate activity (tab-switches, window blurs, full-screen events) with deduplication & global security policy
  */
 export const recordActivity = async (req, res, next) => {
   try {
@@ -1377,26 +1553,214 @@ export const recordActivity = async (req, res, next) => {
       );
     }
 
+    const safeEventType = eventType || 'HEARTBEAT';
+    const now = new Date();
+
+    // Check for rapid duplicate events within 2500ms (e.g. paired blur + visibility change)
+    const recentLog = await ActivityLog.findOne({ attemptId }).sort({ timestamp: -1 });
+    let isDuplicate = false;
+
+    if (recentLog) {
+      const elapsedMs = now.getTime() - new Date(recentLog.timestamp).getTime();
+      if (elapsedMs < 2500) {
+        if (recentLog.eventType === safeEventType) {
+          isDuplicate = true;
+        } else if (
+          ['TAB_SWITCH', 'WINDOW_BLUR'].includes(recentLog.eventType) &&
+          ['TAB_SWITCH', 'WINDOW_BLUR'].includes(safeEventType)
+        ) {
+          isDuplicate = true;
+        }
+      }
+    }
+
+    // Always persist event log for chronological forensic record
     await ActivityLog.create({
       attemptId,
-      eventType: eventType || 'HEARTBEAT',
-      details: details || ''
+      eventType: safeEventType,
+      details: (details || '') + (isDuplicate ? ' [Deduplicated]' : ''),
+      timestamp: now
     });
 
-    if (eventType === 'TAB_SWITCH' || eventType === 'WINDOW_BLUR') {
-      attempt.tabSwitchCount = (attempt.tabSwitchCount || 0) + 1;
+    const VIOLATION_EVENTS = [
+      'TAB_SWITCH',
+      'WINDOW_BLUR',
+      'FULLSCREEN_EXIT',
+      'COPY_ATTEMPT',
+      'CUT_ATTEMPT',
+      'PASTE_ATTEMPT',
+      'CONTEXT_MENU'
+    ];
+
+    if (!isDuplicate) {
+      if (safeEventType === 'TAB_SWITCH') {
+        attempt.tabSwitchCount = (attempt.tabSwitchCount || 0) + 1;
+      } else if (safeEventType === 'WINDOW_BLUR') {
+        attempt.blurCount = (attempt.blurCount || 0) + 1;
+      } else if (safeEventType === 'FULLSCREEN_EXIT') {
+        attempt.fullscreenExitCount = (attempt.fullscreenExitCount || 0) + 1;
+      } else if (['COPY_ATTEMPT', 'CUT_ATTEMPT', 'PASTE_ATTEMPT'].includes(safeEventType)) {
+        attempt.clipboardViolationCount = (attempt.clipboardViolationCount || 0) + 1;
+      }
+
+      if (VIOLATION_EVENTS.includes(safeEventType)) {
+        attempt.totalViolations = (attempt.totalViolations || 0) + 1;
+
+        // Global violation policy: 3rd infraction marks attempt for teacher review
+        if (attempt.totalViolations >= 3 || attempt.tabSwitchCount >= 3) {
+          attempt.needsReview = true;
+          const reasons = [];
+          if (attempt.tabSwitchCount > 0) reasons.push(`${attempt.tabSwitchCount} tab switch${attempt.tabSwitchCount > 1 ? 'es' : ''}`);
+          if (attempt.fullscreenExitCount > 0) reasons.push(`${attempt.fullscreenExitCount} fullscreen exit${attempt.fullscreenExitCount > 1 ? 's' : ''}`);
+          if (attempt.blurCount > 0) reasons.push(`${attempt.blurCount} window blur${attempt.blurCount > 1 ? 's' : ''}`);
+          if (attempt.clipboardViolationCount > 0) reasons.push(`${attempt.clipboardViolationCount} clipboard attempt${attempt.clipboardViolationCount > 1 ? 's' : ''}`);
+          attempt.reviewReason = `${attempt.totalViolations} integrity events recorded: ${reasons.join(', ')}`;
+        }
+      }
+
+      // 4th Confirmed Tab Switch: Atomic Automatic Submission
+      if (attempt.tabSwitchCount >= 4) {
+        attempt.status = 'SUBMITTED';
+        attempt.submittedAt = now;
+        attempt.autoSubmitted = true;
+        attempt.needsReview = true;
+        attempt.autoSubmitReason = 'Exceeded maximum permitted tab switches (4 violations)';
+        attempt.lastHeartbeat = now;
+        await attempt.save();
+
+        const updatedAttempt = await recalculateAttemptGrading(attempt._id);
+
+        return ApiResponse.success(
+          res,
+          200,
+          {
+            tabSwitchCount: attempt.tabSwitchCount || 0,
+            blurCount: attempt.blurCount || 0,
+            fullscreenExitCount: attempt.fullscreenExitCount || 0,
+            clipboardViolationCount: attempt.clipboardViolationCount || 0,
+            totalViolations: attempt.totalViolations || 0,
+            needsReview: true,
+            reviewReason: attempt.reviewReason || null,
+            violationLevel: 4,
+            isLocked: true,
+            autoSubmitted: true,
+            autoSubmitReason: attempt.autoSubmitReason,
+            status: 'SUBMITTED',
+            submittedAt: attempt.submittedAt,
+            attempt: {
+              _id: updatedAttempt?._id || attempt._id,
+              status: 'SUBMITTED',
+              autoSubmitted: true,
+              autoSubmitReason: attempt.autoSubmitReason,
+              totalScore: updatedAttempt?.totalScore ?? attempt.totalScore,
+              maxScore: updatedAttempt?.maxScore ?? attempt.maxScore,
+              finalizedMaxScore: updatedAttempt?.finalizedMaxScore ?? attempt.finalizedMaxScore,
+              pendingMaxScore: updatedAttempt?.pendingMaxScore ?? 0,
+              pendingQuestionsCount: updatedAttempt?.pendingQuestionsCount ?? 0,
+              isProvisional: updatedAttempt?.isProvisional ?? false,
+              gradingStatus: updatedAttempt?.gradingStatus ?? 'FINALIZED',
+              percentage: updatedAttempt?.percentage ?? attempt.percentage,
+              submittedAt: updatedAttempt?.submittedAt || attempt.submittedAt,
+              candidateInfo: updatedAttempt?.candidateInfo || attempt.candidateInfo
+            },
+            isDeduplicated: false,
+            lastHeartbeat: attempt.lastHeartbeat
+          },
+          'Maximum tab switch limit exceeded. Examination automatically submitted.'
+        );
+      }
     }
-    attempt.lastHeartbeat = new Date();
+
+    attempt.lastHeartbeat = now;
     await attempt.save();
+
+    const isLocked = (attempt.tabSwitchCount || 0) >= 3;
+    const violationLevel = (attempt.tabSwitchCount || 0) >= 3
+      ? 3
+      : (attempt.tabSwitchCount === 2
+        ? 2
+        : (attempt.tabSwitchCount === 1
+          ? 1
+          : ((attempt.totalViolations || 0) >= 3 ? 3 : (attempt.totalViolations || 0) === 2 ? 2 : (attempt.totalViolations || 0) === 1 ? 1 : 0)));
 
     return ApiResponse.success(
       res,
       200,
       {
-        tabSwitchCount: attempt.tabSwitchCount,
+        tabSwitchCount: attempt.tabSwitchCount || 0,
+        blurCount: attempt.blurCount || 0,
+        fullscreenExitCount: attempt.fullscreenExitCount || 0,
+        clipboardViolationCount: attempt.clipboardViolationCount || 0,
+        totalViolations: attempt.totalViolations || 0,
+        needsReview: !!attempt.needsReview,
+        reviewReason: attempt.reviewReason || null,
+        violationLevel,
+        isLocked,
+        autoSubmitted: false,
+        isDeduplicated: isDuplicate,
         lastHeartbeat: attempt.lastHeartbeat
       },
-      'Activity recorded.'
+      isDuplicate ? 'Activity recorded (deduplicated).' : 'Activity recorded.'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieve comprehensive integrity audit timeline for an exam attempt
+ */
+export const getAttemptActivityTimeline = async (req, res, next) => {
+  try {
+    const { attemptId } = req.params;
+    const attempt = await ExamAttempt.findById(attemptId).lean();
+    if (!attempt) {
+      throw ApiError.notFound('Attempt not found.');
+    }
+
+    const events = await ActivityLog.find({ attemptId })
+      .sort({ timestamp: 1 })
+      .lean();
+
+    const summary = {
+      totalEvents: events.length,
+      totalViolations: attempt.totalViolations || 0,
+      tabSwitchCount: attempt.tabSwitchCount || 0,
+      blurCount: attempt.blurCount || 0,
+      fullscreenExitCount: attempt.fullscreenExitCount || 0,
+      clipboardViolationCount: attempt.clipboardViolationCount || 0,
+      needsReview: !!attempt.needsReview,
+      reviewReason: attempt.reviewReason || null,
+      autoSubmitted: !!attempt.autoSubmitted,
+      autoSubmitReason: attempt.autoSubmitReason || null
+    };
+
+    return ApiResponse.success(
+      res,
+      200,
+      {
+        attempt: {
+          _id: attempt._id,
+          candidateInfo: attempt.candidateInfo,
+          status: attempt.status,
+          startedAt: attempt.startedAt || attempt.createdAt,
+          submittedAt: attempt.submittedAt,
+          totalScore: attempt.totalScore,
+          percentage: attempt.percentage,
+          needsReview: attempt.needsReview,
+          reviewReason: attempt.reviewReason,
+          autoSubmitted: !!attempt.autoSubmitted,
+          autoSubmitReason: attempt.autoSubmitReason || null,
+          totalViolations: attempt.totalViolations || 0,
+          tabSwitchCount: attempt.tabSwitchCount || 0,
+          fullscreenExitCount: attempt.fullscreenExitCount || 0,
+          blurCount: attempt.blurCount || 0,
+          clipboardViolationCount: attempt.clipboardViolationCount || 0
+        },
+        summary,
+        events
+      },
+      'Activity timeline retrieved successfully.'
     );
   } catch (error) {
     next(error);

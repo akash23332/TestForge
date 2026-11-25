@@ -204,6 +204,7 @@ export const sanitizeQuestionAllowlist = (q) => ({
   examples: q.examples || [],
   starterCode: q.starterCode || '',
   starterCodes: q.starterCodes ? (q.starterCodes instanceof Map ? Object.fromEntries(q.starterCodes) : q.starterCodes) : {},
+  ownerId: q.ownerId || null,
   createdAt: q.createdAt,
   updatedAt: q.updatedAt
 });
@@ -215,24 +216,25 @@ export const getQuestions = async (req, res, next) => {
     const filter = {};
     const isTeacher = req.user && req.user.role === 'teacher';
     const isAdmin = req.user && req.user.role === 'admin';
-
-    // Authentic personal faculty account: strictly show their authored questions.
-    // Demo account (teacher@testforge.edu) or admin: include platform/seed questions.
     const isDemo = req.user?.email === 'teacher@testforge.edu';
-    if (isTeacher) {
-      if (req.query.scope === 'all' || isDemo || isAdmin) {
-        filter.$or = [
-          { ownerId: req.user._id },
-          { ownerId: { $exists: false } },
-          { ownerId: null },
-          { status: { $in: ['published', 'PUBLISHED'] } }
-        ];
+
+    if (isAdmin) {
+      if (req.query.ownerId) {
+        filter.ownerId = req.query.ownerId;
+      }
+    } else if (isTeacher) {
+      if (isDemo) {
+        // The dummy demo account: ONLY dummy data should be shown on dummy!
+        filter.ownerId = req.user._id;
+        filter.isDemo = true;
       } else {
+        // Specific person faculty account: ONLY personal questions of this specific person to them!
         filter.ownerId = req.user._id;
       }
-    } else if (!isAdmin) {
-      // Unauthenticated or students: only published questions
+    } else {
+      // Unauthenticated or students: only published demo questions
       filter.status = { $in: ['published', 'PUBLISHED'] };
+      filter.isDemo = true;
     }
 
     if (search) {
@@ -293,10 +295,14 @@ export const getQuestionById = async (req, res, next) => {
 
     const isOwnerOrAdmin =
       req.user &&
-      (question.ownerId.toString() === req.user._id.toString() || req.user.role === 'admin');
+      ((question.ownerId && question.ownerId.toString() === req.user._id.toString()) || req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {
-      // ZERO-LEAK: Explicit student-facing allowlist - never leaks referenceSolution or private fields
+      // Personal questions must NEVER be accessed by other teachers or unauthorized users
+      if (!question.isDemo) {
+        throw ApiError.forbidden('You do not have permission to access this personal question.');
+      }
+      // ZERO-LEAK: Explicit student-facing allowlist for demo questions
       return ApiResponse.success(res, 200, sanitizeQuestionAllowlist(question), 'Question retrieved');
     }
 
@@ -366,8 +372,7 @@ export const updateQuestion = async (req, res, next) => {
 
     const isOwnerOrAdmin =
       req.user &&
-      (question.ownerId?.toString() === req.user._id.toString() ||
-        !question.ownerId ||
+      ((question.ownerId && question.ownerId.toString() === req.user._id.toString()) ||
         req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {
@@ -529,8 +534,7 @@ export const deleteQuestion = async (req, res, next) => {
 
     const isOwnerOrAdmin =
       req.user &&
-      (question.ownerId?.toString() === req.user._id.toString() ||
-        !question.ownerId ||
+      ((question.ownerId && question.ownerId.toString() === req.user._id.toString()) ||
         req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {

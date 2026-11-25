@@ -490,8 +490,8 @@ export const PaperDesignerView = ({
           })
         })),
         settings: {
-          enableProctoring: proctoringMode !== 'No Proctoring',
-          strictMode: proctoringMode.includes('Strict'),
+          enableProctoring: true,
+          strictMode: true,
           targetMarks: calculation.totalAllocatedMarks || calculation.targetMarks || 100
         }
       };
@@ -956,7 +956,7 @@ export const PaperDesignerView = ({
             </div>
           </div>
 
-          {/* Card 4: Proctoring Mode */}
+          {/* Card 4: Platform Security */}
           <div className="tf-card tf-mini rise" style={{ '--k': 5 }}>
             <div className="flex items-center justify-between">
               <div className="tf-tile">
@@ -964,12 +964,12 @@ export const PaperDesignerView = ({
               </div>
               <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs" />
             </div>
-            <div className="tf-cap">Proctoring Mode</div>
+            <div className="tf-cap">Platform Security</div>
             <div className="tf-big text-lg font-bold truncate leading-snug">
-              {proctoringMode.split(' ')[0]}
+              Secure Exam Mode
             </div>
             <div className="tf-sub truncate">
-              {courseCode} • {courseTitle.slice(0, 18)}...
+              Global Policy Active
             </div>
           </div>
         </div>
@@ -1309,21 +1309,6 @@ export const PaperDesignerView = ({
                           className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-black text-[#171819] focus:outline-none focus:border-[#101112]"
                         />
                       </div>
-                    </div>
-
-                    {/* Proctoring Mode */}
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#171819] mb-1">Proctoring Mode</label>
-                      <select
-                        value={proctoringMode}
-                        onChange={(e) => setProctoringMode(e.target.value)}
-                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                      >
-                        <option value="No Proctoring">No Proctoring</option>
-                        <option value="Fullscreen Lock">Fullscreen Lock</option>
-                        <option value="Webcam Monitoring">Webcam Monitoring</option>
-                        <option value="Strict Proctoring">Strict Proctoring (Webcam + Screen + Tab)</option>
-                      </select>
                     </div>
 
                     {/* Candidate Instructions */}

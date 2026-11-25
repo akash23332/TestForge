@@ -134,7 +134,7 @@ const AnimatedCount = ({ value, duration = 900 }) => {
 };
 
 export const McqImportView = ({ currentUser }) => {
-  // Mode Selection: 'ai' | 'bulk' | 'manual' | 'bank'
+  // Mode Selection: 'ai' | 'manual' | 'bank'
   const [activeMode, setActiveMode] = useState('ai');
 
   // Check whether current user is demo faculty vs personal authenticated teacher
@@ -163,21 +163,25 @@ export const McqImportView = ({ currentUser }) => {
   const [explanation, setExplanation] = useState('');
 
   // AI Generator Parameters
-  const [aiTopic, setAiTopic] = useState('Dynamic Programming & Memoization');
-  const [aiSubtopic, setAiSubtopic] = useState('Knapsack & Longest Common Subsequence');
-  const [aiBloomLevel, setAiBloomLevel] = useState('Analyze');
-  const [aiDifficulty, setAiDifficulty] = useState('Medium');
-  const [aiCount, setAiCount] = useState(3);
-  const [aiIncludeCode, setAiIncludeCode] = useState(true);
-  const [aiLanguage, setAiLanguage] = useState('Python');
+  const [aiSubject, setAiSubject] = useState('Computer Science');
+  const [aiTopic, setAiTopic] = useState('Operating Systems');
+  const [aiSubtopic, setAiSubtopic] = useState('Deadlocks, Process Synchronization');
+  const [aiBloomLevel, setAiBloomLevel] = useState('Understand');
+  const [aiDifficulty, setAiDifficulty] = useState('Medium'); // 'Easy' | 'Medium' | 'Hard' | 'Mixed'
+  const [aiStyle, setAiStyle] = useState('conceptual'); // 'conceptual' | 'factual' | 'application_based'
+  const [aiAnswerType, setAiAnswerType] = useState('single'); // 'single' | 'multiple'
+  const [aiCount, setAiCount] = useState(5);
+  const [aiInstructions, setAiInstructions] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [generatedBatch, setGeneratedBatch] = useState([]);
 
-  // Bulk Import State
-  const [bulkRawText, setBulkRawText] = useState('');
-  const [bulkFormat, setBulkFormat] = useState('json'); // 'json' | 'csv' | 'text'
-  const [bulkParsedItems, setBulkParsedItems] = useState([]);
-  const [bulkParseError, setBulkParseError] = useState(null);
+  // Candidate Review Queue State
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState(new Set());
+  const [editingCandidateId, setEditingCandidateId] = useState(null);
+  const [editFormData, setEditFormData] = useState(null);
+  const [editErrors, setEditErrors] = useState([]);
+  const [regeneratingCandidateId, setRegeneratingCandidateId] = useState(null);
+
 
   // Settings State
   const [defaultMarks, setDefaultMarks] = useState(2);
@@ -236,17 +240,14 @@ export const McqImportView = ({ currentUser }) => {
   const stats = useMemo(() => {
     const totalQuestions = questions.length;
     const totalMarks = questions.reduce((sum, q) => sum + (Number(q.marks) || 1), 0);
-    const uniqueTopics = new Set(questions.map((q) => (q.topic || 'General').trim())).size;
-    const aiCount = questions.filter((q) => q.isAiGenerated || q.aiSynthesized || q.tags?.includes('AI')).length;
-
-    if (isDemo) {
-      return {
-        totalQuestions: Math.max(totalQuestions, 42),
-        totalMarks: Math.max(totalMarks, 84),
-        distinctTopics: Math.max(uniqueTopics, 8),
-        aiSynthesized: 18
-      };
-    }
+    const uniqueTopics = new Set(
+      questions
+        .map((q) => (q.topic || '').trim())
+        .filter(Boolean)
+    ).size;
+    const aiCount = questions.filter(
+      (q) => q.isAiGenerated || q.aiSynthesized || q.tags?.includes('AI')
+    ).length;
 
     return {
       totalQuestions,
@@ -254,7 +255,7 @@ export const McqImportView = ({ currentUser }) => {
       distinctTopics: uniqueTopics,
       aiSynthesized: aiCount
     };
-  }, [questions, isDemo]);
+  }, [questions]);
 
   // Unique topics list
   const availableTopics = useMemo(() => {
@@ -282,22 +283,35 @@ export const McqImportView = ({ currentUser }) => {
 
   // AI Question Generation Engine
   const handleTriggerAiGeneration = async () => {
+    if (!aiSubject.trim() || !aiTopic.trim()) {
+      setNotification({
+        type: 'error',
+        text: 'Please enter both Subject and Topic before generating MCQs.'
+      });
+      return;
+    }
+
     setIsAiGenerating(true);
     setNotification(null);
 
     try {
+      const subtopicsList = aiSubtopic
+        ? aiSubtopic.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+
       const payload = {
-        subject: 'Computer Science',
-        topic: aiTopic || 'General Computer Science',
-        subtopics: aiSubtopic ? [aiSubtopic] : [],
-        count: Math.min(Math.max(Number(aiCount) || 3, 1), 10),
-        difficulty: aiDifficulty || 'Medium',
-        style: aiIncludeCode ? 'application_based' : 'conceptual',
-        answerType: 'single',
-        instructions: `Language focus: ${aiLanguage}. Target Bloom's taxonomy: ${aiBloomLevel}. ${aiIncludeCode ? 'Include programming questions and code snippets where appropriate.' : 'Conceptual, no code snippets required.'}`
+        subject: aiSubject.trim(),
+        topic: aiTopic.trim(),
+        subtopics: subtopicsList,
+        count: Math.min(Math.max(Number(aiCount) || 5, 1), 25),
+        difficulty: aiDifficulty,
+        style: aiStyle,
+        answerType: aiAnswerType,
+        bloomLevel: aiBloomLevel,
+        instructions: aiInstructions.trim()
       };
 
-      const res = await api.post('/ai/generate-mcq', payload);
+      const res = await api.post('/ai/generate-mcq', payload, { timeout: 120000 });
       const candidates = res.data?.data?.candidates || [];
 
       if (!candidates || candidates.length === 0) {
@@ -305,246 +319,417 @@ export const McqImportView = ({ currentUser }) => {
       }
 
       const formatted = candidates.map((c, idx) => {
-        let statement = c.statement || c.question || '';
-        let extractedCode = null;
-        const codeBlockMatch = statement.match(/```(?:[a-zA-Z0-9_-]+)?\s*\n([\s\S]*?)```/);
-        if (codeBlockMatch) {
-          extractedCode = codeBlockMatch[1].trim();
-          statement = statement.replace(/```(?:[a-zA-Z0-9_-]+)?\s*\n[\s\S]*?```/, '').trim();
+        const candId = c.candidateId || `cand_mcq_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+        const statement = (c.statement || c.question || '').trim();
+
+        let optionsList = [];
+        if (Array.isArray(c.options) && c.options.length > 0) {
+          optionsList = c.options.map((opt, oIdx) => ({
+            id: String(opt.id || String.fromCharCode(65 + oIdx)).toUpperCase(),
+            text: String(opt.text ?? opt.value ?? '').trim()
+          }));
+        } else {
+          optionsList = [
+            { id: 'A', text: c.optionA || '' },
+            { id: 'B', text: c.optionB || '' },
+            { id: 'C', text: c.optionC || '' },
+            { id: 'D', text: c.optionD || '' }
+          ].filter(o => o.text);
         }
 
-        const optA = c.options?.find((o) => o.id === 'A')?.text || c.optionA || '';
-        const optB = c.options?.find((o) => o.id === 'B')?.text || c.optionB || '';
-        const optC = c.options?.find((o) => o.id === 'C')?.text || c.optionC || '';
-        const optD = c.options?.find((o) => o.id === 'D')?.text || c.optionD || '';
+        let correctAnswers = [];
+        if (Array.isArray(c.correctAnswers) && c.correctAnswers.length > 0) {
+          correctAnswers = c.correctAnswers.map(a => String(a).toUpperCase());
+        } else if (c.correctAnswer) {
+          correctAnswers = [String(c.correctAnswer).toUpperCase()];
+        } else {
+          correctAnswers = ['A'];
+        }
 
         return {
-          _id: c.candidateId || `gen-${Date.now()}-${idx}`,
-          candidateId: c.candidateId,
+          _id: candId,
+          candidateId: candId,
+          statement,
           question: statement,
-          statement: c.statement || c.question,
-          codeSnippet: extractedCode || c.codeSnippet || null,
-          optionA: optA,
-          optionB: optB,
-          optionC: optC,
-          optionD: optD,
-          options: c.options || [
-            { id: 'A', text: optA },
-            { id: 'B', text: optB },
-            { id: 'C', text: optC },
-            { id: 'D', text: optD }
-          ],
-          correctAnswer: c.correctAnswer || c.correctAnswers?.[0] || 'A',
-          correctAnswers: c.correctAnswers || [c.correctAnswer || 'A'],
-          marks: c.marks || 2,
-          topic: c.topic || aiTopic || 'Computer Science',
+          options: optionsList,
+          optionA: optionsList.find(o => o.id === 'A')?.text || '',
+          optionB: optionsList.find(o => o.id === 'B')?.text || '',
+          optionC: optionsList.find(o => o.id === 'C')?.text || '',
+          optionD: optionsList.find(o => o.id === 'D')?.text || '',
+          correctAnswers,
+          correctAnswer: correctAnswers[0] || 'A',
+          answerType: c.answerType || aiAnswerType,
+          subject: c.subject || aiSubject,
+          topic: c.topic || aiTopic,
           difficulty: c.difficulty || aiDifficulty,
-          bloomLevel: c.bloomTaxonomy || c.bloomLevel || aiBloomLevel,
+          style: c.style || aiStyle,
+          bloomLevel: c.bloomLevel || c.bloomTaxonomy || aiBloomLevel,
           bloomTaxonomy: c.bloomTaxonomy || c.bloomLevel || aiBloomLevel,
-          explanation: c.explanation || ''
+          marks: Number(c.marks) || 1,
+          explanation: c.explanation || '',
+          isAiGenerated: true
         };
       });
 
       setGeneratedBatch(formatted);
+      setSelectedCandidateIds(new Set(formatted.map(c => c.candidateId)));
       setNotification({
         type: 'success',
-        text: `Synthesized ${formatted.length} live MCQs calibrated to ${aiBloomLevel} taxonomy via Gemini!`
+        text: `Synthesized ${formatted.length} high-yield MCQs calibrated to ${aiBloomLevel} domain using Gemini AI!`
       });
     } catch (err) {
       console.error('AI Generation Error:', err);
-      const errMsg = err.customMessage || err.response?.data?.message || err.message || 'AI Synthesis encountered an error. Please retry.';
+      const errMsg = err.customMessage || err.response?.data?.message || err.message || 'AI generation encountered an error. Please retry.';
       setNotification({ type: 'error', text: errMsg });
     } finally {
       setIsAiGenerating(false);
     }
   };
 
-  // Commit AI Generated Question to Bank
-  const handleCommitToBank = async (q) => {
+  // Regenerate an Individual Candidate Question
+  const handleRegenerateIndividual = async (cand) => {
+    const candId = cand.candidateId || cand._id;
+    setRegeneratingCandidateId(candId);
     try {
-      const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
       const payload = {
-        question: formattedStatement,
-        statement: formattedStatement,
+        subject: cand.subject || aiSubject,
+        topic: cand.topic || aiTopic,
+        subtopics: cand.topic ? [cand.topic] : [],
+        count: 1,
+        difficulty: cand.difficulty || aiDifficulty,
+        style: cand.style || aiStyle,
+        answerType: cand.answerType || aiAnswerType,
+        bloomLevel: cand.bloomLevel || aiBloomLevel,
+        instructions: aiInstructions.trim()
+      };
+
+      const res = await api.post('/ai/generate-mcq', payload, { timeout: 120000 });
+      const candidates = res.data?.data?.candidates || [];
+      if (!candidates || candidates.length === 0) {
+        throw new Error('Failed to regenerate question. Please try again.');
+      }
+
+      const newQ = candidates[0];
+      const newCandId = newQ.candidateId || `cand_mcq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const statement = (newQ.statement || newQ.question || '').trim();
+
+      let optionsList = [];
+      if (Array.isArray(newQ.options) && newQ.options.length > 0) {
+        optionsList = newQ.options.map((opt, oIdx) => ({
+          id: String(opt.id || String.fromCharCode(65 + oIdx)).toUpperCase(),
+          text: String(opt.text ?? opt.value ?? '').trim()
+        }));
+      } else {
+        optionsList = [
+          { id: 'A', text: newQ.optionA || '' },
+          { id: 'B', text: newQ.optionB || '' },
+          { id: 'C', text: newQ.optionC || '' },
+          { id: 'D', text: newQ.optionD || '' }
+        ].filter(o => o.text);
+      }
+
+      let correctAnswers = [];
+      if (Array.isArray(newQ.correctAnswers) && newQ.correctAnswers.length > 0) {
+        correctAnswers = newQ.correctAnswers.map(a => String(a).toUpperCase());
+      } else if (newQ.correctAnswer) {
+        correctAnswers = [String(newQ.correctAnswer).toUpperCase()];
+      } else {
+        correctAnswers = ['A'];
+      }
+
+      const formattedNew = {
+        _id: newCandId,
+        candidateId: newCandId,
+        statement,
+        question: statement,
+        options: optionsList,
+        optionA: optionsList.find(o => o.id === 'A')?.text || '',
+        optionB: optionsList.find(o => o.id === 'B')?.text || '',
+        optionC: optionsList.find(o => o.id === 'C')?.text || '',
+        optionD: optionsList.find(o => o.id === 'D')?.text || '',
+        correctAnswers,
+        correctAnswer: correctAnswers[0] || 'A',
+        answerType: newQ.answerType || cand.answerType,
+        subject: newQ.subject || cand.subject,
+        topic: newQ.topic || cand.topic,
+        difficulty: newQ.difficulty || cand.difficulty,
+        style: newQ.style || cand.style,
+        bloomLevel: newQ.bloomLevel || newQ.bloomTaxonomy || cand.bloomLevel,
+        bloomTaxonomy: newQ.bloomTaxonomy || newQ.bloomLevel || cand.bloomLevel,
+        marks: Number(newQ.marks) || cand.marks || 1,
+        explanation: newQ.explanation || '',
+        isAiGenerated: true
+      };
+
+      setGeneratedBatch(prev => prev.map(item => (item.candidateId === candId || item._id === candId ? formattedNew : item)));
+      setSelectedCandidateIds(prev => {
+        const nextSet = new Set(prev);
+        nextSet.delete(candId);
+        nextSet.add(newCandId);
+        return nextSet;
+      });
+
+      setNotification({
+        type: 'success',
+        text: 'Regenerated question successfully!'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      console.error('Individual Regeneration Error:', err);
+      const msg = err.customMessage || err.response?.data?.message || err.message || 'Regeneration failed. Please retry.';
+      setNotification({ type: 'error', text: msg });
+    } finally {
+      setRegeneratingCandidateId(null);
+    }
+  };
+
+  // Candidate Selection Handlers
+  const handleToggleSelectCandidate = (candId) => {
+    setSelectedCandidateIds(prev => {
+      const nextSet = new Set(prev);
+      if (nextSet.has(candId)) {
+        nextSet.delete(candId);
+      } else {
+        nextSet.add(candId);
+      }
+      return nextSet;
+    });
+  };
+
+  const handleSelectAllCandidates = () => {
+    setSelectedCandidateIds(new Set(generatedBatch.map(c => c.candidateId || c._id)));
+  };
+
+  const handleDeselectAllCandidates = () => {
+    setSelectedCandidateIds(new Set());
+  };
+
+  const handleDiscardCandidate = (candId) => {
+    setGeneratedBatch(prev => prev.filter(c => (c.candidateId ? c.candidateId !== candId : c._id !== candId)));
+    setSelectedCandidateIds(prev => {
+      const nextSet = new Set(prev);
+      nextSet.delete(candId);
+      return nextSet;
+    });
+    if (editingCandidateId === candId) {
+      setEditingCandidateId(null);
+      setEditFormData(null);
+    }
+  };
+
+  // Inline Editing Handlers for AI Candidates
+  const handleStartEditCandidate = (cand) => {
+    setEditingCandidateId(cand.candidateId || cand._id);
+    setEditErrors([]);
+    setEditFormData({
+      statement: cand.statement || cand.question || '',
+      answerType: cand.answerType || 'single',
+      options: cand.options.map(o => ({ ...o })),
+      correctAnswers: Array.isArray(cand.correctAnswers) ? [...cand.correctAnswers] : [cand.correctAnswer || 'A'],
+      explanation: cand.explanation || '',
+      difficulty: cand.difficulty || 'Medium',
+      bloomLevel: cand.bloomLevel || 'Understand',
+      marks: Number(cand.marks) || 1
+    });
+  };
+
+  const handleCancelEditCandidate = () => {
+    setEditingCandidateId(null);
+    setEditFormData(null);
+    setEditErrors([]);
+  };
+
+  const handleAddEditCandidateOption = () => {
+    if (!editFormData || editFormData.options.length >= 8) return;
+    const nextCharCode = 65 + editFormData.options.length;
+    const nextId = String.fromCharCode(nextCharCode);
+    setEditFormData(prev => ({
+      ...prev,
+      options: [...prev.options, { id: nextId, text: '' }]
+    }));
+  };
+
+  const handleRemoveEditCandidateOption = (optId) => {
+    if (!editFormData || editFormData.options.length <= 2) return;
+    const remaining = editFormData.options
+      .filter(o => o.id !== optId)
+      .map((o, idx) => ({ ...o, id: String.fromCharCode(65 + idx) }));
+
+    const updatedCorrect = editFormData.correctAnswers.filter(a => a !== optId);
+    setEditFormData(prev => ({
+      ...prev,
+      options: remaining,
+      correctAnswers: updatedCorrect.length > 0 ? updatedCorrect : [remaining[0].id]
+    }));
+  };
+
+  const handleToggleEditCandidateCorrectAnswer = (optId) => {
+    if (!editFormData) return;
+    if (editFormData.answerType === 'single') {
+      setEditFormData(prev => ({
+        ...prev,
+        correctAnswers: [optId]
+      }));
+    } else {
+      setEditFormData(prev => {
+        const exists = prev.correctAnswers.includes(optId);
+        const updated = exists
+          ? prev.correctAnswers.filter(id => id !== optId)
+          : [...prev.correctAnswers, optId];
+        return {
+          ...prev,
+          correctAnswers: updated
+        };
+      });
+    }
+  };
+
+  const handleSaveEditCandidate = () => {
+    if (!editFormData) return;
+    const errors = [];
+    if (!editFormData.statement.trim() || editFormData.statement.trim().length < 10) {
+      errors.push('Question statement must contain at least 10 characters.');
+    }
+    if (editFormData.options.some(o => !o.text.trim())) {
+      errors.push('All option fields must have non-empty text.');
+    }
+    const optionTexts = editFormData.options.map(o => o.text.trim().toLowerCase());
+    if (new Set(optionTexts).size !== optionTexts.length) {
+      errors.push('All answer options must have distinct text.');
+    }
+    if (editFormData.correctAnswers.length === 0) {
+      errors.push('Please select at least one correct answer.');
+    }
+    if (editFormData.answerType === 'single' && editFormData.correctAnswers.length !== 1) {
+      errors.push('Single choice questions must have exactly one correct answer.');
+    }
+
+    if (errors.length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+
+    setGeneratedBatch(prev => prev.map(cand => {
+      const candId = cand.candidateId || cand._id;
+      if (candId === editingCandidateId) {
+        return {
+          ...cand,
+          statement: editFormData.statement.trim(),
+          question: editFormData.statement.trim(),
+          options: editFormData.options.map(o => ({ ...o, text: o.text.trim() })),
+          optionA: editFormData.options.find(o => o.id === 'A')?.text.trim() || '',
+          optionB: editFormData.options.find(o => o.id === 'B')?.text.trim() || '',
+          optionC: editFormData.options.find(o => o.id === 'C')?.text.trim() || '',
+          optionD: editFormData.options.find(o => o.id === 'D')?.text.trim() || '',
+          correctAnswers: editFormData.correctAnswers,
+          correctAnswer: editFormData.correctAnswers[0] || 'A',
+          answerType: editFormData.answerType,
+          explanation: editFormData.explanation.trim(),
+          difficulty: editFormData.difficulty,
+          bloomLevel: editFormData.bloomLevel,
+          bloomTaxonomy: editFormData.bloomLevel,
+          marks: Number(editFormData.marks) || 1
+        };
+      }
+      return cand;
+    }));
+
+    setEditingCandidateId(null);
+    setEditFormData(null);
+    setEditErrors([]);
+    setNotification({
+      type: 'success',
+      text: 'Candidate edits saved successfully!'
+    });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Approve Selected Candidates & Commit to MongoDB Question Bank
+  const handleApproveSelected = async () => {
+    const selectedList = generatedBatch.filter(c => selectedCandidateIds.has(c.candidateId || c._id));
+    if (selectedList.length === 0) {
+      setNotification({
+        type: 'error',
+        text: 'No candidate questions selected. Please select at least one question to approve.'
+      });
+      return;
+    }
+
+    // Client-side pre-validation
+    for (let i = 0; i < selectedList.length; i++) {
+      const q = selectedList[i];
+      if (!q.statement || q.statement.length < 10) {
+        setNotification({
+          type: 'error',
+          text: `Candidate #${i + 1} has an invalid statement (less than 10 characters). Please edit it first.`
+        });
+        return;
+      }
+      if (!Array.isArray(q.correctAnswers) || q.correctAnswers.length === 0) {
+        setNotification({
+          type: 'error',
+          text: `Candidate #${i + 1} does not have any correct answer specified. Please edit it first.`
+        });
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const candidatesPayload = selectedList.map(q => ({
+        statement: q.statement || q.question,
+        question: q.statement || q.question,
         options: q.options || [
           { id: 'A', text: q.optionA },
           { id: 'B', text: q.optionB },
           { id: 'C', text: q.optionC },
           { id: 'D', text: q.optionD }
         ],
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctAnswer: q.correctAnswer,
-        correctAnswers: q.correctAnswers || [q.correctAnswer],
-        marks: q.marks || 2,
-        topic: q.topic || 'Algorithms',
-        difficulty: q.difficulty || 'Medium',
-        explanation: q.explanation || ''
-      };
-
-      const res = await api.post('/mcq', payload);
-      const saved = res.data?.data || { ...payload, _id: `local-${Date.now()}` };
-      setQuestions((prev) => [saved, ...prev]);
-      setGeneratedBatch((prev) => prev.filter((item) => (item.candidateId ? item.candidateId !== q.candidateId : item._id !== q._id)));
-
-      setNotification({ type: 'success', text: 'Question added to Question Bank!' });
-      setTimeout(() => setNotification(null), 3000);
-    } catch (err) {
-      console.error('Failed to commit question to bank:', err);
-      const msg = err.customMessage || err.response?.data?.message || err.message || 'Failed to save question to bank.';
-      setNotification({ type: 'error', text: msg });
-    }
-  };
-
-  // Commit All AI Generated to Bank
-  const handleCommitAllGenerated = async () => {
-    if (generatedBatch.length === 0) return;
-    setSaving(true);
-    try {
-      const candidatesPayload = generatedBatch.map((q) => {
-        const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
-        return {
-          statement: formattedStatement,
-          question: formattedStatement,
-          options: q.options || [
-            { id: 'A', text: q.optionA },
-            { id: 'B', text: q.optionB },
-            { id: 'C', text: q.optionC },
-            { id: 'D', text: q.optionD }
-          ],
-          correctAnswers: q.correctAnswers || [q.correctAnswer || 'A'],
-          correctAnswer: q.correctAnswer || 'A',
-          answerType: 'single',
-          subject: 'Computer Science',
-          topic: q.topic || aiTopic || 'Computer Science',
-          difficulty: q.difficulty || aiDifficulty,
-          style: aiIncludeCode ? 'application_based' : 'conceptual',
-          marks: q.marks || 2,
-          explanation: q.explanation || '',
-          bloomTaxonomy: q.bloomLevel || 'Understand'
-        };
-      });
+        correctAnswers: q.correctAnswers || [q.correctAnswer || 'A'],
+        correctAnswer: q.correctAnswer || (q.correctAnswers ? q.correctAnswers[0] : 'A'),
+        answerType: q.answerType || 'single',
+        subject: q.subject || aiSubject,
+        topic: q.topic || aiTopic,
+        difficulty: q.difficulty || aiDifficulty,
+        style: q.style || aiStyle,
+        marks: Number(q.marks) || 1,
+        explanation: q.explanation || '',
+        bloomTaxonomy: q.bloomTaxonomy || q.bloomLevel || 'Understand',
+        bloomLevel: q.bloomLevel || q.bloomTaxonomy || 'Understand',
+        isAiGenerated: true,
+        status: 'published'
+      }));
 
       const res = await api.post('/mcq/batch', { candidates: candidatesPayload });
-      const savedDocs = res.data?.data?.savedQuestions || [];
+      const resData = res.data?.data;
+      const savedDocs = Array.isArray(resData) ? resData : (resData?.savedQuestions || resData?.items || []);
+
+      // Prepend to Question Bank vault
       if (savedDocs.length > 0) {
-        setQuestions((prev) => [...savedDocs, ...prev]);
+        setQuestions(prev => [...savedDocs, ...prev]);
+      } else {
+        // Refresh question bank directly
+        await fetchQuestions();
       }
-      setGeneratedBatch([]);
+
+      // Remove approved questions from candidate review queue
+      const approvedIds = new Set(selectedList.map(c => c.candidateId || c._id));
+      setGeneratedBatch(prev => prev.filter(c => !approvedIds.has(c.candidateId || c._id)));
+      setSelectedCandidateIds(prev => {
+        const nextSet = new Set(prev);
+        for (const id of approvedIds) nextSet.delete(id);
+        return nextSet;
+      });
+
       setNotification({
         type: 'success',
-        text: `Successfully committed ${savedDocs.length || candidatesPayload.length} questions to your Question Bank!`
+        text: `Successfully approved and saved ${savedDocs.length || selectedList.length} MCQs to MongoDB Question Bank!`
       });
-      setTimeout(() => setNotification(null), 3500);
+      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
-      console.error('Batch commit failed:', err);
-      let count = 0;
-      for (const q of generatedBatch) {
-        try {
-          const formattedStatement = q.question + (q.codeSnippet ? `\n\n\`\`\`${(aiLanguage || 'text').toLowerCase()}\n${q.codeSnippet}\n\`\`\`` : '');
-          const payload = {
-            question: formattedStatement,
-            statement: formattedStatement,
-            optionA: q.optionA,
-            optionB: q.optionB,
-            optionC: q.optionC,
-            optionD: q.optionD,
-            correctAnswer: q.correctAnswer,
-            marks: q.marks || 2,
-            topic: q.topic || 'Algorithms',
-            difficulty: q.difficulty || 'Medium',
-            explanation: q.explanation || ''
-          };
-          const res = await api.post('/mcq', payload);
-          if (res.data?.data) {
-            setQuestions((prev) => [res.data.data, ...prev]);
-            count++;
-          }
-        } catch {}
-      }
-      setGeneratedBatch([]);
-      if (count > 0) {
-        setNotification({ type: 'success', text: `Saved ${count} questions to Question Bank!` });
-      } else {
-        const errMsg = err.customMessage || err.response?.data?.message || 'Failed to commit generated questions to bank.';
-        setNotification({ type: 'error', text: errMsg });
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Bulk Raw Text Parser
-  const handleParseBulk = () => {
-    setBulkParseError(null);
-    setBulkParsedItems([]);
-
-    if (!bulkRawText.trim()) {
-      setBulkParseError('Please paste or upload content to parse.');
-      return;
-    }
-
-    try {
-      if (bulkFormat === 'json') {
-        const parsed = JSON.parse(bulkRawText);
-        const list = Array.isArray(parsed) ? parsed : [parsed];
-        const valid = list.map((item, i) => ({
-          _id: `bulk-${Date.now()}-${i}`,
-          question: item.question || item.title || `Imported Question ${i + 1}`,
-          optionA: item.optionA || item.options?.[0] || 'Option A',
-          optionB: item.optionB || item.options?.[1] || 'Option B',
-          optionC: item.optionC || item.options?.[2] || 'Option C',
-          optionD: item.optionD || item.options?.[3] || 'Option D',
-          correctAnswer: (item.correctAnswer || 'A').toUpperCase().trim(),
-          marks: Number(item.marks) || 2,
-          topic: item.topic || 'Computer Science',
-          difficulty: item.difficulty || 'Medium',
-          explanation: item.explanation || ''
-        }));
-        setBulkParsedItems(valid);
-      } else {
-        // Line-based CSV parse
-        const lines = bulkRawText.split('\n').filter((l) => l.trim().length > 0);
-        const valid = lines.map((line, idx) => {
-          const parts = line.split(',').map((p) => p.trim());
-          return {
-            _id: `bulk-csv-${Date.now()}-${idx}`,
-            question: parts[0] || `Question ${idx + 1}`,
-            optionA: parts[1] || 'Choice A',
-            optionB: parts[2] || 'Choice B',
-            optionC: parts[3] || 'Choice C',
-            optionD: parts[4] || 'Choice D',
-            correctAnswer: (parts[5] || 'A').toUpperCase().trim(),
-            marks: Number(parts[6]) || 2,
-            topic: parts[7] || 'Computer Science',
-            difficulty: 'Medium',
-            explanation: parts[8] || ''
-          };
-        });
-        setBulkParsedItems(valid);
-      }
-    } catch (err) {
-      setBulkParseError(`Parsing syntax error: ${err.message}`);
-    }
-  };
-
-  // Commit All Bulk Parsed
-  const handleCommitAllBulk = async () => {
-    if (bulkParsedItems.length === 0) return;
-    setSaving(true);
-    try {
-      for (const item of bulkParsedItems) {
-        await api.post('/mcq', item);
-      }
-      await fetchQuestions();
-      setBulkParsedItems([]);
-      setBulkRawText('');
-      setActiveMode('bank');
-      setNotification({ type: 'success', text: `Imported ${bulkParsedItems.length} questions into Question Bank!` });
-    } catch {
-      alert('Bulk import encountered a server error.');
+      console.error('Approval Batch Persistence Error:', err);
+      const msg = err.customMessage || err.response?.data?.message || err.message || 'Failed to save approved questions to bank.';
+      setNotification({ type: 'error', text: msg });
     } finally {
       setSaving(false);
     }
@@ -925,7 +1110,7 @@ export const McqImportView = ({ currentUser }) => {
             {/* Pill Eyebrow */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1c1d22] border border-[#2d3036] text-[11px] font-mono font-bold tracking-wider text-[#d5dbd2] uppercase mb-2">
               <span className="w-2 h-2 rounded-full bg-[#EDFF72] shadow-[0_0_8px_#EDFF72]" />
-              AI COGNITIVE SYNAPSE & BULK MCQ STUDIO
+              AI COGNITIVE SYNAPSE & MCQ STUDIO
             </div>
 
             {/* Animated Staggered Character Title */}
@@ -938,7 +1123,7 @@ export const McqImportView = ({ currentUser }) => {
             </h1>
 
             <p className="text-xs text-[#a0a59e] max-w-[440px] leading-relaxed mb-6">
-              Synthesize Bloom-calibrated questions via AI generation, parse high-throughput JSON/CSV batches, and curate your institution's multiple-choice repository.
+              Synthesize Bloom-calibrated questions via AI generation, author custom items, and curate your institution's multiple-choice repository.
             </p>
 
             {/* Action Buttons */}
@@ -958,24 +1143,48 @@ export const McqImportView = ({ currentUser }) => {
 
               <button
                 type="button"
-                onClick={() => setActiveMode('bulk')}
+                onClick={() => setActiveMode('manual')}
                 className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  activeMode === 'bulk'
+                  activeMode === 'manual'
                     ? 'bg-[#EDFF72] text-[#101112]'
                     : 'bg-[#1c1d22] text-white hover:bg-[#252830] border border-[#30333d]'
                 }`}
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Bulk Import</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Manual Creator</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveMode('bank')}
+                className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeMode === 'bank'
+                    ? 'bg-[#EDFF72] text-[#101112]'
+                    : 'bg-[#1c1d22] text-white hover:bg-[#252830] border border-[#30333d]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Repository Vault ({questions.length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportCsv}
                 className="px-4 py-2.5 rounded-full bg-[#1c1d22] hover:bg-[#252830] text-xs font-bold text-white border border-[#30333d] transition-all cursor-pointer flex items-center gap-1.5"
+                title="Export vault to CSV"
               >
                 <Download className="w-3.5 h-3.5 text-[#a0a59e]" />
                 <span>Export CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchQuestions}
+                className="px-3.5 py-2.5 rounded-full bg-[#1c1d22] hover:bg-[#252830] text-xs font-bold text-white border border-[#30333d] transition-all cursor-pointer flex items-center gap-1.5"
+                title="Sync live data from MongoDB"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#EDFF72] ${loading ? 'animate-spin' : ''}`} />
+                <span>Sync Live</span>
               </button>
             </div>
           </div>
@@ -1063,14 +1272,14 @@ export const McqImportView = ({ currentUser }) => {
               <div className="tf-tile">
                 <FileCheck2 className="w-4 h-4 text-[#171819]" />
               </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs" />
+              <span className={`w-2 h-2 rounded-full ${stats.totalQuestions > 0 ? 'bg-emerald-500' : 'bg-zinc-400'} shadow-xs`} />
             </div>
             <div className="tf-cap">Syntax Validator</div>
             <div className="tf-big text-lg font-bold">
-              100% Valid
+              {stats.totalQuestions > 0 ? '100% Valid' : '0 Items'}
             </div>
             <div className="tf-sub">
-              Zero duplicate collision
+              {stats.totalQuestions > 0 ? `${stats.totalQuestions} verified in vault` : 'Awaiting questions'}
             </div>
           </div>
         </div>
@@ -1092,19 +1301,6 @@ export const McqImportView = ({ currentUser }) => {
           >
             <Sparkles className="w-3.5 h-3.5 text-[#EDFF72]" />
             <span>AI Question Generator</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMode('bulk')}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeMode === 'bulk'
-                ? 'bg-[#101112] text-white shadow-xs'
-                : 'text-[#777D78] hover:text-[#171819]'
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Bulk CSV / JSON Importer</span>
           </button>
 
           <button
@@ -1161,20 +1357,34 @@ export const McqImportView = ({ currentUser }) => {
                 <h3 className="text-sm font-black text-[#171819]">AI Generation Parameters</h3>
               </div>
               <p className="text-[11px] text-[#777D78] mb-4">
-                Configure Bloom's cognitive domain, problem subtopics, and code complexity.
+                Configure subject, cognitive domain, difficulty, and question style for neural MCQ synthesis.
               </p>
 
               <div className="space-y-4 text-xs">
+                {/* Subject */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                    Subject / Discipline *
+                  </label>
+                  <input
+                    type="text"
+                    value={aiSubject}
+                    onChange={(e) => setAiSubject(e.target.value)}
+                    placeholder="e.g. Computer Science, Mathematics"
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
+                  />
+                </div>
+
                 {/* Topic */}
                 <div>
                   <label className="block text-[11px] font-bold text-[#171819] mb-1">
-                    Primary Topic / Discipline *
+                    Primary Topic *
                   </label>
                   <input
                     type="text"
                     value={aiTopic}
                     onChange={(e) => setAiTopic(e.target.value)}
-                    placeholder="e.g. Dynamic Programming, Graph Theory"
+                    placeholder="e.g. Operating Systems, Dynamic Programming"
                     className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
                   />
                 </div>
@@ -1182,93 +1392,122 @@ export const McqImportView = ({ currentUser }) => {
                 {/* Subtopic */}
                 <div>
                   <label className="block text-[11px] font-bold text-[#171819] mb-1">
-                    Subtopic / Concept Focus
+                    Subtopics / Specific Concepts (Optional)
                   </label>
                   <input
                     type="text"
                     value={aiSubtopic}
                     onChange={(e) => setAiSubtopic(e.target.value)}
-                    placeholder="e.g. Memoization cache, Bellman-Ford algorithm"
+                    placeholder="e.g. Deadlocks, Banker's algorithm, Semaphores"
                     className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3.5 py-2.5 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112]"
                   />
                 </div>
 
-                {/* Bloom's Taxonomy Level & Difficulty */}
+                {/* Question Count (Presets + Custom) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#171819] mb-1.5">
+                    Question Count (1 to 25)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[5, 10, 20].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setAiCount(preset)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          aiCount === preset
+                            ? 'bg-[#101112] text-[#EDFF72] border-[#101112] shadow-2xs'
+                            : 'bg-[#F2F3F0] text-[#777D78] border-[#DDE1DA] hover:text-[#171819]'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                    <div className="w-24 shrink-0">
+                      <input
+                        type="number"
+                        min={1}
+                        max={25}
+                        value={aiCount}
+                        onChange={(e) => setAiCount(Math.max(1, Math.min(25, Number(e.target.value) || 1)))}
+                        className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-black text-center text-[#171819] focus:outline-none focus:border-[#101112]"
+                        placeholder="Custom"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Difficulty & Style */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Bloom's Level</label>
+                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Difficulty</label>
+                    <select
+                      value={aiDifficulty}
+                      onChange={(e) => setAiDifficulty(e.target.value)}
+                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                      <option value="Mixed">Mixed (Distributed)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Question Style</label>
+                    <select
+                      value={aiStyle}
+                      onChange={(e) => setAiStyle(e.target.value)}
+                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
+                    >
+                      <option value="conceptual">Conceptual</option>
+                      <option value="factual">Factual</option>
+                      <option value="application_based">Application-based</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Answer Type & Bloom's Taxonomy Level */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Answer Type</label>
+                    <select
+                      value={aiAnswerType}
+                      onChange={(e) => setAiAnswerType(e.target.value)}
+                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
+                    >
+                      <option value="single">Single Correct</option>
+                      <option value="multiple">Multiple Correct</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Bloom's Taxonomy</label>
                     <select
                       value={aiBloomLevel}
                       onChange={(e) => setAiBloomLevel(e.target.value)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
+                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2.5 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
                     >
                       <option value="Remember">Remember (Recall)</option>
                       <option value="Understand">Understand (Explain)</option>
                       <option value="Apply">Apply (Execute)</option>
                       <option value="Analyze">Analyze (Distinguish)</option>
                       <option value="Evaluate">Evaluate (Justify)</option>
-                      <option value="Create">Create (Design)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Difficulty</label>
-                    <select
-                      value={aiDifficulty}
-                      onChange={(e) => setAiDifficulty(e.target.value)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                    >
-                      <option value="Easy">Easy</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Hard">Hard</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Code Snippet Inclusion & Language */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Target Language</label>
-                    <select
-                      value={aiLanguage}
-                      onChange={(e) => setAiLanguage(e.target.value)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-bold text-[#171819] focus:outline-none cursor-pointer"
-                    >
-                      <option value="Python">Python</option>
-                      <option value="JavaScript">JavaScript</option>
-                      <option value="C++">C++</option>
-                      <option value="Java">Java</option>
-                      <option value="Pseudocode">Pseudocode</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#171819] mb-1">Question Count</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={aiCount}
-                      onChange={(e) => setAiCount(Number(e.target.value) || 1)}
-                      className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-3 py-2 text-xs font-black text-[#171819] focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Code Toggle */}
-                <div className="p-3 rounded-2xl bg-[#F2F3F0] border border-[#DDE1DA] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Code className="w-4 h-4 text-[#171819]" />
-                    <div>
-                      <span className="font-bold text-xs block text-[#171819]">Include Code Snippet</span>
-                      <span className="text-[10px] text-[#777D78]">Generates snippet-dependent problem</span>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={aiIncludeCode}
-                    onChange={(e) => setAiIncludeCode(e.target.checked)}
-                    className="w-4 h-4 text-[#101112] rounded cursor-pointer"
+                {/* Additional Instructions */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                    Additional Instructions (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={aiInstructions}
+                    onChange={(e) => setAiInstructions(e.target.value)}
+                    placeholder="e.g. Focus on edge conditions in resource allocation, avoid trivial questions."
+                    className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs font-semibold text-[#171819] focus:outline-none focus:border-[#101112] resize-none"
                   />
                 </div>
 
@@ -1277,54 +1516,80 @@ export const McqImportView = ({ currentUser }) => {
                   type="button"
                   disabled={isAiGenerating}
                   onClick={handleTriggerAiGeneration}
-                  className="w-full py-3 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="w-full py-3.5 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <Sparkles className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : 'fill-current'}`} />
-                  <span>{isAiGenerating ? 'Synthesizing Neural Questions...' : `Generate ${aiCount} Questions with AI`}</span>
+                  <span>{isAiGenerating ? 'Synthesizing with Gemini AI...' : `Generate ${aiCount} MCQs with AI`}</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Right Column: AI Live Generation Workspace (7 cols) */}
+          {/* Right Column: Candidate Review Queue (7 cols) */}
           <div className="lg:col-span-7 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-[#171819]">
-                Generated Preview & Curation Queue
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold text-[#777D78]">
-                  {generatedBatch.length} generated in session
-                </span>
-                {generatedBatch.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={handleCommitAllGenerated}
-                    disabled={saving}
-                    className="px-3.5 py-1 rounded-full bg-[#101112] text-[#EDFF72] text-xs font-bold hover:bg-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
-                  >
-                    <Check className="w-3 h-3" />
-                    <span>{saving ? 'Saving...' : 'Commit All to Bank'}</span>
-                  </button>
-                )}
-                {generatedBatch.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setGeneratedBatch([])}
-                    className="px-2.5 py-1 rounded-full text-xs font-bold text-[#777D78] hover:text-rose-600 cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-base font-black text-[#171819]">
+                  Candidate Review Queue
+                </h3>
+                <p className="text-xs text-[#777D78]">
+                  {generatedBatch.length > 0
+                    ? `${selectedCandidateIds.size} of ${generatedBatch.length} questions selected for approval`
+                    : 'Temporary AI candidates awaiting teacher review'}
+                </p>
               </div>
+
+              {generatedBatch.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedCandidateIds.size === generatedBatch.length ? (
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllCandidates}
+                      className="px-3 py-1.5 rounded-full bg-[#F2F3F0] text-[#777D78] hover:text-[#171819] text-xs font-bold transition-all cursor-pointer border border-[#DDE1DA]"
+                    >
+                      Deselect All
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllCandidates}
+                      className="px-3 py-1.5 rounded-full bg-[#F2F3F0] text-[#171819] hover:bg-[#e4e7e1] text-xs font-bold transition-all cursor-pointer border border-[#DDE1DA]"
+                    >
+                      Select All
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleApproveSelected}
+                    disabled={saving || selectedCandidateIds.size === 0}
+                    className="px-4 py-1.5 rounded-full bg-[#101112] text-[#EDFF72] text-xs font-black hover:bg-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{saving ? 'Saving...' : `Approve Selected (${selectedCandidateIds.size})`}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeneratedBatch([]);
+                      setSelectedCandidateIds(new Set());
+                      setEditingCandidateId(null);
+                    }}
+                    className="px-2.5 py-1.5 rounded-full text-xs font-bold text-[#777D78] hover:text-rose-600 cursor-pointer"
+                  >
+                    Clear Queue
+                  </button>
+                </div>
+              )}
             </div>
 
             {isAiGenerating ? (
               <div className="tf-card py-20 text-center space-y-4">
                 <div className="w-10 h-10 border-3 border-[#101112] border-t-transparent rounded-full animate-spin mx-auto" />
                 <div>
-                  <h4 className="font-black text-sm text-[#171819]">Synthesizing Bloom-Calibrated Items</h4>
-                  <p className="text-xs text-[#777D78] mt-1">Calibrating cognitive taxonomy to {aiBloomLevel} domain...</p>
+                  <h4 className="font-black text-sm text-[#171819]">Synthesizing Bloom-Calibrated Questions</h4>
+                  <p className="text-xs text-[#777D78] mt-1">Calling Google Gemini for {aiCount} items in {aiBloomLevel} domain...</p>
                 </div>
               </div>
             ) : generatedBatch.length === 0 ? (
@@ -1334,93 +1599,353 @@ export const McqImportView = ({ currentUser }) => {
                 </div>
                 <h4 className="text-sm font-black text-[#171819]">No Generated Items in Current Queue</h4>
                 <p className="text-xs text-[#777D78] max-w-sm mx-auto leading-relaxed">
-                  Configure your topic and Bloom's level on the left and click "Generate Questions with AI" to synthesize high-yield MCQs.
+                  Configure your subject, topic, and Bloom taxonomy domain on the left, then click "Generate MCQs with AI" to review candidate questions.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {generatedBatch.map((q, idx) => (
-                  <div key={q._id} className="tf-card p-6 space-y-4 hover:border-[#101112]/40 transition-all shadow-xs">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">
-                            {q.bloomLevel}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#777D78] text-[10px] font-bold">
-                            {q.topic}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold">
-                            {q.difficulty}
-                          </span>
-                        </div>
-                        <h4 className="font-bold text-sm text-[#171819] leading-snug">
-                          Q{idx + 1}. {q.question}
-                        </h4>
-                      </div>
-                      <span className="font-mono text-xs font-black text-[#171819] shrink-0 bg-[#F2F3F0] px-2.5 py-1 rounded-xl">
-                        {q.marks}m
-                      </span>
-                    </div>
+                {generatedBatch.map((q, idx) => {
+                  const candId = q.candidateId || q._id;
+                  const isSelected = selectedCandidateIds.has(candId);
+                  const isEditing = editingCandidateId === candId;
+                  const isRegenerating = regeneratingCandidateId === candId;
 
-                    {/* Code Snippet if present */}
-                    {q.codeSnippet && (
-                      <div className="bg-[#101112] text-[#d5dbd2] p-3.5 rounded-xl font-mono text-[11px] overflow-x-auto leading-relaxed">
-                        <pre>{q.codeSnippet}</pre>
-                      </div>
-                    )}
-
-                    {/* Choices Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {['A', 'B', 'C', 'D'].map((letter) => {
-                        const optText = q[`option${letter}`];
-                        const isCorrect = q.correctAnswer === letter;
-                        return (
-                          <div
-                            key={letter}
-                            className={`p-3 rounded-xl border flex items-center gap-2.5 ${
-                              isCorrect
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
-                                : 'bg-[#F2F3F0] border-[#DDE1DA] text-[#171819]'
-                            }`}
+                  if (isEditing && editFormData) {
+                    return (
+                      <div key={candId} className="tf-card p-6 space-y-4 border-2 border-[#101112] shadow-md bg-white">
+                        <div className="flex items-center justify-between pb-2 border-b border-[#DDE1DA]">
+                          <span className="text-xs font-black text-[#101112] flex items-center gap-1.5">
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Editing Candidate #{idx + 1}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditCandidate}
+                            className="text-[#777D78] hover:text-[#101112] p-1 rounded-md cursor-pointer"
                           >
-                            <span className="w-5 h-5 rounded-md bg-white border border-[#DDE1DA] flex items-center justify-center font-bold text-[10px] shrink-0">
-                              {letter}
-                            </span>
-                            <span className="truncate">{optText}</span>
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Edit Validation Errors */}
+                        {editErrors.length > 0 && (
+                          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold space-y-1">
+                            {editErrors.map((err, eIdx) => (
+                              <div key={eIdx} className="flex items-center gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                <span>{err}</span>
+                              </div>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
+                        )}
 
-                    {/* Explanation */}
-                    {q.explanation && (
-                      <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs leading-relaxed">
-                        <span className="font-bold block mb-0.5">Rationale:</span>
-                        {q.explanation}
+                        {/* Statement Input */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                            Question Statement *
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={editFormData.statement}
+                            onChange={(e) => setEditFormData({ ...editFormData, statement: e.target.value })}
+                            className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs font-bold text-[#171819] focus:outline-none focus:border-[#101112]"
+                          />
+                        </div>
+
+                        {/* Metadata row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-[#171819] mb-1">Difficulty</label>
+                            <select
+                              value={editFormData.difficulty}
+                              onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value })}
+                              className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-2 text-xs font-bold text-[#171819]"
+                            >
+                              <option value="Easy">Easy</option>
+                              <option value="Medium">Medium</option>
+                              <option value="Hard">Hard</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-[#171819] mb-1">Answer Type</label>
+                            <select
+                              value={editFormData.answerType}
+                              onChange={(e) => {
+                                const newType = e.target.value;
+                                setEditFormData({
+                                  ...editFormData,
+                                  answerType: newType,
+                                  correctAnswers: newType === 'single'
+                                    ? [editFormData.correctAnswers[0] || 'A']
+                                    : editFormData.correctAnswers
+                                });
+                              }}
+                              className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-2 text-xs font-bold text-[#171819]"
+                            >
+                              <option value="single">Single Correct</option>
+                              <option value="multiple">Multiple Correct</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-[#171819] mb-1">Marks</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={editFormData.marks}
+                              onChange={(e) => setEditFormData({ ...editFormData, marks: Number(e.target.value) || 1 })}
+                              className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl px-2.5 py-2 text-xs font-black text-[#171819]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Options Editor */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[11px] font-bold text-[#171819]">
+                              Options ({editFormData.answerType === 'single' ? 'Click radio to designate correct option' : 'Check all correct options'})
+                            </label>
+                            {editFormData.options.length < 8 && (
+                              <button
+                                type="button"
+                                onClick={handleAddEditCandidateOption}
+                                className="text-xs font-bold text-[#101112] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Option</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            {editFormData.options.map((opt) => {
+                              const isCorrect = editFormData.correctAnswers.includes(opt.id);
+                              return (
+                                <div
+                                  key={opt.id}
+                                  className={`p-2.5 rounded-xl border flex items-center gap-2.5 ${
+                                    isCorrect
+                                      ? 'bg-emerald-50/70 border-emerald-300'
+                                      : 'bg-[#F2F3F0] border-[#DDE1DA]'
+                                  }`}
+                                >
+                                  {/* Radio or Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleEditCandidateCorrectAnswer(opt.id)}
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer transition-all ${
+                                      isCorrect
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-white border border-[#DDE1DA] text-[#777D78] hover:border-[#101112]'
+                                    }`}
+                                  >
+                                    {opt.id}
+                                  </button>
+
+                                  <input
+                                    type="text"
+                                    value={opt.text}
+                                    onChange={(e) => {
+                                      const newText = e.target.value;
+                                      setEditFormData({
+                                        ...editFormData,
+                                        options: editFormData.options.map((o) =>
+                                          o.id === opt.id ? { ...o, text: newText } : o
+                                        )
+                                      });
+                                    }}
+                                    placeholder={`Option ${opt.id} text`}
+                                    className="flex-1 bg-white border border-[#DDE1DA] rounded-lg px-2.5 py-1.5 text-xs text-[#171819] focus:outline-none focus:border-[#101112]"
+                                  />
+
+                                  {editFormData.options.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEditCandidateOption(opt.id)}
+                                      className="text-[#777D78] hover:text-rose-600 p-1 rounded-md cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Explanation Input */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#171819] mb-1">
+                            Pedagogical Explanation *
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={editFormData.explanation}
+                            onChange={(e) => setEditFormData({ ...editFormData, explanation: e.target.value })}
+                            className="w-full bg-[#F2F3F0] border border-[#DDE1DA] rounded-xl p-3 text-xs text-[#171819] focus:outline-none focus:border-[#101112]"
+                          />
+                        </div>
+
+                        {/* Save / Cancel Footer */}
+                        <div className="pt-2 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCancelEditCandidate}
+                            className="px-4 py-2 rounded-full text-xs font-bold text-[#777D78] hover:text-[#171819] cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveEditCandidate}
+                            className="px-5 py-2 rounded-full bg-[#101112] text-[#EDFF72] text-xs font-black hover:bg-black transition-all cursor-pointer shadow-xs"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
                       </div>
-                    )}
+                    );
+                  }
 
-                    {/* Action Bar */}
-                    <div className="pt-2 border-t border-[#DDE1DA]/80 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setGeneratedBatch((prev) => prev.filter((item) => item._id !== q._id))}
-                        className="px-3.5 py-1.5 rounded-full text-xs font-bold text-[#777D78] hover:text-rose-600 cursor-pointer"
-                      >
-                        Discard
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCommitToBank(q)}
-                        className="px-4 py-1.5 rounded-full bg-[#101112] hover:bg-black text-[#EDFF72] text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Commit to Bank</span>
-                      </button>
+                  return (
+                    <div
+                      key={candId}
+                      className={`tf-card p-6 space-y-4 transition-all shadow-xs relative ${
+                        isSelected
+                          ? 'border-[#101112] bg-white ring-1 ring-[#101112]/20'
+                          : 'border-[#DDE1DA] bg-white/80 opacity-85'
+                      }`}
+                    >
+                      {/* Regeneration Overlay Spinner */}
+                      {isRegenerating && (
+                        <div className="absolute inset-0 bg-white/85 backdrop-blur-xs rounded-[24px] z-10 flex flex-col items-center justify-center gap-2">
+                          <RefreshCw className="w-5 h-5 text-[#101112] animate-spin" />
+                          <span className="text-xs font-black text-[#101112]">Regenerating with Gemini AI...</span>
+                        </div>
+                      )}
+
+                      {/* Header row with selection checkbox & badges */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectCandidate(candId)}
+                            className="cursor-pointer text-[#101112]"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-5 h-5 text-[#101112] fill-[#EDFF72]" />
+                            ) : (
+                              <Square className="w-5 h-5 text-[#777D78]" />
+                            )}
+                          </button>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-full bg-[#101112] text-white text-[10px] font-black">
+                              Q{idx + 1}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">
+                              {q.bloomLevel || q.bloomTaxonomy}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              q.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700' :
+                              q.difficulty === 'Hard' ? 'bg-rose-50 text-rose-700' :
+                              'bg-amber-50 text-amber-800'
+                            }`}>
+                              {q.difficulty}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#777D78] text-[10px] font-bold">
+                              {q.answerType === 'multiple' ? 'Multiple Correct' : 'Single Correct'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-[#F2F3F0] text-[#777D78] text-[10px] font-bold">
+                              {q.topic}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="font-mono text-xs font-black text-[#171819] shrink-0 bg-[#F2F3F0] px-2.5 py-1 rounded-xl">
+                          {q.marks || 1}m
+                        </span>
+                      </div>
+
+                      {/* Statement */}
+                      <h4 className="font-bold text-sm text-[#171819] leading-snug pl-8">
+                        {q.statement || q.question}
+                      </h4>
+
+                      {/* Options Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pl-8">
+                        {(q.options || []).map((opt) => {
+                          const isCorrect = (q.correctAnswers || []).includes(opt.id) || q.correctAnswer === opt.id;
+                          return (
+                            <div
+                              key={opt.id}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-all ${
+                                isCorrect
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold ring-1 ring-emerald-400/30'
+                                  : 'bg-[#F2F3F0] border-[#DDE1DA] text-[#171819]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-white border border-[#DDE1DA]'
+                                }`}>
+                                  {opt.id}
+                                </span>
+                                <span className="truncate">{opt.text}</span>
+                              </div>
+                              {isCorrect && (
+                                <span className="shrink-0 flex items-center gap-1 text-[10px] uppercase font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                                  <Check className="w-3 h-3" />
+                                  <span>Correct</span>
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Pedagogical Explanation */}
+                      {q.explanation && (
+                        <div className="ml-8 p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs leading-relaxed">
+                          <span className="font-bold block mb-0.5 text-amber-950">Pedagogical Rationale:</span>
+                          {q.explanation}
+                        </div>
+                      )}
+
+                      {/* Action Bar */}
+                      <div className="pt-2 border-t border-[#DDE1DA]/80 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditCandidate(q)}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-[#101112] hover:bg-[#F2F3F0] transition-all cursor-pointer flex items-center gap-1 border border-[#DDE1DA]"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isRegenerating}
+                          onClick={() => handleRegenerateIndividual(q)}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-[#101112] hover:bg-[#F2F3F0] transition-all cursor-pointer flex items-center gap-1 border border-[#DDE1DA] disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                          <span>Regenerate</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDiscardCandidate(candId)}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-[#777D78] hover:text-rose-600 cursor-pointer flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Discard</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1428,136 +1953,7 @@ export const McqImportView = ({ currentUser }) => {
       )}
 
       {/* ────────────────────────────────────────────────────────────────────────────
-          MODE 2: BULK IMPORTER STUDIO (CSV / JSON / MULTILINE)
-          ──────────────────────────────────────────────────────────────────────────── */}
-      {activeMode === 'bulk' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-6 space-y-5">
-            <div className="tf-card p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Upload className="w-4 h-4 text-[#171819]" />
-                  <h3 className="text-sm font-black text-[#171819]">Bulk Ingestion Payload</h3>
-                </div>
-                <div className="flex items-center gap-1 bg-[#F2F3F0] p-1 rounded-full border border-[#DDE1DA]">
-                  <button
-                    type="button"
-                    onClick={() => setBulkFormat('json')}
-                    className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                      bulkFormat === 'json' ? 'bg-[#101112] text-white' : 'text-[#777D78]'
-                    }`}
-                  >
-                    JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBulkFormat('csv')}
-                    className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                      bulkFormat === 'csv' ? 'bg-[#101112] text-white' : 'text-[#777D78]'
-                    }`}
-                  >
-                    CSV
-                  </button>
-                </div>
-              </div>
-              <p className="text-[11px] text-[#777D78] mb-4">
-                Paste structured question datasets or export archives for batch validation.
-              </p>
-
-              <textarea
-                rows={12}
-                value={bulkRawText}
-                onChange={(e) => setBulkRawText(e.target.value)}
-                placeholder={
-                  bulkFormat === 'json'
-                    ? `[\n  {\n    "question": "What is the Big-O time of bubble sort?",\n    "optionA": "O(n)",\n    "optionB": "O(n^2)",\n    "optionC": "O(log n)",\n    "optionD": "O(1)",\n    "correctAnswer": "B",\n    "marks": 2,\n    "topic": "Algorithms"\n  }\n]`
-                    : `What is DNS?,Domain Name System,Dynamic Network Service,Data Node Server,None,A,2,Networking`
-                }
-                className="w-full bg-[#101112] text-[#d5dbd2] p-4 rounded-2xl font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#EDFF72] resize-none leading-relaxed"
-              />
-
-              {bulkParseError && (
-                <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{bulkParseError}</span>
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setBulkRawText('')}
-                  className="px-4 py-2 rounded-full text-xs font-bold text-[#777D78] hover:text-[#171819]"
-                >
-                  Clear Buffer
-                </button>
-                <button
-                  type="button"
-                  onClick={handleParseBulk}
-                  className="px-6 py-2.5 rounded-full bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#101112] text-xs font-black transition-all cursor-pointer shadow-xs"
-                >
-                  Validate & Parse Payload
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Parsed Rows Preview */}
-          <div className="lg:col-span-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-[#171819]">
-                Parsed Batch ({bulkParsedItems.length})
-              </h3>
-              {bulkParsedItems.length > 0 && (
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleCommitAllBulk}
-                  className="px-5 py-2 rounded-full bg-[#101112] hover:bg-black text-[#EDFF72] text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{saving ? 'Importing...' : 'Commit All to Bank'}</span>
-                </button>
-              )}
-            </div>
-
-            {bulkParsedItems.length === 0 ? (
-              <div className="tf-card py-16 text-center space-y-3 p-8">
-                <div className="w-12 h-12 rounded-2xl bg-[#F2F3F0] text-[#171819] flex items-center justify-center mx-auto">
-                  <FileSpreadsheet className="w-6 h-6 stroke-[1.8]" />
-                </div>
-                <h4 className="text-sm font-black text-[#171819]">No Parsed Records Ready</h4>
-                <p className="text-xs text-[#777D78] max-w-sm mx-auto leading-relaxed">
-                  Paste content on the left and click "Validate & Parse" to preview the tabular records before committing.
-                </p>
-              </div>
-            ) : (
-              <div className="max-h-[520px] overflow-y-auto space-y-3 pr-1">
-                {bulkParsedItems.map((item, i) => (
-                  <div key={item._id} className="tf-card p-4 space-y-2 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-[#171819] truncate leading-tight">
-                        #{i + 1}. {item.question}
-                      </span>
-                      <span className="font-mono font-bold text-[#777D78] shrink-0">
-                        Ans: {item.correctAnswer}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-[#777D78]">
-                      <span>{item.topic}</span>
-                      <span>•</span>
-                      <span>{item.marks} marks</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ────────────────────────────────────────────────────────────────────────────
-          MODE 3: MANUAL QUESTION CREATOR
+          MODE 2: MANUAL QUESTION CREATOR
           ──────────────────────────────────────────────────────────────────────────── */}
       {activeMode === 'manual' && (
         <div className="max-w-3xl mx-auto">

@@ -388,6 +388,8 @@ export const QuestionBankView = ({
         dataStructure: q.dataStructure || 'ARRAY',
         createdAt: q.createdAt || '10/22/2026',
         ownerId: q.ownerId || q.raw?.ownerId || q.createdBy || null,
+        isPlatform: Boolean(q.isPlatform || q.raw?.isPlatform),
+        isDemo: Boolean(q.isDemo || q.raw?.isDemo),
         raw: q
       };
     });

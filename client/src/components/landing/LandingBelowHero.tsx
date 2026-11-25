@@ -80,7 +80,7 @@ export const LandingBelowHero: React.FC<LandingBelowHeroProps> = ({
     { id: 'create', label: 'Create Question', icon: FilePlus },
     { id: 'tests', label: 'Test Studio', icon: FlaskConical },
     { id: 'mutation', label: 'Mutation Lab', icon: TestTube },
-    { id: 'mcq', label: 'Bulk MCQ', icon: Files },
+    { id: 'mcq', label: 'AI MCQ Studio', icon: Files },
     { id: 'paper', label: 'Paper Designer', icon: FileText },
     { id: 'exams', label: 'Examinations', icon: ClipboardList },
   ];

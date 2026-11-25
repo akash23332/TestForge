@@ -7,7 +7,8 @@ import {
   EyeOff,
   Shield,
   GraduationCap,
-  Loader2
+  Loader2,
+  User
 } from 'lucide-react';
 
 export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher' }) => {
@@ -19,8 +20,13 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
       setRole(initialRole);
     }
   }, [initialRole]);
+
+  // Mode: Sign In vs Sign Up
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // States
@@ -33,6 +39,7 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
 
   // Refs
   const cardRef = useRef(null);
+  const nameInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const dustCanvasRef = useRef(null);
@@ -197,17 +204,35 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
     setErrorMessage(msg);
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 450);
-    if (focusField === 'email' && emailInputRef.current) {
+    if (focusField === 'name' && nameInputRef.current) {
+      nameInputRef.current.focus();
+    } else if (focusField === 'email' && emailInputRef.current) {
       emailInputRef.current.focus();
     } else if (focusField === 'password' && passwordInputRef.current) {
       passwordInputRef.current.focus();
     }
   };
 
+  // Toggle Mode: Sign In vs Sign Up
+  const handleToggleMode = () => {
+    setIsSignUp((prev) => !prev);
+    setErrorMessage('');
+    setPassword('');
+    setConfirmPassword('');
+  };
+
   // Submit Handler (REAL API auth + backend role verification)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+
+    if (isSignUp) {
+      const cleanName = name.trim();
+      if (!cleanName || cleanName.length < 2) {
+        triggerShake('Please enter your full name (at least 2 characters).', 'name');
+        return;
+      }
+    }
 
     const cleanEmail = email.trim();
     if (!cleanEmail) {
@@ -219,49 +244,82 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
       triggerShake('Please enter a valid email address.', 'email');
       return;
     }
-    if (!password) {
-      triggerShake('Please enter your password.', 'password');
+    if (!password || password.length < 6) {
+      triggerShake('Password must be at least 6 characters.', 'password');
+      return;
+    }
+
+    if (isSignUp && password !== confirmPassword) {
+      triggerShake('Passwords do not match.', 'password');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const res = await api.post('/auth/login', {
-        email: cleanEmail,
-        password,
-        role: role // Backend verifies that account role matches the active tab!
-      });
+      if (isSignUp) {
+        // Registration API
+        const res = await api.post('/auth/register', {
+          name: name.trim(),
+          email: cleanEmail,
+          password,
+          role
+        });
 
-      const payload = res.data?.data || res.data;
-      const { token, user } = payload;
+        const payload = res.data?.data || res.data;
+        const { token, user } = payload;
 
-      if (token && user) {
-        localStorage.setItem('testforge_token', token);
-        localStorage.setItem('testforge_user', JSON.stringify(user));
-        setIsSuccess(true);
+        if (token && user) {
+          localStorage.setItem('testforge_token', token);
+          localStorage.setItem('testforge_user', JSON.stringify(user));
+          setIsSuccess(true);
 
-        setTimeout(() => {
-          if (onSuccess) onSuccess(user);
-        }, 900);
+          setTimeout(() => {
+            if (onSuccess) onSuccess(user);
+          }, 900);
+        } else {
+          triggerShake('Registration completed, but no session token was received.');
+        }
       } else {
-        triggerShake('Authentication failed. No session token returned.');
+        // Login API
+        const res = await api.post('/auth/login', {
+          email: cleanEmail,
+          password,
+          role // Backend verifies that account role matches the active tab!
+        });
+
+        const payload = res.data?.data || res.data;
+        const { token, user } = payload;
+
+        if (token && user) {
+          localStorage.setItem('testforge_token', token);
+          localStorage.setItem('testforge_user', JSON.stringify(user));
+          setIsSuccess(true);
+
+          setTimeout(() => {
+            if (onSuccess) onSuccess(user);
+          }, 900);
+        } else {
+          triggerShake('Authentication failed. No session token returned.');
+        }
       }
     } catch (err) {
       const status = err.response?.status;
       const errorData = err.response?.data?.error || err.response?.data;
       const serverMessage = errorData?.message || err.customMessage;
 
-      if (status === 403) {
+      if (status === 409) {
+        triggerShake('An account with this email address already exists. Please sign in.', 'email');
+      } else if (status === 403) {
         triggerShake(serverMessage || (role === 'teacher' ? 'This account is not registered as faculty.' : 'This account is not registered as a student.'));
       } else if (status === 401) {
         triggerShake('Invalid email or password.', 'password');
       } else if (status === 429) {
-        triggerShake('Too many login attempts. Please wait a moment and try again.');
+        triggerShake('Too many attempts. Please wait a moment and try again.');
       } else if (!err.response) {
         triggerShake('Network error connecting to server. Please check your connection.');
       } else {
-        triggerShake(serverMessage || 'Authentication failed. Please verify your credentials.');
+        triggerShake(serverMessage || (isSignUp ? 'Registration failed. Please check your details.' : 'Authentication failed. Please verify your credentials.'));
       }
     } finally {
       setIsSubmitting(false);
@@ -282,15 +340,22 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
 
   // Role copy
   const isFaculty = role === 'teacher';
-  const roleTitle = isFaculty ? 'Faculty Sign In' : 'Student Sign In';
-  const roleSubtitle = isFaculty
-    ? 'Access Teacher Dashboard & Question Bank'
-    : 'Join tests, track results and keep learning';
+  const roleTitle = isSignUp
+    ? (isFaculty ? 'Faculty Sign Up' : 'Student Sign Up')
+    : (isFaculty ? 'Faculty Sign In' : 'Student Sign In');
+
+  const roleSubtitle = isSignUp
+    ? (isFaculty
+        ? 'Create your faculty account to author tests & question banks'
+        : 'Create your student account to join tests & track growth')
+    : (isFaculty
+        ? 'Access Teacher Dashboard & Question Bank'
+        : 'Join tests, track results and keep learning');
+
   const roleEmailLabel = isFaculty ? 'Faculty Email' : 'Student Email';
-  const roleButtonLabel = isFaculty ? 'Sign In as Faculty' : 'Sign In as Student';
-  const roleNote = isFaculty
-    ? 'Need an account? Contact your institution administrator.'
-    : 'Need an account? Ask your institution administrator or teacher.';
+  const roleButtonLabel = isSignUp
+    ? (isFaculty ? 'Create Faculty Account' : 'Create Student Account')
+    : (isFaculty ? 'Sign In as Faculty' : 'Sign In as Student');
 
   return (
     <div className="relative h-[100svh] w-full overflow-hidden bg-[#0a0b0c] font-sans text-[#F2F3F0] select-none">
@@ -638,11 +703,11 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
               </div>
             </div>
 
-            {/* Prop 2: White "Average score 86%" Chip (right: -60px; top: 26%; translateZ 110px; delay -2s) */}
+            {/* Prop 2: White "Average score 86%" Chip (right: -105px; top: 26%; translateZ 110px; delay -2s) */}
             <div
               style={{
                 position: 'absolute',
-                right: '-60px',
+                right: '-105px',
                 top: '26%',
                 zIndex: 4,
                 backgroundColor: '#FFFFFF',
@@ -665,11 +730,11 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
               </span>
             </div>
 
-            {/* Prop 3: Dark Code Card (left: -48px; bottom: 10%; translateZ 90px; delay -4s) */}
+            {/* Prop 3: Dark Code Card (left: -95px; bottom: 10%; translateZ 90px; delay -4s) */}
             <div
               style={{
                 position: 'absolute',
-                left: '-48px',
+                left: '-95px',
                 bottom: '10%',
                 zIndex: 4,
                 backgroundColor: '#15161a',
@@ -881,8 +946,8 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
                 </div>
               </div>
 
-              {/* Demo Credentials Row (Dev only) */}
-              {import.meta.env.DEV && (
+              {/* Demo Credentials Row (Dev only, Sign In only) */}
+              {import.meta.env.DEV && !isSignUp && (
                 <div
                   style={{
                     margin: '16px 0 4px',
@@ -926,6 +991,67 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
                 aria-labelledby={`tab-${role}`}
                 onSubmit={handleSubmit}
               >
+                {/* Full Name Input (Sign Up only) */}
+                {isSignUp && (
+                  <>
+                    <label
+                      htmlFor="signup-name"
+                      style={{
+                        display: 'block',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        color: '#d9dcd6',
+                        margin: '16px 0 7px'
+                      }}
+                    >
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '14px',
+                          transform: 'translateY(-50%)',
+                          pointerEvents: 'none',
+                          color: '#9a9e98'
+                        }}
+                      >
+                        <User style={{ width: '18px', height: '18px' }} />
+                      </div>
+                      <input
+                        ref={nameInputRef}
+                        id="signup-name"
+                        type="text"
+                        autoComplete="name"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={isFaculty ? 'e.g. Dr. Jane Doe' : 'e.g. Alex Johnson'}
+                        disabled={isSubmitting || isSuccess}
+                        style={{
+                          width: '100%',
+                          padding: '14px 16px 14px 44px',
+                          border: '1px solid rgba(255, 255, 255, 0.14)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px',
+                          fontSize: '14.5px',
+                          color: '#FFFFFF',
+                          outline: 'none',
+                          transition: 'border-color 0.2s, box-shadow 0.2s'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#EDFF72';
+                          e.target.style.boxShadow = '0 0 0 3px rgba(237, 255, 114, 0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
                 {/* Email Label & Input */}
                 <label
                   htmlFor="login-email"
@@ -1075,26 +1201,89 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
                   </button>
                 </div>
 
-                {/* "Forgot password?" BELOW password field, right-aligned (12.5px, #9a9e98, margin-top 10px, lime on hover) */}
-                <div style={{ textAlign: 'right', marginTop: '10px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setToastMessage('Password reset requests are managed by your institution administrator.')}
-                    style={{
-                      fontSize: '12.5px',
-                      color: '#9a9e98',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                      transition: 'color 0.2s'
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#EDFF72')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#9a9e98')}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+                {/* Confirm Password (Sign Up only) */}
+                {isSignUp && (
+                  <>
+                    <label
+                      htmlFor="signup-confirm-password"
+                      style={{
+                        display: 'block',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        color: '#d9dcd6',
+                        margin: '16px 0 7px'
+                      }}
+                    >
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '14px',
+                          transform: 'translateY(-50%)',
+                          pointerEvents: 'none',
+                          color: '#9a9e98'
+                        }}
+                      >
+                        <Lock style={{ width: '18px', height: '18px' }} />
+                      </div>
+                      <input
+                        id="signup-confirm-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter your password"
+                        disabled={isSubmitting || isSuccess}
+                        style={{
+                          width: '100%',
+                          padding: '14px 44px',
+                          border: '1px solid rgba(255, 255, 255, 0.14)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px',
+                          fontSize: '14.5px',
+                          color: '#FFFFFF',
+                          outline: 'none',
+                          transition: 'border-color 0.2s, box-shadow 0.2s'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#EDFF72';
+                          e.target.style.boxShadow = '0 0 0 3px rgba(237, 255, 114, 0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* "Forgot password?" BELOW password field, right-aligned (Sign In only) */}
+                {!isSignUp && (
+                  <div style={{ textAlign: 'right', marginTop: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setToastMessage('Password reset requests are managed by your institution administrator.')}
+                      style={{
+                        fontSize: '12.5px',
+                        color: '#9a9e98',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        transition: 'color 0.2s'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#EDFF72')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#9a9e98')}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
 
                 {/* Error line: min-height 20px with margin-top 10px, aria-live="polite", ⚠ in #f0e6a8 (no red!) */}
                 <div
@@ -1154,17 +1343,17 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
                   {isSubmitting ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      <span>Signing in…</span>
+                      <span>{isSignUp ? 'Creating account…' : 'Signing in…'}</span>
                     </>
                   ) : isSuccess ? (
-                    <span>✓ Welcome back, redirecting…</span>
+                    <span>{isSignUp ? '✓ Account created, redirecting…' : '✓ Welcome back, redirecting…'}</span>
                   ) : (
                     <span>{roleButtonLabel}</span>
                   )}
                 </button>
               </form>
 
-              {/* Note: margin 20px 0 0, 12.5px, #d9dcd6, centered (min-height 38px) */}
+              {/* Mode Toggle Switcher: Sign In vs Sign Up */}
               <div
                 style={{
                   margin: '20px 0 0',
@@ -1175,9 +1364,49 @@ export const AuthPage = ({ onSuccess, onNavigateLanding, initialRole = 'teacher'
                   textAlign: 'center'
                 }}
               >
-                <p style={{ fontSize: '12.5px', color: '#d9dcd6', margin: 0, lineHeight: 1.4 }}>
-                  {roleNote}
-                </p>
+                {isSignUp ? (
+                  <p style={{ fontSize: '13px', color: '#9a9e98', margin: 0 }}>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={handleToggleMode}
+                      style={{
+                        color: '#EDFF72',
+                        fontWeight: 600,
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0 4px',
+                        textDecoration: 'underline'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#EDFF72')}
+                    >
+                      Sign In
+                    </button>
+                  </p>
+                ) : (
+                  <p style={{ fontSize: '13px', color: '#9a9e98', margin: 0 }}>
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={handleToggleMode}
+                      style={{
+                        color: '#EDFF72',
+                        fontWeight: 600,
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0 4px',
+                        textDecoration: 'underline'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#EDFF72')}
+                    >
+                      Sign Up
+                    </button>
+                  </p>
+                )}
               </div>
 
               {/* "or" divider: margin 18px 0, 12.5px, #9a9e98, 1px lines rgba(255,255,255,.12) */}

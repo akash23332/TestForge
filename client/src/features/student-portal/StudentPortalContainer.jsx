@@ -45,11 +45,25 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, onExit, onBack, 
     setStep('instructions');
   };
 
+  const exitFullscreen = () => {
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  // Exit fullscreen whenever user leaves the workspace step
+  useEffect(() => {
+    if (step !== 'workspace') {
+      exitFullscreen();
+    }
+  }, [step]);
+
   const handleStartExam = () => {
     setStep('workspace');
   };
 
   const handleExamSubmitted = (results) => {
+    exitFullscreen();
     setResultData(results);
     localStorage.removeItem('testforge_student_session');
     localStorage.removeItem('testforge_attempt_token');
@@ -57,6 +71,7 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, onExit, onBack, 
   };
 
   const handleExit = () => {
+    exitFullscreen();
     localStorage.removeItem('testforge_student_session');
     localStorage.removeItem('testforge_attempt_token');
     setSessionData(null);
@@ -103,7 +118,10 @@ export const StudentPortalContainer = ({ onExitToTeacherPortal, onExit, onBack, 
       {step === 'results' && (
         <StudentResultsView
           resultData={resultData}
+          attemptId={resultData?._id || resultData?.id}
           onReturnHome={handleExit}
+          onBack={handleExit}
+          onReturnDashboard={handleExit}
         />
       )}
     </div>

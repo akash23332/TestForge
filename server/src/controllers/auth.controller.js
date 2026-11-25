@@ -15,7 +15,7 @@ const generateToken = (user) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
     const existingUser = await User.findOne({ email: cleanEmail });
@@ -23,9 +23,8 @@ export const register = async (req, res, next) => {
       throw ApiError.conflict('An account with this email address already exists.');
     }
 
-    // Public registration strictly provisions student accounts only.
-    // Teachers and Admins must be provisioned via authorized invitation/admin workflows.
-    const assignedRole = 'student';
+    // Public registration supports both teacher and student roles. Admins must be provisioned via admin workflows.
+    const assignedRole = (role === 'teacher' || role === 'faculty') ? 'teacher' : 'student';
 
     const passwordHash = await User.hashPassword(password);
     const user = await User.create({
@@ -244,10 +243,94 @@ export const createStudent = async (req, res, next) => {
   }
 };
 
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      throw ApiError.notFound('User not found.');
+    }
+
+    if (name && typeof name === 'string') {
+      user.name = name.trim().slice(0, 100);
+    }
+
+    if (email && typeof email === 'string') {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail.includes('@')) {
+        throw ApiError.badRequest('Please provide a valid email address.');
+      }
+      if (cleanEmail !== user.email) {
+        const existing = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } });
+        if (existing) {
+          throw ApiError.conflict('An account with this email address already exists.');
+        }
+        user.email = cleanEmail;
+      }
+    }
+
+    // Role, cohort and rollNumber are strictly immutable by the student
+    await user.save();
+
+    return ApiResponse.success(
+      res,
+      200,
+      {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          cohort: user.cohort,
+          rollNumber: user.rollNumber,
+          createdAt: user.createdAt
+        }
+      },
+      'Profile updated successfully.'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updatePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword) {
+      throw ApiError.badRequest('Current password is required.');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw ApiError.badRequest('New password must be at least 8 characters long.');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      throw ApiError.notFound('User not found.');
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw ApiError.badRequest('Current password is incorrect.');
+    }
+
+    user.passwordHash = await User.hashPassword(newPassword);
+    await user.save();
+
+    return ApiResponse.success(res, 200, null, 'Password updated successfully.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   register,
   login,
   getMe,
   getStudents,
-  createStudent
+  createStudent,
+  updateProfile,
+  updatePassword
 };

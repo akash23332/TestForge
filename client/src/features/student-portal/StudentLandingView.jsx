@@ -447,7 +447,8 @@ export const StudentLandingView = ({
                 id="rot"
                 style={{
                   opacity: rotVisible ? 1 : 0,
-                  transform: rotVisible ? 'none' : 'translateY(16px)'
+                  transform: rotVisible ? 'none' : 'translateY(16px)',
+                  marginLeft: 0
                 }}
               >
                 {ROTATING_WORDS[wi]}
@@ -558,7 +559,7 @@ export const StudentLandingView = ({
           {/* Section 1: The Student Workspace Showcase */}
           <div className="eb rv">The student workspace</div>
           <h2 className="rv" style={{ '--d': 1 }}>
-            Your tests, results and progress in <u>one place</u>.
+            Your tests, results and progress in <u style={{ color: '#111' }}>one place</u>.
           </h2>
           <p className="ld rv" style={{ '--d': 2 }}>
             Join tests, track your attempts and see where to improve, all from a single student dashboard.
@@ -727,7 +728,7 @@ export const StudentLandingView = ({
             <div className="dk">
               <div className="eb rv">Join Test</div>
               <h2 className="rv" style={{ '--d': 1 }}>
-                Enter a code. <u>Start</u> in seconds.
+                Enter a code. <u style={{ color: '#111' }}>Start</u> in seconds.
               </h2>
               <p className="ld rv" style={{ '--d': 2, marginBottom: 0 }}>
                 Your teacher shares a test code. Enter it, preview the test, and start when it opens.

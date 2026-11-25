@@ -91,7 +91,7 @@ export const Footer = ({
             className="text-[11px] font-bold text-[#171819] hover:underline cursor-pointer flex items-center gap-1"
           >
             <Shield className="size-3 text-emerald-600" />
-            <span>Teacher Portal</span>
+            <span>Teacher Login</span>
           </button>
         </div>
       </div>

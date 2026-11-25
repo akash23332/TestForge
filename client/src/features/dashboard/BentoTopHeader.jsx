@@ -67,7 +67,7 @@ export const BentoTopHeader = ({
       case 'mutation':
         return 'Mutation Lab';
       case 'mcq':
-        return 'Bulk MCQ Import';
+        return 'AI MCQ Studio';
       case 'paper':
         return 'Paper Designer';
       case 'exams':

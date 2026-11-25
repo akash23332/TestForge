@@ -78,7 +78,8 @@ export const validateListQuestions = (req, res, next) => {
     search: Joi.string().allow('').default(''),
     difficulty: Joi.string().valid('Easy', 'Medium', 'Hard', '').default(''),
     language: Joi.string().valid('javascript', 'python', 'java', 'cpp', '').default(''),
-    sort: Joi.string().valid('updatedAt', '-updatedAt', 'title', '-title', 'createdAt', '-createdAt').default('-updatedAt')
+    sort: Joi.string().valid('updatedAt', '-updatedAt', 'title', '-title', 'createdAt', '-createdAt').default('-updatedAt'),
+    scope: Joi.string().valid('all', 'mine', 'platform', '').default('all')
   });
 
   const { error, value } = schema.validate(req.query);

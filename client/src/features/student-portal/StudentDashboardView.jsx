@@ -276,10 +276,16 @@ export const StudentDashboardView = ({
 
   // Active result report
   if (viewingResult) {
+    const matchedAttempt = myAttempts.find(
+      (a) => a._id === viewingResult || a.id === viewingResult
+    );
     return (
       <StudentResultsView
-        attemptId={viewingResult}
+        attemptId={typeof viewingResult === 'string' ? viewingResult : viewingResult?._id}
+        resultData={matchedAttempt || (typeof viewingResult === 'object' ? viewingResult : null)}
+        onReturnHome={() => setViewingResult(null)}
         onBack={() => setViewingResult(null)}
+        onReturnDashboard={() => setViewingResult(null)}
       />
     );
   }
@@ -622,7 +628,7 @@ export const StudentDashboardView = ({
                             <button
                               type="button"
                               onClick={() => startExamWithCode(exam.examCode)}
-                              className="px-4 py-2 rounded-xl bg-[#191A1D] hover:bg-black text-white text-xs font-bold transition-transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                              className="px-4 py-2 rounded-xl bg-[#EDFF72] hover:bg-[#d8ee4b] text-[#191A1D] text-xs font-bold transition-transform hover:scale-105 active:scale-95 shrink-0 cursor-pointer shadow-xs"
                             >
                               Start
                             </button>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { motion, useScroll, useMotionValueEvent, useInView } from 'framer-motion';
 import './landing-below.css';
 import {
   Sparkles,
@@ -124,6 +125,38 @@ const FAQ_ITEMS = [
   }
 ];
 
+const LINE = "M0 230 C120 210 200 240 320 190 S520 150 640 120 S860 90 960 60 S1120 30 1200 20";
+const BASE = "M0 250 C140 240 220 250 340 225 S560 200 680 180 S880 160 980 140 S1130 120 1200 110";
+const AREA = LINE + " L1200 300 L0 300Z";
+
+const CountUp = ({ target, suffix = '', inView, duration = 1600 }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    let start = null;
+    let frameId;
+    const step = (timestamp) => {
+      if (!start) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setCount(Math.round(ease * target));
+      if (progress < 1) {
+        frameId = requestAnimationFrame(step);
+      }
+    };
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [inView, target, duration]);
+
+  return (
+    <span>
+      {count}
+      {suffix}
+    </span>
+  );
+};
+
 export const LandingBelowHero = ({
   onJoinTest,
   onNavigateTeacherLogin,
@@ -138,6 +171,17 @@ export const LandingBelowHero = ({
   const [tourProgress, setTourProgress] = useState(0);
   const [activeTourIndex, setActiveTourIndex] = useState(0);
 
+  const { scrollYProgress } = useScroll({
+    target: tourWrapperRef,
+    offset: ['start start', 'end end']
+  });
+
+  useMotionValueEvent(scrollYProgress, 'change', (latest) => {
+    const p = Math.min(Math.max(latest, 0), 0.999);
+    setTourProgress(p);
+    setActiveTourIndex(Math.min(5, Math.max(0, Math.floor(p * 6))));
+  });
+
   // ── Mutation Lab Scene State ──
   const [mutationStep, setMutationStep] = useState(0);
   const [mutationGlitch, setMutationGlitch] = useState(false);
@@ -148,7 +192,8 @@ export const LandingBelowHero = ({
   const [renderedRole, setRenderedRole] = useState('educators');
 
   // ── 4. Code Runner State ──
-  const [activeLang, setActiveLang] = useState('Java');
+  const activeLangState = useState('Java');
+  const [activeLang, setActiveLang] = activeLangState;
   const [isRunningCode, setIsRunningCode] = useState(false);
   const [runIteration, setRunIteration] = useState(0);
   const [codeTestResults, setCodeTestResults] = useState(null);
@@ -156,7 +201,9 @@ export const LandingBelowHero = ({
   const ideRef = useRef(null);
 
   // ── 5. Analytics State ──
-  const [analyticsCountProgress, setAnalyticsCountProgress] = useState(false);
+  const analyticsRef = useRef(null);
+  const gradId = useId();
+  const inView = useInView(analyticsRef, { once: true, amount: 0.25 });
 
   // ── 7. FAQ State ──
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
@@ -364,8 +411,16 @@ export const LandingBelowHero = ({
       {/* ═══════════════════════════════════════════════════════════════════════════
           2. PINNED PRODUCT TOUR (440vh Sticky Stage)
           ═══════════════════════════════════════════════════════════════════════════ */}
-      <div className="tf-tour-wrapper" ref={tourWrapperRef} id="features">
-        <div className="tf-tour-sticky">
+      <section
+        className="tf-tour-wrapper"
+        ref={tourWrapperRef}
+        id="features"
+        style={{ height: '440vh', position: 'relative' }}
+      >
+        <div
+          className="tf-tour-sticky"
+          style={{ position: 'sticky', top: 0, height: '100svh' }}
+        >
           <div className="tf-wrap">
             <div className="tf-tour-grid">
               {/* Left Column: Heading, List & Progress Bar */}
@@ -580,7 +635,7 @@ export const LandingBelowHero = ({
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <hr className="tf-hl" />
 
@@ -593,6 +648,8 @@ export const LandingBelowHero = ({
 
           {/* Pill Toggle with Sliding Lime Thumb */}
           <div
+            id="sw"
+            data-r={activeRole === 'educators' ? 't' : 's'}
             className="tf-switch-pills"
             role="tablist"
             aria-label="Experience Selector"
@@ -607,6 +664,7 @@ export const LandingBelowHero = ({
             <button
               type="button"
               role="tab"
+              data-r="t"
               aria-selected={activeRole === 'educators'}
               onClick={() => handleRoleToggle('educators')}
               className={`tf-switch-pill-btn ${activeRole === 'educators' ? 'active' : ''}`}
@@ -617,6 +675,7 @@ export const LandingBelowHero = ({
             <button
               type="button"
               role="tab"
+              data-r="s"
               aria-selected={activeRole === 'students'}
               onClick={() => handleRoleToggle('students')}
               className={`tf-switch-pill-btn ${activeRole === 'students' ? 'active' : ''}`}
@@ -936,7 +995,7 @@ export const LandingBelowHero = ({
       {/* ═══════════════════════════════════════════════════════════════════════════
           5. ANALYTICS SECTION (Cardless SVG Stroke Drawing)
           ═══════════════════════════════════════════════════════════════════════════ */}
-      <section className="tf-sec tf-reveal" id="tf-analytics-section">
+      <section className="tf-sec tf-reveal" id="tf-analytics-section" ref={analyticsRef}>
         <div className="tf-wrap">
           <div className="tf-eb">Analytics and performance</div>
           <h2>
@@ -952,53 +1011,83 @@ export const LandingBelowHero = ({
               className="tf-svg-chart"
               viewBox="0 0 1200 300"
               preserveAspectRatio="none"
+              overflow="visible"
               aria-label="Student Performance Progression Chart"
             >
               <defs>
-                <linearGradient id="tfLimeGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#EDFF72" stopOpacity="0.45" />
                   <stop offset="100%" stopColor="#EDFF72" stopOpacity="0" />
                 </linearGradient>
               </defs>
 
-              {/* Lighter comparison line */}
-              <path
-                d="M 0,220 C 200,240 400,190 600,170 C 800,150 1000,160 1200,120"
-                fill="none"
-                stroke="#c9cdc6"
-                strokeWidth="2"
-                strokeDasharray="6 6"
+              {/* Lime gradient area */}
+              <motion.path
+                d={AREA}
+                fill={`url(#${gradId})`}
+                initial={{ opacity: 0 }}
+                animate={inView ? { opacity: 1 } : { opacity: 0 }}
+                transition={{ duration: 1.2, delay: 1.2, ease: 'easeOut' }}
               />
 
-              {/* Lime gradient area */}
-              <path
-                className="tf-chart-gradient-area"
-                d="M 0,260 C 200,210 400,140 600,90 C 800,60 1000,80 1200,30 L 1200,300 L 0,300 Z"
-                fill="url(#tfLimeGrad)"
+              {/* Lighter comparison dashed baseline */}
+              <motion.path
+                d={BASE}
+                fill="none"
+                stroke="#C9CDC6"
+                strokeWidth="2"
+                strokeDasharray="6 6"
+                initial={{ pathLength: 0 }}
+                animate={inView ? { pathLength: 1 } : { pathLength: 0 }}
+                transition={{ duration: 1.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
               />
 
               {/* Dark main curve drawing itself over 2.4s */}
-              <path
-                className="tf-chart-path-main"
-                d="M 0,260 C 200,210 400,140 600,90 C 800,60 1000,80 1200,30"
+              <motion.path
+                d={LINE}
                 fill="none"
                 stroke="#171819"
                 strokeWidth="4"
+                strokeLinecap="round"
+                initial={{ pathLength: 0 }}
+                animate={inView ? { pathLength: 1 } : { pathLength: 0 }}
+                transition={{ duration: 2.4, ease: [0.16, 1, 0.3, 1] }}
               />
             </svg>
 
             {/* Three floating dark pin labels over chart */}
-            <div className="flex flex-wrap gap-4 mt-6">
-              <span className="px-3.5 py-1.5 rounded-full bg-[#191A1D] text-white text-xs font-mono">
-                Accuracy 86%
-              </span>
-              <span className="px-3.5 py-1.5 rounded-full bg-[#191A1D] text-white text-xs font-mono">
-                Completion rate 92%
-              </span>
-              <span className="px-3.5 py-1.5 rounded-full bg-[#191A1D] text-[#EDFF72] text-xs font-mono">
-                Class average ↑ 6%
-              </span>
-            </div>
+            <motion.div
+              className="tf-pin-label tf-pin-float"
+              style={{ left: '27%', top: '52%' }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: 0.6, delay: 1.5 }}
+            >
+              <span>Accuracy</span> <span className="tf-pin-val">86%</span>
+              <span className="tf-pin-pointer" />
+            </motion.div>
+
+            <motion.div
+              className="tf-pin-label tf-pin-float"
+              style={{ left: '54%', top: '32%', animationDelay: '-1.5s' }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: 0.6, delay: 1.8 }}
+            >
+              <span>Completion rate</span> <span className="tf-pin-val">92%</span>
+              <span className="tf-pin-pointer" />
+            </motion.div>
+
+            <motion.div
+              className="tf-pin-label tf-pin-float"
+              style={{ left: '80%', top: '10%', animationDelay: '-3s' }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: 0.6, delay: 2.1 }}
+            >
+              <span>Class average</span> <span className="tf-pin-val">↑ 6%</span>
+              <span className="tf-pin-pointer" />
+            </motion.div>
           </div>
 
           <hr className="tf-hl" />
@@ -1006,15 +1095,21 @@ export const LandingBelowHero = ({
           {/* Three Large Stat Counters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-10">
             <div>
-              <div className="tf-stat-counter">6</div>
+              <div className="tf-stat-counter">
+                <CountUp target={6} inView={inView} />
+              </div>
               <div className="text-sm font-medium text-[#777D78]">Assessments tracked</div>
             </div>
             <div>
-              <div className="tf-stat-counter">86%</div>
+              <div className="tf-stat-counter">
+                <CountUp target={86} suffix="%" inView={inView} />
+              </div>
               <div className="text-sm font-medium text-[#777D78]">Average accuracy</div>
             </div>
             <div>
-              <div className="tf-stat-counter">92%</div>
+              <div className="tf-stat-counter">
+                <CountUp target={92} suffix="%" inView={inView} />
+              </div>
               <div className="text-sm font-medium text-[#777D78]">Completion rate</div>
             </div>
           </div>

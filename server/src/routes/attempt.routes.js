@@ -6,6 +6,7 @@ import {
   authRateLimiter
 } from '../middleware/rateLimiter.js';
 import {
+  verifyExamCode,
   joinExamByCode,
   getAttemptState,
   autosaveAnswer,
@@ -15,6 +16,7 @@ import {
   getSubmissionStatus,
   finalizeExam,
   recordActivity,
+  getAttemptActivityTimeline,
   getMyExamAttempts,
   getAvailableExamsForStudent,
   getStudentAnalytics,
@@ -25,6 +27,9 @@ import {
 } from '../controllers/attempt.controller.js';
 
 const router = express.Router();
+
+// Candidate previews and verifies code without starting attempt
+router.post('/verify-code', optionalAuth, authRateLimiter, verifyExamCode);
 
 // Candidate joins with code & identity (optional auth links logged-in student)
 router.post('/join', optionalAuth, authRateLimiter, joinExamByCode);
@@ -62,6 +67,9 @@ router.post('/:attemptId/finalize', requireAttemptAccess, finalizeExam);
 
 // Activity and anti-cheat heartbeat (Protected by Attempt Ownership Guard)
 router.post('/:attemptId/activity', requireAttemptAccess, recordActivity);
+
+// Forensic activity and integrity audit timeline (Protected by Attempt Ownership Guard - Candidate/Teacher/Admin)
+router.get('/:attemptId/activity-timeline', requireAttemptAccess, getAttemptActivityTimeline);
 
 // Teacher/Admin manual grading of subjective question
 router.post('/:attemptId/answers/:answerId/grade', requireAuth, requireRole('teacher', 'admin'), gradeStudentAnswer);

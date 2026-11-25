@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
 import {
   Award,
   CheckCircle,
@@ -11,10 +12,62 @@ import {
   Download,
   Calendar,
   AlertTriangle,
-  ChevronLeft
+  ChevronLeft,
+  Loader2
 } from 'lucide-react';
 
-export const StudentResultsView = ({ resultData, onReturnHome }) => {
+export const StudentResultsView = ({
+  resultData: initialResultData,
+  attemptId,
+  onReturnHome,
+  onBack,
+  onReturnDashboard,
+  onNavigateHome
+}) => {
+  const [result, setResult] = useState(
+    initialResultData && typeof initialResultData === 'object' ? initialResultData : null
+  );
+  const [isLoading, setIsLoading] = useState(!initialResultData && !!attemptId);
+
+  useEffect(() => {
+    // GUARANTEE: Never maintain fullscreen on results page
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    if (!initialResultData && attemptId) {
+      const fetchAttempt = async () => {
+        setIsLoading(true);
+        try {
+          const res = await api.get(`/attempts/${attemptId}`);
+          const payload = res.data?.data;
+          setResult(payload?.attempt || payload || null);
+        } catch (err) {
+          console.error('Failed to load attempt result:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchAttempt();
+    } else if (initialResultData && typeof initialResultData === 'object') {
+      setResult(initialResultData);
+    }
+  }, [attemptId, initialResultData]);
+
+  const handleReturn = () => {
+    if (typeof onReturnHome === 'function') {
+      onReturnHome();
+    } else if (typeof onBack === 'function') {
+      onBack();
+    } else if (typeof onReturnDashboard === 'function') {
+      onReturnDashboard();
+    } else if (typeof onNavigateHome === 'function') {
+      onNavigateHome();
+    } else if (window.history.length > 1) {
+      window.history.back();
+    }
+  };
+
   const {
     totalScore = 0,
     maxScore = 100,
@@ -25,7 +78,7 @@ export const StudentResultsView = ({ resultData, onReturnHome }) => {
     examId = {},
     examCode = '',
     proctoringLog = []
-  } = resultData || {};
+  } = result || {};
 
   const cleanPercentage = Math.round(percentage || (maxScore > 0 ? (totalScore / maxScore) * 100 : 0));
   const isPassed = cleanPercentage >= 50;
@@ -65,14 +118,25 @@ export const StudentResultsView = ({ resultData, onReturnHome }) => {
         minute: '2-digit'
       });
 
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl w-full mx-auto p-12 text-center space-y-4">
+        <div className="size-12 rounded-2xl bg-[#F5F6F3] text-[#191A1D] border border-[#DDE1DA] mx-auto flex items-center justify-center animate-spin">
+          <Loader2 className="size-6" />
+        </div>
+        <h3 className="text-sm font-bold text-[#171819]">Loading Official Transcript...</h3>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
       {/* Back button */}
       <div>
         <button
           type="button"
-          onClick={onReturnHome}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F5F6F3] border border-[#DDE1DA] text-xs font-bold text-[#171819] transition-colors cursor-pointer shadow-xs"
+          onClick={handleReturn}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F5F6F3] border border-[#DDE1DA] text-xs font-bold text-[#171819] transition-colors cursor-pointer shadow-xs active:scale-95"
         >
           <ChevronLeft className="h-4 w-4" />
           <span>Return to Dashboard</span>
@@ -95,6 +159,19 @@ export const StudentResultsView = ({ resultData, onReturnHome }) => {
             Verified score recorded on TestForge Examination Ledger
           </p>
         </div>
+
+        {/* Auto-Submitted Banner if applicable */}
+        {result?.autoSubmitted && (
+          <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-2.5">
+            <AlertTriangle className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-bold">Auto-Submitted Under Progressive Integrity Policy</strong>
+              <span className="text-[11px] text-purple-700">
+                {result?.autoSubmitReason || 'Exceeded maximum permitted tab switches (4 violations). Attempt flagged for instructor review.'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Score Hero Card */}
         <div className="p-6 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA] flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -169,8 +246,14 @@ export const StudentResultsView = ({ resultData, onReturnHome }) => {
         <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 print:hidden">
           <button
             type="button"
-            onClick={() => window.print()}
-            className="w-full sm:w-1/2 py-2.5 px-4 rounded-xl bg-white hover:bg-[#F5F6F3] text-[#171819] text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#DDE1DA] shadow-xs"
+            onClick={() => {
+              try {
+                window.print();
+              } catch (e) {
+                console.error('Print error:', e);
+              }
+            }}
+            className="w-full sm:w-1/2 py-2.5 px-4 rounded-xl bg-white hover:bg-[#F5F6F3] text-[#171819] text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#DDE1DA] shadow-xs active:scale-95"
           >
             <Download className="h-4 w-4" />
             <span>Print Official Transcript</span>
@@ -178,7 +261,7 @@ export const StudentResultsView = ({ resultData, onReturnHome }) => {
 
           <button
             type="button"
-            onClick={onReturnHome}
+            onClick={handleReturn}
             className="w-full sm:w-1/2 py-2.5 px-4 rounded-xl bg-[#191A1D] hover:bg-[#2A2B2F] active:scale-[0.99] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             <span>Exit to Dashboard</span>

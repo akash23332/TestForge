@@ -99,6 +99,41 @@ const examAttemptSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    fullscreenExitCount: {
+      type: Number,
+      default: 0
+    },
+    blurCount: {
+      type: Number,
+      default: 0
+    },
+    clipboardViolationCount: {
+      type: Number,
+      default: 0
+    },
+    totalViolations: {
+      type: Number,
+      default: 0,
+      index: true
+    },
+    needsReview: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    reviewReason: {
+      type: String,
+      default: ''
+    },
+    autoSubmitted: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    autoSubmitReason: {
+      type: String,
+      default: ''
+    },
     lastHeartbeat: {
       type: Date,
       default: Date.now

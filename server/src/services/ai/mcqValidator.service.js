@@ -143,15 +143,15 @@ export const validateMcqCandidate = (rawQuestion, options = {}) => {
     ? rawQuestion.difficulty
     : (options.difficulty && VALID_DIFFICULTIES.includes(options.difficulty) ? options.difficulty : 'Medium');
 
-  const style = VALID_STYLES.includes(rawQuestion.style)
-    ? rawQuestion.style
-    : (options.style && VALID_STYLES.includes(options.style) ? options.style : 'conceptual');
+  const rawStyle = String(rawQuestion.style || options.style || 'conceptual').toLowerCase().replace('-', '_');
+  const style = VALID_STYLES.includes(rawStyle) ? rawStyle : 'conceptual';
 
-  const bloomTaxonomy = VALID_BLOOM_LEVELS.includes(rawQuestion.bloomTaxonomy)
-    ? rawQuestion.bloomTaxonomy
+  const rawBloom = rawQuestion.bloomTaxonomy || rawQuestion.bloomLevel || options.bloomTaxonomy || options.bloomLevel;
+  const bloomTaxonomy = VALID_BLOOM_LEVELS.includes(rawBloom)
+    ? rawBloom
     : 'Understand';
 
-  const subject = String(rawQuestion.subject || options.subject || 'General').trim();
+  const subject = String(rawQuestion.subject || options.subject || 'Computer Science').trim();
   const topic = String(rawQuestion.topic || options.topic || 'General').trim();
   const tags = Array.isArray(rawQuestion.tags) ? rawQuestion.tags.map(t => String(t).trim()).filter(Boolean) : [topic];
   const marks = Math.max(1, Number(rawQuestion.marks) || 1);
@@ -170,6 +170,7 @@ export const validateMcqCandidate = (rawQuestion, options = {}) => {
   const statementHash = computeStatementHash(statement);
 
   const data = {
+    candidateId: rawQuestion.candidateId || null,
     statement,
     question: statement, // Dual-property for backward compatibility
     options: optionsList,
@@ -181,12 +182,13 @@ export const validateMcqCandidate = (rawQuestion, options = {}) => {
     difficulty,
     style,
     bloomTaxonomy,
+    bloomLevel: bloomTaxonomy,
     marks,
     explanation,
     tags,
     statementHash,
     status: rawQuestion.status || 'published',
-    isAiGenerated: Boolean(rawQuestion.isAiGenerated)
+    isAiGenerated: Boolean(rawQuestion.isAiGenerated ?? true)
   };
 
   return {

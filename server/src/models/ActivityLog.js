@@ -10,7 +10,20 @@ const activityLogSchema = new mongoose.Schema(
     },
     eventType: {
       type: String,
-      enum: ['TAB_SWITCH', 'WINDOW_BLUR', 'FULLSCREEN_ENTER', 'FULLSCREEN_EXIT', 'RECONNECTED', 'COPY_PASTE', 'HEARTBEAT'],
+      enum: [
+        'TAB_SWITCH',
+        'WINDOW_BLUR',
+        'WINDOW_FOCUS',
+        'FULLSCREEN_ENTER',
+        'FULLSCREEN_EXIT',
+        'COPY_ATTEMPT',
+        'CUT_ATTEMPT',
+        'PASTE_ATTEMPT',
+        'CONTEXT_MENU',
+        'RECONNECTED',
+        'COPY_PASTE',
+        'HEARTBEAT'
+      ],
       required: true,
       index: true
     },

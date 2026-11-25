@@ -24,7 +24,10 @@ const envSchema = Joi.object({
   LLM_PROVIDER: Joi.string().optional().allow(''),
   LLM_API_KEY: Joi.string().optional().allow(''),
   GEMINI_API_KEY: Joi.string().optional().allow(''),
-  GEMINI_MODEL: Joi.string().optional().allow('').default('gemini-2.5-flash'),
+  GEMINI_MODEL: Joi.string().optional().allow('').default('gemini-3.5-flash'),
+  GEMINI_FALLBACK_MODEL: Joi.string().optional().allow('').default('gemini-3.5-flash-lite'),
+  GEMINI_MAX_RETRIES: Joi.number().optional().default(3),
+  GEMINI_MAX_CONCURRENT: Joi.number().optional().default(2),
   AI_PROVIDER: Joi.string().optional().allow('').default('gemini'),
   REDIS_URL: Joi.string().optional().allow('').default('redis://127.0.0.1:6379'),
   VALKEY_URL: Joi.string().optional().allow(''),
@@ -81,7 +84,10 @@ export const config = {
   ai: {
     provider: envVars.AI_PROVIDER || envVars.LLM_PROVIDER || 'gemini',
     geminiApiKey: envVars.GEMINI_API_KEY || envVars.LLM_API_KEY || null,
-    geminiModel: envVars.GEMINI_MODEL || 'gemini-2.5-flash'
+    geminiModel: envVars.GEMINI_MODEL || 'gemini-3.5-flash',
+    geminiFallbackModel: envVars.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite',
+    geminiMaxRetries: Number(envVars.GEMINI_MAX_RETRIES) || 3,
+    geminiMaxConcurrent: Number(envVars.GEMINI_MAX_CONCURRENT) || 2
   },
   redis: {
     url: envVars.VALKEY_URL || envVars.REDIS_URL || 'redis://127.0.0.1:6379'

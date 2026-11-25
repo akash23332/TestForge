@@ -238,7 +238,7 @@ export const App = () => {
     { id: 'create', label: 'Create Question', icon: FilePlus },
     { id: 'tests', label: 'Test Studio', icon: FlaskConical },
     { id: 'mutation', label: 'Mutation Lab', icon: TestTube },
-    { id: 'mcq', label: 'Bulk MCQ', icon: Files },
+    { id: 'mcq', label: 'AI MCQ Studio', icon: Sparkles },
     { id: 'paper', label: 'Paper Designer', icon: FileText },
     { id: 'exams', label: 'Examinations', icon: ClipboardList },
   ];
@@ -250,7 +250,7 @@ export const App = () => {
     { id: 'create', label: 'Create Question' },
     { id: 'tests', label: 'Test Studio' },
     { id: 'mutation', label: 'Mutation Lab' },
-    { id: 'mcq', label: 'Bulk MCQ' },
+    { id: 'mcq', label: 'AI MCQ Studio' },
     { id: 'paper', label: 'Paper Designer' },
     { id: 'exams', label: 'Examinations' },
   ];

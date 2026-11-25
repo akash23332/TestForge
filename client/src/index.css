@@ -32,3 +32,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #777D78;
 }
+
+/* Accessibility contrast guard: ensure white text never appears on lime backgrounds */
+.bg-\[\#EDFF72\],
+.bg-\[\#edff72\],
+.bg-\[\#e8ff5a\],
+.bg-\[\#d9ef4f\],
+.bg-\[\#d6ec4e\],
+.bg-\[\#d8ee4b\] {
+  color: #111;
+}

@@ -3107,15 +3107,16 @@ export const QuestionCreatorView = ({
                     ) : null}
                   </div>
                   <div className="text-[11px] mt-1 font-mono leading-relaxed">{aiError}</div>
-                  {(aiError.includes('distinct question') || aiError.includes('DUPLICATE_GENERATION_LIMIT_EXCEEDED')) && (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleGenerateWithAi}
-                        className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-bold cursor-pointer transition-all"
-                      >
-                        Try Another Attempt
-                      </button>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateWithAi}
+                      className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Retry Generation
+                    </button>
+                    {(aiError.includes('distinct question') || aiError.includes('DUPLICATE_GENERATION_LIMIT_EXCEEDED')) && (
                       <button
                         type="button"
                         onClick={handleClearSessionHistory}
@@ -3123,8 +3124,8 @@ export const QuestionCreatorView = ({
                       >
                         Clear Session History
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )}

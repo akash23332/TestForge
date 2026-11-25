@@ -193,6 +193,18 @@ const questionSchema = new mongoose.Schema(
         { _id: false }
       ),
       default: null
+    },
+    // Flag indicating whether this question is an official platform/system question (standard library)
+    isPlatform: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    // Flag indicating whether this question is an official demo/dummy showcase question
+    isDemo: {
+      type: Boolean,
+      default: false,
+      index: true
     }
   },
   {

@@ -4,6 +4,7 @@ import {
   Menu,
   X,
   Bell,
+  Plus,
   KeyRound,
   ShieldCheck,
   User,
@@ -19,10 +20,12 @@ export const StudentLayout = ({
   currentUser,
   children,
   unreadCount = 0,
-  onOpenQuickJoin
+  pageTitle,
+  pageSubtitle
 }) => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [isPastHero, setIsPastHero] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   // Track scroll position to hide sidebar in hero section and fix it in screen when scrolled down
   useEffect(() => {
@@ -32,7 +35,6 @@ export const StudentLayout = ({
     }
 
     const handleScroll = () => {
-      // Hero section is 100svh. When scrolled down past 40% of viewport height, reveal fixed sidebar.
       const scrollPos = window.scrollY || document.documentElement.scrollTop;
       const threshold = window.innerHeight * 0.4;
       setIsPastHero(scrollPos > threshold);
@@ -47,12 +49,70 @@ export const StudentLayout = ({
   const activeItem =
     STUDENT_NAV_ITEMS.find((item) => item.id === activeTab) ||
     (activeTab === 'profile'
-      ? { id: 'profile', label: 'Profile / Settings' }
+      ? { id: 'profile', label: 'My Profile' }
       : STUDENT_NAV_ITEMS[0]);
 
   const handleMobileNavigate = (id, path) => {
     setMobileDrawerOpen(false);
     onNavigate(id, path);
+  };
+
+  const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : 'Student';
+
+  // Default title & subtitle mapping if not explicitly overridden by child page
+  const getDefaultHeader = () => {
+    switch (activeTab) {
+      case 'overview':
+        return {
+          title: 'Student Overview',
+          subtitle: `Welcome back, ${firstName}. Here is your academic progress.`
+        };
+      case 'join-test':
+        return {
+          title: 'Join Test',
+          subtitle: 'Enter your examination access code to preview and start.'
+        };
+      case 'my-tests':
+        return {
+          title: 'My Tests',
+          subtitle: 'View your upcoming, active and completed assessments.'
+        };
+      case 'test-history':
+        return {
+          title: 'Test History',
+          subtitle: 'Review all your past examination attempts and verified scores.'
+        };
+      case 'analytics':
+        return {
+          title: 'Performance Analytics',
+          subtitle: 'Detailed analysis of your accuracy, topic mastery and growth over time.'
+        };
+      case 'learning':
+        return {
+          title: 'My Learning',
+          subtitle: 'Targeted topic practice derived from your evaluated results.'
+        };
+      case 'profile':
+        return {
+          title: 'My Profile',
+          subtitle: 'Candidate credentials and personal examination identity.'
+        };
+      case 'settings':
+        return {
+          title: 'Account Settings',
+          subtitle: 'Notification preferences and password security management.'
+        };
+      default:
+        return {
+          title: activeItem?.label || 'Student Portal',
+          subtitle: `Welcome back, ${firstName}.`
+        };
+    }
+  };
+
+  const headerInfo = {
+    title: pageTitle || getDefaultHeader().title,
+    subtitle: pageSubtitle || getDefaultHeader().subtitle
   };
 
   // ── FOR "DASHBOARD" TAB: Full-screen 3D Main Dashboard with Scroll-Revealed Fixed Sidebar ──
@@ -118,7 +178,7 @@ export const StudentLayout = ({
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="p-1.5 rounded-lg text-[#777D78] hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[#777D78] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <X className="size-5" />
                 </button>
@@ -133,7 +193,7 @@ export const StudentLayout = ({
                       key={item.id}
                       type="button"
                       onClick={() => handleMobileNavigate(item.id, item.path)}
-                      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-xs font-semibold transition-colors ${
+                      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                         isActive
                           ? 'bg-[#EDFF72] text-[#191A1D] font-bold shadow-md'
                           : 'text-[#777D78] hover:text-white hover:bg-white/10'
@@ -180,11 +240,11 @@ export const StudentLayout = ({
     );
   }
 
-  // ── FOR OTHER TABS (OVERVIEW, TESTS, JOIN, HISTORY, ANALYTICS, LEARNING): Whitish Bento Canvas ──
+  // ── FOR ALL OTHER TABS: Broad Editorial Whitish Canvas with Standard Header Card ──
   return (
-    <div className="tf-outer-frame selection:bg-[#EDFF72] selection:text-[#191A1D]">
-      <div className="tf-inner-canvas">
-        {/* ── Left Floating Dark Rounded Sidebar (Desktop/Tablet) ── */}
+    <div className="tf-outer-frame selection:bg-[#EDFF72] selection:text-[#191A1D] bg-[#E9ECE7] min-h-screen">
+      <div className="tf-inner-canvas flex min-h-screen">
+        {/* ── Left Floating Dark Capsule Sidebar (Desktop / Tablet) ── */}
         <StudentSidebar
           activeTab={activeTab}
           onNavigate={onNavigate}
@@ -215,7 +275,7 @@ export const StudentLayout = ({
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="p-1.5 rounded-lg text-[#777D78] hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg text-[#777D78] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <X className="size-5" />
                 </button>
@@ -230,7 +290,7 @@ export const StudentLayout = ({
                       key={item.id}
                       type="button"
                       onClick={() => handleMobileNavigate(item.id, item.path)}
-                      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-xs font-semibold transition-colors ${
+                      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                         isActive
                           ? 'bg-[#EDFF72] text-[#191A1D] font-bold shadow-md'
                           : 'text-[#777D78] hover:text-white hover:bg-white/10'
@@ -269,73 +329,73 @@ export const StudentLayout = ({
           </div>
         )}
 
-        {/* ── Main Content Area on Whitish Canvas ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto max-h-[calc(100vh-28px)] p-4 sm:p-6 lg:p-7 bg-[#F2F3F0] text-[#171819]">
-          {/* Top Header Bar matching Teacher's BentoTopHeader */}
-          <header className="w-full flex items-center justify-between gap-4 pb-4 mb-2 select-none border-b border-[#DDE1DA]">
-            {/* Left: Brand & Breadcrumb */}
-            <div className="flex items-center gap-2.5">
-              {/* Mobile hamburger menu */}
+        {/* ── Main Content Area on Broad Whitish Canvas (Fills width next to sidebar) ── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto max-h-screen p-4 sm:p-6 lg:p-7 bg-[#F2F3F0] text-[#171819]">
+          {/* ── Standard Page Header Card ── */}
+          <header className="w-full rounded-[24px] border border-[#DDE1DA] bg-white p-5 sm:p-6 lg:px-[26px] lg:py-[20px] shadow-xs mb-6 select-none flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Left: Title & Subtitle */}
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(true)}
-                className="md:hidden p-1.5 rounded-xl bg-white border border-[#DDE1DA] text-[#171819] hover:bg-[#E9ECE7] transition-colors"
+                className="md:hidden p-2 rounded-xl bg-[#F2F3F0] border border-[#DDE1DA] text-[#171819] hover:bg-[#E9ECE7] transition-colors cursor-pointer"
                 aria-label="Open Navigation"
               >
-                <Menu className="size-4" />
+                <Menu className="size-5" />
               </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('dashboard', '/student/dashboard')}
-                className="flex items-center gap-1.5 text-sm font-extrabold text-[#171819] hover:opacity-80 transition-opacity cursor-pointer"
-              >
-                <span>TestForge</span>
-                <span className="w-2 h-2 rounded-xs bg-[#EDFF72] -skew-x-12 inline-block" />
-              </button>
-
-              <span className="text-[#CBD0C8] font-bold">/</span>
-
-              <span className="text-xs font-semibold text-[#777D78] px-2.5 py-1 rounded-full bg-white border border-[#DDE1DA]">
-                {activeItem?.label || 'Overview'}
-              </span>
+              <div>
+                <h1 className="text-[clamp(22px,2.4vw,30px)] font-[600] tracking-[-0.045em] text-[#171819] leading-tight">
+                  {headerInfo.title}
+                </h1>
+                <p className="text-xs sm:text-sm text-[#777D78] mt-0.5">
+                  {headerInfo.subtitle}
+                </p>
+              </div>
             </div>
 
-            {/* Right: Quick Join, Notification Bell, Candidate Profile */}
-            <div className="flex items-center gap-2.5">
-              {onOpenQuickJoin && (
-                <button
-                  type="button"
-                  onClick={onOpenQuickJoin}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#EDFF72] hover:bg-[#e2f560] px-4 py-1.5 text-xs font-bold text-[#191A1D] shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer"
-                >
-                  <KeyRound className="size-3.5" />
-                  <span>Quick Join</span>
-                </button>
-              )}
+            {/* Right: Bell Button + Dark "+ Join Test" Pill + Avatar Button */}
+            <div className="flex items-center gap-3 self-end sm:self-center">
+              {/* Notification Bell */}
+              <button
+                type="button"
+                onClick={() => setShowNotificationsModal((v) => !v)}
+                className="size-10 rounded-full bg-white border border-[#DDE1DA] hover:bg-[#F2F3F0] text-[#171819] flex items-center justify-center relative transition-colors cursor-pointer"
+                aria-label="Notifications"
+                title="Notifications"
+              >
+                <Bell className="size-4.5 text-[#777D78]" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 size-2 rounded-full bg-[#EDFF72] ring-2 ring-white" />
+                )}
+              </button>
 
-              {/* Candidate Profile Pill */}
+              {/* Dark "+ Join Test" Pill */}
+              <button
+                type="button"
+                onClick={() => onNavigate('join-test', '/student/join-test')}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#191A1D] hover:bg-black text-[#EDFF72] px-4 py-2 text-xs font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <Plus className="size-3.5 stroke-[2.5]" />
+                <span>Join Test</span>
+              </button>
+
+              {/* Avatar Button -> Opens Profile */}
               <button
                 type="button"
                 onClick={() => onNavigate('profile', '/student/profile')}
-                className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#DDE1DA] hover:bg-[#F8F9F7] transition-colors cursor-pointer"
+                className="size-10 rounded-full bg-[#191A1D] text-[#EDFF72] font-mono text-xs font-bold border border-white/10 hover:ring-2 hover:ring-[#EDFF72] cursor-pointer flex items-center justify-center transition-all shadow-xs"
+                title="My Profile"
+                aria-label="My Profile"
               >
-                <div className="size-6 rounded-full bg-[#191A1D] text-[#EDFF72] flex items-center justify-center font-mono text-[10px] font-bold">
-                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'S'}
-                </div>
-                <div className="text-left text-xs leading-none">
-                  <span className="block font-semibold text-[#171819]">
-                    {currentUser?.name ? currentUser.name.split(' ')[0] : 'Candidate'}
-                  </span>
-                </div>
+                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'S'}
               </button>
             </div>
           </header>
 
-          {/* Child Views */}
-          <div className="flex-1 w-full min-w-0">
+          {/* ── Main Page Body (Broad container, no max-w caps) ── */}
+          <main className="flex-1 w-full min-w-0">
             {children}
-          </div>
+          </main>
         </div>
       </div>
     </div>

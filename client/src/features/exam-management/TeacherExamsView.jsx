@@ -87,6 +87,11 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
+  // Security Activity Timeline Modal
+  const [selectedAttemptForTimeline, setSelectedAttemptForTimeline] = useState(null);
+  const [timelineData, setTimelineData] = useState(null);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+
   const heroRef = useRef(null);
   const tiltRef = useRef(null);
 
@@ -194,6 +199,20 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
       setAnalyticsData(null);
     } finally {
       setIsLoadingAnalytics(false);
+    }
+  };
+
+  const handleOpenTimeline = async (attempt, e) => {
+    if (e) e.stopPropagation();
+    setSelectedAttemptForTimeline(attempt);
+    setIsLoadingTimeline(true);
+    try {
+      const res = await api.get(`/attempts/${attempt._id}/activity-timeline`);
+      setTimelineData(res.data?.data || null);
+    } catch {
+      setTimelineData(null);
+    } finally {
+      setIsLoadingTimeline(false);
     }
   };
 
@@ -1264,44 +1283,86 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4">Score</th>
                         <th className="py-3 px-4">Percentage</th>
-                        <th className="py-3 px-4">Tab Violations</th>
+                        <th className="py-3 px-4">Integrity Audit</th>
                         <th className="py-3 px-4">Submitted At</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#DDE1DA] bg-white">
-                      {analyticsData.attempts.map((att) => (
-                        <tr key={att._id} className="hover:bg-[#F2F3F0]/60 transition-colors">
-                          <td className="py-3 px-4">
-                            <span className="font-bold text-[#171819] block">{att.candidateInfo?.name}</span>
-                            <span className="text-[11px] text-[#777D78] font-mono">{att.candidateInfo?.email}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                              att.status === 'SUBMITTED'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : att.status === 'IN_PROGRESS'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              {att.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#171819]">
-                            {att.totalScore} / {att.maxScore}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-black text-[#171819]">
-                            {att.percentage}%
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={att.tabSwitchCount > 0 ? 'text-amber-800 font-bold bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 text-[10px]' : 'text-[#777D78]'}>
-                              {att.tabSwitchCount || 0} infractions
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-[#777D78] font-mono">
-                            {att.submittedAt ? new Date(att.submittedAt).toLocaleTimeString() : 'In progress'}
-                          </td>
-                        </tr>
-                      ))}
+                      {analyticsData.attempts.map((att) => {
+                        const totalInfractions = att.totalViolations || att.tabSwitchCount || 0;
+                        const isFlagged = att.needsReview || totalInfractions >= 3;
+
+                        return (
+                          <tr key={att._id} className="hover:bg-[#F2F3F0]/60 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="font-bold text-[#171819] block">{att.candidateInfo?.name}</span>
+                              <span className="text-[11px] text-[#777D78] font-mono">{att.candidateInfo?.email}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                                  att.status === 'SUBMITTED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : att.status === 'IN_PROGRESS'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {att.status}
+                              </span>
+                              {att.autoSubmitted && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-bold text-[9px] mt-1 block w-fit">
+                                  Auto-Submitted (4 Tab Switches)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#171819]">
+                              {att.totalScore} / {att.maxScore || selectedExamForAnalytics?.totalMarks}
+                            </td>
+                            <td className="py-3 px-4 font-mono font-black text-[#171819]">
+                              {att.percentage !== null && att.percentage !== undefined ? `${att.percentage}%` : '—'}
+                            </td>
+                            <td className="py-3 px-4 space-y-1">
+                              {isFlagged ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[10px]">
+                                  <ShieldAlert className="h-3 w-3 text-rose-600 shrink-0" />
+                                  <span>Review Flagged</span>
+                                </span>
+                              ) : totalInfractions > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px]">
+                                  <AlertCircle className="h-3 w-3 text-amber-600 shrink-0" />
+                                  <span>{totalInfractions} Event{totalInfractions > 1 ? 's' : ''}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px]">
+                                  <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                                  <span>Verified Clear</span>
+                                </span>
+                              )}
+                              <div className="text-[10px] text-[#777D78] font-mono flex items-center gap-2">
+                                <span>Tabs: <strong className={att.tabSwitchCount >= 4 ? 'text-rose-600' : att.tabSwitchCount >= 3 ? 'text-rose-500' : 'text-[#171819]'}>{att.tabSwitchCount || 0}</strong></span>
+                                <span>•</span>
+                                <span>Fullscreen Exits: <strong className="text-[#171819]">{att.fullscreenExitCount || 0}</strong></span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-[#777D78] font-mono">
+                              {att.submittedAt ? new Date(att.submittedAt).toLocaleTimeString() : 'In progress'}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => handleOpenTimeline(att, e)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#FFFFFF] hover:bg-[#191A1D] hover:text-[#EDFF72] text-[#171819] text-[11px] font-bold border border-[#DDE1DA] transition-all cursor-pointer shadow-2xs"
+                                title="Inspect chronological activity logs and integrity evidence"
+                              >
+                                <Clock className="h-3 w-3" />
+                                <span>Audit Timeline</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1318,6 +1379,178 @@ export const TeacherExamsView = ({ onNavigateToStudentPortal, onNavigateToPaperD
                 className="px-5 py-2 bg-[#101112] hover:bg-black text-white text-xs font-bold rounded-full cursor-pointer transition-colors"
               >
                 Close Audit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECURITY ACTIVITY TIMELINE MODAL ── */}
+      {selectedAttemptForTimeline && (
+        <div className="fixed inset-0 z-60 bg-[#171819]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] border border-[#DDE1DA] rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] flex flex-col space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-[#DDE1DA]">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#191A1D] text-[#EDFF72] text-xs font-mono font-bold tracking-wider mb-2">
+                  SECURITY AUDIT TIMELINE
+                </div>
+                <h3 className="text-xl font-extrabold text-[#171819]">
+                  {selectedAttemptForTimeline.candidateInfo?.name || 'Candidate Activity Audit'}
+                </h3>
+                <p className="text-xs text-[#777D78] font-mono mt-0.5">
+                  {selectedAttemptForTimeline.candidateInfo?.email} • Exam Code: {selectedExamForAnalytics?.examCode}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAttemptForTimeline(null);
+                  setTimelineData(null);
+                }}
+                className="p-2 text-[#777D78] hover:text-[#171819] hover:bg-[#F2F3F0] rounded-full transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Evidence Disclaimer Banner */}
+            <div className="p-3.5 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA] flex items-start gap-2.5 text-xs text-[#555A57]">
+              <ShieldAlert className="h-4 w-4 text-[#191A1D] shrink-0 mt-0.5" />
+              <p className="leading-relaxed text-[11px]">
+                <strong>Objective Assessment Evidence:</strong> TestForge records client-side browser lifecycle events under Global Secure Exam Mode. These events assist teacher evaluation and are provided as evidence for review, not definitive proof of academic misconduct.
+              </p>
+            </div>
+
+            {/* Summary Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA]">
+                <span className="text-[10px] uppercase font-bold text-[#777D78] block">Total Infractions</span>
+                <span className="text-lg font-black text-[#171819]">
+                  {timelineData?.summary?.totalViolations ?? selectedAttemptForTimeline.totalViolations ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA]">
+                <span className="text-[10px] uppercase font-bold text-[#777D78] block">Tab Switches</span>
+                <span className="text-lg font-black text-[#171819]">
+                  {timelineData?.summary?.tabSwitchCount ?? selectedAttemptForTimeline.tabSwitchCount ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA]">
+                <span className="text-[10px] uppercase font-bold text-[#777D78] block">Fullscreen Exits</span>
+                <span className="text-lg font-black text-[#171819]">
+                  {timelineData?.summary?.fullscreenExitCount ?? selectedAttemptForTimeline.fullscreenExitCount ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-2xl bg-[#F5F6F3] border border-[#DDE1DA]">
+                <span className="text-[10px] uppercase font-bold text-[#777D78] block">Window Blurs</span>
+                <span className="text-lg font-black text-[#171819]">
+                  {timelineData?.summary?.blurCount ?? selectedAttemptForTimeline.blurCount ?? 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Auto-Submitted Status Banner */}
+            {(timelineData?.summary?.autoSubmitted || selectedAttemptForTimeline?.autoSubmitted) && (
+              <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Auto-Submitted by System (4 Tab Switches)</strong>
+                  <span className="text-[11px] text-purple-700">
+                    {timelineData?.summary?.autoSubmitReason || selectedAttemptForTimeline?.autoSubmitReason || 'Exceeded maximum permitted tab switches (4 violations)'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Review Status Callout (if flagged) */}
+            {timelineData?.summary?.needsReview && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Attempt Flagged For Instructor Review</strong>
+                  <span className="text-[11px] text-rose-700">
+                    {timelineData.summary.reviewReason || '3 or more integrity events recorded.'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Chronological Event Log */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[340px]">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#777D78] mb-2">
+                Chronological Activity Stream
+              </h4>
+
+              {isLoadingTimeline ? (
+                <div className="py-12 text-center text-[#777D78] space-y-2">
+                  <div className="w-5 h-5 border-2 border-[#101112] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <span className="text-xs font-semibold">Loading forensic activity log...</span>
+                </div>
+              ) : !timelineData?.events?.length ? (
+                <div className="py-12 text-center text-[#777D78] text-xs bg-[#F5F6F3] rounded-2xl p-6">
+                  <CheckCircle className="h-6 w-6 text-emerald-600 mx-auto mb-1.5" />
+                  No security infractions or focus interruptions recorded for this attempt.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {timelineData.events.map((evt, idx) => {
+                    const isExit = evt.eventType === 'FULLSCREEN_EXIT';
+                    const isEnter = evt.eventType === 'FULLSCREEN_ENTER';
+                    const isTab = evt.eventType === 'TAB_SWITCH';
+                    const isBlur = evt.eventType === 'WINDOW_BLUR';
+                    const isClipboard = ['COPY_ATTEMPT', 'CUT_ATTEMPT', 'PASTE_ATTEMPT'].includes(evt.eventType);
+
+                    let badgeBg = 'bg-gray-100 text-gray-800 border-gray-200';
+                    if (isExit || isClipboard) badgeBg = 'bg-rose-50 text-rose-800 border-rose-200';
+                    else if (isEnter) badgeBg = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                    else if (isTab || isBlur) badgeBg = 'bg-amber-50 text-amber-800 border-amber-200';
+
+                    return (
+                      <div
+                        key={evt._id || idx}
+                        className="p-3 rounded-2xl bg-[#FFFFFF] border border-[#DDE1DA] flex items-start justify-between gap-3 text-xs hover:border-[#191A1D]/30 transition-colors shadow-2xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${badgeBg}`}>
+                              {evt.eventType}
+                            </span>
+                            <span className="text-[#171819] font-medium text-xs">
+                              {evt.details || 'Activity event logged'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-mono text-[#777D78] shrink-0 pt-0.5">
+                          {new Date(evt.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-[#DDE1DA] flex items-center justify-between">
+              <span className="text-xs text-[#777D78] font-mono">
+                {timelineData?.events?.length || 0} events logged
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAttemptForTimeline(null);
+                  setTimelineData(null);
+                }}
+                className="px-5 py-2 bg-[#191A1D] hover:bg-black text-white text-xs font-bold rounded-full cursor-pointer transition-colors"
+              >
+                Return to Candidate List
               </button>
             </div>
           </div>

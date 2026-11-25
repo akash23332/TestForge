@@ -87,19 +87,28 @@ describe('Phase 1.1: Security Remediation & Integration Test Suite', () => {
 
   // ── 1. Priority 1: Registration Security ───────────────────────────────────
   describe('Priority 1: Public Registration Security', () => {
-    test('POST /api/v1/auth/register rejects role "teacher" with 400 Bad Request', async () => {
+    test('POST /api/v1/auth/register successfully creates teacher account with role "teacher"', async () => {
+      jest.spyOn(User, 'findOne').mockResolvedValue(null);
+      jest.spyOn(User, 'hashPassword').mockResolvedValue('$2a$10$mockedhashedpasswordstring');
+      jest.spyOn(User, 'create').mockResolvedValue({
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Prof. Xavier',
+        email: 'xavier@mutants.edu',
+        role: 'teacher',
+        createdAt: new Date()
+      });
+
       const res = await request(server)
         .post('/api/v1/auth/register')
         .send({
-          name: 'Mallory Malicious',
-          email: 'mallory@evil.com',
+          name: 'Prof. Xavier',
+          email: 'xavier@mutants.edu',
           password: 'Password123!',
           role: 'teacher'
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toHaveProperty('code', 'BAD_REQUEST');
-      expect(res.body.error.message).toMatch(/Registration validation failed/i);
+      expect(res.status).toBe(201);
+      expect(res.body.data.user).toHaveProperty('role', 'teacher');
     });
 
     test('POST /api/v1/auth/register rejects role "admin" with 400 Bad Request', async () => {

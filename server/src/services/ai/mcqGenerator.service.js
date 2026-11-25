@@ -38,12 +38,15 @@ export class McqGeneratorService {
     difficulty = 'Medium',
     style = 'conceptual',
     answerType = 'single',
+    bloomLevel = 'Understand',
+    bloomTaxonomy = 'Understand',
     instructions = '',
     ownerId = null,
     sessionKey = 'default'
   } = {}) {
     const boundedCount = Math.max(1, Math.min(25, Number(count) || 5));
     const sessionHistory = this._getSessionHistory(sessionKey);
+    const effectiveBloom = bloomLevel || bloomTaxonomy || 'Understand';
 
     // Call Gemini structured generator
     const rawResult = await this.provider.generateMcqs({
@@ -54,6 +57,8 @@ export class McqGeneratorService {
       difficulty,
       style,
       answerType,
+      bloomLevel: effectiveBloom,
+      bloomTaxonomy: effectiveBloom,
       instructions,
       existingStatements: sessionHistory.slice(-15) // Supply recent session statements for negative prompting
     });
@@ -74,7 +79,9 @@ export class McqGeneratorService {
           topic,
           difficulty: difficulty === 'Mixed' ? undefined : difficulty,
           style,
-          answerType
+          answerType,
+          bloomLevel: effectiveBloom,
+          bloomTaxonomy: effectiveBloom
         });
         if (validation.isValid) {
           const item = validation.data;

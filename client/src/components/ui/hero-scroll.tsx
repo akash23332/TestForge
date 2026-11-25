@@ -373,7 +373,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                     <span className="block">{line1}</span>
                     <span className="block">{line2}</span>
                     <span className="block whitespace-nowrap">
-                      <span>{line3Prefix}</span>
+                      <span className="mr-2.5">{line3Prefix}</span>
                       <span
                         role="button"
                         tabIndex={0}

@@ -144,6 +144,8 @@ export const generateMcq = async (req, res, next) => {
       difficulty = 'Medium',
       style = 'conceptual',
       answerType = 'single',
+      bloomLevel = 'Understand',
+      bloomTaxonomy = 'Understand',
       instructions = '',
       sessionKey = null
     } = req.body;
@@ -159,6 +161,8 @@ export const generateMcq = async (req, res, next) => {
       difficulty,
       style,
       answerType,
+      bloomLevel: bloomLevel || bloomTaxonomy || 'Understand',
+      bloomTaxonomy: bloomTaxonomy || bloomLevel || 'Understand',
       instructions,
       ownerId,
       sessionKey: effectiveSessionKey
