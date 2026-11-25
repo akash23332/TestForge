@@ -343,20 +343,20 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
           </div>
 
           {/* ── TWO-COLUMN HERO CONTENT: LEFT ALIGNED CONTENT + RIGHT 3D STAGE ── */}
-          <div className="relative z-20 flex-1 w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-14 my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-            {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs (Educator Focused) */}
+          <div className="relative z-20 flex-1 w-full max-w-[1920px] mx-auto px-6 sm:px-12 lg:px-16 md:pl-[clamp(100px,12vw,160px)] my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            {/* Left Column: Bold, Bigger, Left-aligned Headline & CTAs (Educator Focused, matching Student Portal scale) */}
             <motion.div
               variants={heroVariants}
               initial="hidden"
               animate="visible"
-              className="lg:col-span-7 xl:col-span-8 flex flex-col items-start text-left space-y-6"
+              className="lg:col-span-7 xl:col-span-7 flex flex-col items-start text-left"
             >
               {/* Eyebrow Pill for Educator / Teacher Workspace */}
               <motion.div
                 variants={itemVariants}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EDFF72]/10 border border-[#EDFF72]/28 text-[#EDFF72] text-xs font-semibold tracking-wide"
+                className="inline-flex items-center gap-2 px-[14px] py-[6px] rounded-full bg-[#EDFF72]/10 border border-[#EDFF72]/28 text-[#EDFF72] text-[12px] font-medium tracking-wide mb-[22px]"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#EDFF72] animate-pulse" />
+                <span className="w-[7px] h-[7px] rounded-full bg-[#EDFF72] animate-pulse" />
                 <span>{eyebrowBadge}</span>
               </motion.div>
 
@@ -364,7 +364,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               <motion.h1
                 variants={itemVariants}
                 aria-label={`${line1} ${line2} ${line3Prefix} ${activeWords[teacherWordIdx]}`}
-                className="text-4xl sm:text-6xl lg:text-[3.9rem] font-bold tracking-tight leading-[1.04] text-left text-white"
+                className="text-[clamp(2.6rem,5.5vw,5.2rem)] font-semibold tracking-[-0.055em] leading-[1] text-left text-white mb-[20px]"
               >
                 {headline ? (
                   headline
@@ -388,7 +388,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                           transition: 'opacity 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1)',
                           display: 'inline-block',
                         }}
-                        className="text-[#EDFF72] drop-shadow-[0_0_36px_rgba(237,255,114,0.35)] min-w-[5ch] cursor-pointer"
+                        className="text-[#EDFF72] drop-shadow-[0_0_60px_rgba(237,255,114,0.3)] min-w-[5ch] cursor-pointer"
                       >
                         {activeWords[teacherWordIdx]}
                       </span>
@@ -400,7 +400,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               {/* Subtext */}
               <motion.p
                 variants={itemVariants}
-                className="text-base sm:text-lg text-[#A4A7A1] font-normal leading-relaxed text-left max-w-xl"
+                className="text-[clamp(15px,1.4vw,17px)] text-[#A4A7A1] font-normal leading-[1.65] text-left max-w-[33rem] mb-[30px]"
               >
                 {subtext}
               </motion.p>
@@ -408,12 +408,12 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               {/* Action Buttons */}
               <motion.div
                 variants={itemVariants}
-                className="flex flex-wrap items-center justify-start gap-4 pt-1"
+                className="flex flex-wrap items-center justify-start gap-[12px] mb-[26px]"
               >
                 <button
                   type="button"
                   onClick={onPrimaryCta}
-                  className="px-7 py-3.5 rounded-full bg-[#EDFF72] hover:bg-[#d9ef4f] text-[#121212] font-bold text-sm sm:text-base tracking-tight shadow-[0_10px_34px_-8px_rgba(237,255,114,0.45)] hover:shadow-[0_18px_40px_-8px_rgba(237,255,114,0.55)] hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EDFF72]"
+                  className="px-[26px] py-[14px] rounded-full bg-[#EDFF72] hover:bg-[#d9ef4f] text-[#121212] font-semibold text-[14px] tracking-tight shadow-[0_10px_34px_-8px_rgba(237,255,114,0.45)] hover:shadow-[0_14px_40px_-6px_rgba(237,255,114,0.6)] hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EDFF72]"
                 >
                   {primaryCtaLabel}
                 </button>
@@ -421,7 +421,7 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
                 <button
                   type="button"
                   onClick={onSecondaryCta || handleScrollToContent}
-                  className="px-7 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.18] text-white font-semibold text-sm sm:text-base tracking-tight backdrop-blur-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                  className="px-[26px] py-[14px] rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.2] text-white font-semibold text-[14px] tracking-tight backdrop-blur-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
                 >
                   <span>{secondaryCtaLabel}</span>
                 </button>
@@ -430,18 +430,18 @@ export const HeroScroll: React.FC<HeroScrollProps> = ({
               {/* Bottom Tagline */}
               <motion.div
                 variants={itemVariants}
-                className="text-xs font-mono text-[#777D78] tracking-tight pt-1"
+                className="text-[12px] font-mono font-medium text-[#8F938D] tracking-tight"
               >
                 {bottomTagline || (
                   <>
-                    Multi-Language Sandbox <span className="text-[#EDFF72]">·</span> AST Mutation Testing <span className="text-[#EDFF72]">·</span> Zero-Leak Security <span className="text-[#EDFF72]">·</span> Automated Grading
+                    Multi-Language Sandbox <span className="text-[#EDFF72] font-medium">·</span> AST Mutation Testing <span className="text-[#EDFF72] font-medium">·</span> Zero-Leak Security <span className="text-[#EDFF72] font-medium">·</span> Automated Grading
                   </>
                 )}
               </motion.div>
             </motion.div>
 
             {/* Right Column: 3D Stage with Floating Cards & Rotating Cube (matching Student Portal) */}
-            <div className="lg:col-span-5 xl:col-span-4 h-[350px] sm:h-[420px] relative flex items-center justify-center [perspective:1500px]">
+            <div className="lg:col-span-5 xl:col-span-5 h-[350px] sm:h-[420px] relative flex items-center justify-center [perspective:1500px]">
               <style>{`
                 @keyframes teacherBobbing {
                   0%, 100% { transform: translateY(0px); }

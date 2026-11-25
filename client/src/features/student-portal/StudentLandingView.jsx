@@ -442,7 +442,7 @@ export const StudentLandingView = ({
               <br />
               <span className="wd">Track growth.</span>
               <br />
-              <span className="wd">Own your </span>
+              <span className="wd mr-2.5" style={{ marginRight: '0.625rem' }}>Own your</span>
               <em
                 id="rot"
                 style={{
