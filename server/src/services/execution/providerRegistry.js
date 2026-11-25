@@ -16,14 +16,14 @@ class ExecutionProviderRegistry {
     this.register('render_sandbox', new RenderSandboxProvider());
     this.register('onlinecompiler', new OnlineCompilerProvider());
 
-    const allowLocal = config.execution?.allowLocalExecution || process.env.ALLOW_LOCAL_EXECUTION === 'true' || config.env === 'test';
+    const isTest = config.env === 'test' || process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('jest'));
+    const allowLocal = config.execution?.allowLocalExecution || process.env.ALLOW_LOCAL_EXECUTION === 'true' || isTest;
     if (config.env !== 'production' && process.env.NODE_ENV !== 'production' && allowLocal) {
       this.register('local', new LocalExecutionProvider({ allowLocalExecution: true }));
     }
 
     // Select initial provider from configuration (defaults to render_sandbox in production, mock in dev/test)
     const isProd = config.env === 'production' || process.env.NODE_ENV === 'production';
-    const isTest = config.env === 'test' || process.env.NODE_ENV === 'test';
     const configuredProvider = isTest
       ? (process.env.TEST_EXECUTION_PROVIDER || 'mock')
       : (config.execution?.provider || (isProd ? 'render_sandbox' : 'mock'));

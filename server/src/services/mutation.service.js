@@ -536,11 +536,12 @@ export const evaluateMutants = async ({ referenceCode, testCases = [], questionC
       const tc = testCases[idx];
       const parsedArgs = parseInputArguments(tc.input);
 
+      const effectiveTimeout = lang === 'java' || lang === 'cpp' ? Math.max(options.timeoutMs || 0, 6000) : (options.timeoutMs || 2500);
       const res = await executeIsolated({
         code: mutant.mutatedFullCode,
         inputArgs: parsedArgs,
         language: lang,
-        timeoutMs: 2500,
+        timeoutMs: effectiveTimeout,
         questionContext,
         provider
       });
@@ -758,12 +759,13 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
 
       const parsedArgs = parseInputArguments(inputStr);
 
+      const effectiveTimeout = lang === 'java' || lang === 'cpp' ? 6000 : 2500;
       // 1. Run on reference solution to verify input validity and authentic expected output
       const refRes = await executeIsolated({
         code: referenceCode,
         inputArgs: parsedArgs,
         language: lang,
-        timeoutMs: 2500,
+        timeoutMs: effectiveTimeout,
         questionContext,
         provider
       });
@@ -781,7 +783,7 @@ export const synthesizeCandidateTests = async ({ referenceCode, survivingMutants
         code: mutant.mutatedFullCode,
         inputArgs: parsedArgs,
         language: lang,
-        timeoutMs: 2500,
+        timeoutMs: effectiveTimeout,
         questionContext,
         provider
       });

@@ -101,7 +101,7 @@ public class Main {
                     }
                 }
             }
-            if (targetMethod == null) {
+            if (targetMethod == null && "${fn}".equals("solution")) {
                 for (Method m : solClass.getDeclaredMethods()) {
                     if (Modifier.isPublic(m.getModifiers()) && !m.getName().equals("main")) {
                         targetMethod = m;
@@ -110,7 +110,7 @@ public class Main {
                 }
             }
             if (targetMethod == null) {
-                System.err.println("No public method found in " + solClass.getSimpleName() + " class.");
+                System.err.println("Method '" + "${fn}" + "' not found in " + solClass.getSimpleName() + " class.");
                 System.exit(1);
             }
 

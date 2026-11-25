@@ -311,6 +311,9 @@ describe('Phase 1.1: Security Remediation & Integration Test Suite', () => {
         lean: jest.fn().mockResolvedValue(submittedAttempt)
       });
       jest.spyOn(ExamAttempt, 'findById').mockReturnValue(queryObj);
+      jest.spyOn(Exam, 'findById').mockReturnValue({
+        lean: jest.fn().mockResolvedValue({ _id: new mongoose.Types.ObjectId(), title: 'Test Exam' })
+      });
       jest.spyOn(StudentAnswer, 'find').mockReturnValue({
         lean: jest.fn().mockResolvedValue([])
       });

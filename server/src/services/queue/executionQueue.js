@@ -49,21 +49,25 @@ export const getExecutionQueue = () => {
       maxRetriesPerRequest: null
     });
 
+    let hasLoggedIssue = false;
     connection.on('error', (err) => {
       if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
         isRedisOffline = true;
       }
-      if (config.env !== 'test') {
-        console.warn(`[ExecutionQueue] Redis connection issue: ${err.message}`);
+      if (config.env !== 'test' && !hasLoggedIssue) {
+        hasLoggedIssue = true;
+        console.warn(`[ExecutionQueue] Redis connection issue: ${err.message}. In-memory execution fallback active.`);
       }
     });
 
     connection.on('connect', () => {
       isRedisOffline = false;
+      hasLoggedIssue = false;
     });
 
     connection.on('ready', () => {
       isRedisOffline = false;
+      hasLoggedIssue = false;
     });
 
     connection.on('close', () => {
@@ -93,11 +97,13 @@ export const getExecutionQueue = () => {
       }
     });
 
+    let hasLoggedQueueWarn = false;
     executionQueueInstance.on('error', (err) => {
       if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
         isRedisOffline = true;
       }
-      if (config.env !== 'test') {
+      if (config.env !== 'test' && !hasLoggedQueueWarn && !hasLoggedIssue) {
+        hasLoggedQueueWarn = true;
         console.warn(`[ExecutionQueue] Redis queue warning: ${err.message}`);
       }
     });

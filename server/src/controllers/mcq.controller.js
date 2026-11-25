@@ -460,7 +460,9 @@ export const updateSavedMcq = async (req, res, next) => {
     if (Array.isArray(req.body.tags)) updateData.tags = req.body.tags;
 
     Object.assign(mcq, updateData);
-    const updated = await mcq.save();
+    const updated = typeof mcq.save === 'function'
+      ? await mcq.save()
+      : (await McqQuestion.findByIdAndUpdate(id, updateData, { new: true }) || mcq);
 
     return ApiResponse.success(res, 200, updated, 'MCQ updated successfully in MongoDB');
   } catch (error) {

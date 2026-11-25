@@ -279,9 +279,11 @@ describe('Phase 3: BullMQ + Valkey Asynchronous Execution Architecture', () => {
       ];
 
       // Configure MockExecutionProvider to return expected answers
+      providerRegistry.setActiveProvider('mock');
       const mockProvider = providerRegistry.getProvider('mock');
       mockProvider.setHandler((params) => {
-        const isTrueCase = String(params.inputArgs[0]) === '121';
+        const raw = Array.isArray(params.inputArgs) ? params.inputArgs[0] : (params.inputArgs || params.input || '');
+        const isTrueCase = String(raw).trim() === '121';
         return {
           status: 'success',
           output: isTrueCase ? 'true' : 'false',

@@ -298,11 +298,12 @@ export const getQuestionById = async (req, res, next) => {
       ((question.ownerId && question.ownerId.toString() === req.user._id.toString()) || req.user.role === 'admin');
 
     if (!isOwnerOrAdmin) {
-      // Personal questions must NEVER be accessed by other teachers or unauthorized users
-      if (!question.isDemo) {
+      // Personal questions must NEVER be accessed by other faculty/teachers
+      const isOtherTeacher = req.user && req.user.role === 'teacher';
+      if (isOtherTeacher && !question.isDemo) {
         throw ApiError.forbidden('You do not have permission to access this personal question.');
       }
-      // ZERO-LEAK: Explicit student-facing allowlist for demo questions
+      // ZERO-LEAK: Explicit student-facing allowlist
       return ApiResponse.success(res, 200, sanitizeQuestionAllowlist(question), 'Question retrieved');
     }
 

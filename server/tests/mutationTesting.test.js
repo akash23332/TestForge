@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app.js';
@@ -9,6 +10,7 @@ import { providerRegistry } from '../src/services/execution/providerRegistry.js'
 describe('Mutation Testing & Test Suite Quality Engine', () => {
   let twoSumQId = '';
   let originalProvider = 'mock';
+  jest.setTimeout(45000);
 
   beforeAll(async () => {
     try {

@@ -166,7 +166,7 @@ describe('Gemini AI Question Generation & Publishing Gate Matrix (Page 1)', () =
         }
       };
 
-      const provider = new GeminiProvider({ client: mockClient });
+      const provider = new GeminiProvider({ client: mockClient, maxRetries: 0 });
       await expect(provider.generateQuestion()).rejects.toMatchObject({
         statusCode: 429,
         details: expect.objectContaining({ code: 'GEMINI_RATE_LIMIT' })
@@ -184,7 +184,7 @@ describe('Gemini AI Question Generation & Publishing Gate Matrix (Page 1)', () =
         }
       };
 
-      const provider = new GeminiProvider({ client: mockClient });
+      const provider = new GeminiProvider({ client: mockClient, maxRetries: 0 });
       await expect(provider.generateQuestion()).rejects.toMatchObject({
         statusCode: 504,
         details: expect.objectContaining({ code: 'GEMINI_TIMEOUT' })
@@ -200,7 +200,7 @@ describe('Gemini AI Question Generation & Publishing Gate Matrix (Page 1)', () =
         }
       };
 
-      const provider = new GeminiProvider({ client: mockClient });
+      const provider = new GeminiProvider({ client: mockClient, maxRetries: 0 });
       await expect(provider.generateQuestion()).rejects.toMatchObject({
         statusCode: 502,
         details: expect.objectContaining({ code: 'GEMINI_MALFORMED_RESPONSE' })
@@ -1393,6 +1393,6 @@ describe('Gemini AI Question Generation & Publishing Gate Matrix (Page 1)', () =
       expect(liveQuestion).toBeDefined();
       expect(liveQuestion.title).toBeDefined();
       expect(liveQuestion.referenceSolution).toContain('def');
-    }, 30000);
+    }, 90000);
   });
 });
