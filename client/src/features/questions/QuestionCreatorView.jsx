@@ -29,6 +29,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getAiTimeout } from '../../lib/aiTimeouts';
 import CodeEditor from '../../components/editor/CodeEditor';
 import { buildFingerprintPayload } from './fingerprintContract';
 
@@ -1117,20 +1118,27 @@ export const QuestionCreatorView = ({
     );
     try {
       const effectiveTopic = aiCustomTopic.trim() || aiTopic;
+      const diffLabel = aiDifficulty === 'Hard' ? 'hard algorithmic' : aiDifficulty === 'Medium' ? 'medium-level' : 'easy introductory';
       setAiStatusMessage(
         recentGenerations.length > 0
-          ? `Generating different ${aiDifficulty} ${effectiveTopic} question avoiding recent formulations...`
-          : `Generating ${aiDifficulty} ${effectiveTopic} problem in ${aiLanguage} (${aiExecutionMode})...`
+          ? `Synthesizing ${diffLabel} ${effectiveTopic} problem (excluding recent session history)...`
+          : `Synthesizing ${diffLabel} ${effectiveTopic} problem in ${aiLanguage} (${aiExecutionMode})...`
       );
 
-      const res = await api.post('/ai/generate-question', {
-        topic: effectiveTopic,
-        difficulty: aiDifficulty,
-        language: aiLanguage,
-        executionMode: aiExecutionMode,
-        requirements: aiRequirements,
-        recentQuestions: recentGenerations.slice(-5)
-      });
+      const requestTimeout = getAiTimeout({ task: 'CODING_QUESTION', difficulty: aiDifficulty });
+
+      const res = await api.post(
+        '/ai/generate-question',
+        {
+          topic: effectiveTopic,
+          difficulty: aiDifficulty,
+          language: aiLanguage,
+          executionMode: aiExecutionMode,
+          requirements: aiRequirements,
+          recentQuestions: recentGenerations.slice(-5)
+        },
+        { timeout: requestTimeout }
+      );
 
       const q = res.data?.data || res.data;
       if (!q) throw new Error('No question data returned from AI service');
@@ -1222,7 +1230,7 @@ export const QuestionCreatorView = ({
           : 'Question generated with AI! You can now review, test, and publish.'
       );
     } catch (err) {
-      const msg = err.response?.data?.error?.message || err.message || 'AI question generation failed';
+      const msg = err.customMessage || err.response?.data?.error?.message || err.message || 'AI question generation failed';
       setAiError(msg);
       showToast(msg);
     } finally {
@@ -1237,7 +1245,7 @@ export const QuestionCreatorView = ({
   // Clears recent generation session history
   const handleClearSessionHistory = async () => {
     try {
-      await api.post('/ai/clear-history', {});
+      await api.post('/ai/clear-history', {}, { timeout: 15000 });
     } catch (_) {}
     setRecentGenerations([]);
     lastAiGeneratedSnapshotRef.current = null;
@@ -1279,13 +1287,18 @@ export const QuestionCreatorView = ({
         ownerId: initialQuestion?.ownerId || currentUser?._id || currentUser?.id
       };
 
-      const res = await api.post('/ai/regenerate-section', {
-        action: canonicalAction,
-        section: canonicalAction,
-        currentQuestion,
-        instructions: customInstructions,
-        recentQuestions: recentGenerations.slice(-5)
-      });
+      const regenTimeout = getAiTimeout({ task: 'REGENERATE_SECTION' });
+      const res = await api.post(
+        '/ai/regenerate-section',
+        {
+          action: canonicalAction,
+          section: canonicalAction,
+          currentQuestion,
+          instructions: customInstructions,
+          recentQuestions: recentGenerations.slice(-5)
+        },
+        { timeout: regenTimeout }
+      );
 
       const data = res.data?.data || res.data;
       const rawPreview = data.previewData || data.regeneratedData || data.updatedQuestion || data;

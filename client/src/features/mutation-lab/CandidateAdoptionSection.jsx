@@ -32,8 +32,10 @@ export const CandidateAdoptionSection = ({
   runId,
   candidates = [],
   mutants = [],
+  report = null,
   onAdoptCandidate,
   onRejectCandidate,
+  onOpenAiFixModal = null,
   onNavigateToStudio,
   onSelectMutant,
   isRefreshing = false
@@ -529,11 +531,24 @@ export const CandidateAdoptionSection = ({
         <div className="p-12 text-center bg-white rounded-2xl border border-[#DDE1DA]">
           <Layers className="w-8 h-8 text-[#CBD0C8] mx-auto mb-2" />
           <h4 className="text-sm font-bold text-[#171819] mb-1">No candidate tests found</h4>
-          <p className="text-xs text-[#777D78] max-w-sm mx-auto">
+          <p className="text-xs text-[#777D78] max-w-md mx-auto">
             {enrichedCandidates.length === 0
-              ? 'Run mutation testing to discover surviving mutants and synthesize candidate killer tests.'
+              ? report?.survivedCount > 0
+                ? `${report.survivedCount} mutants survived your test suite! Generate verified killer test cases with AI to eliminate them.`
+                : 'Run mutation testing to discover surviving mutants and synthesize candidate killer tests.'
               : 'No candidate test cases match your active search or filter selection.'}
           </p>
+
+          {onOpenAiFixModal && (
+            <button
+              type="button"
+              onClick={onOpenAiFixModal}
+              className="mt-4 px-5 py-2.5 rounded-xl bg-[#191A1D] hover:bg-black text-[#EDFF72] font-bold text-xs inline-flex items-center gap-2 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-[#EDFF72]" />
+              <span>Generate Killer Tests with AI & Fix Suite (1-Click)</span>
+            </button>
+          )}
         </div>
       )}
 

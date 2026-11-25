@@ -30,6 +30,7 @@ import { useMutationRun } from './useMutationRun';
 import { MutantDiffViewer } from './MutantDiffViewer';
 import { SurvivingMutantsCandidateTests } from './SurvivingMutantsCandidateTests';
 import { CandidateAdoptionSection } from './CandidateAdoptionSection';
+import { AiAutoFixModal } from './AiAutoFixModal';
 import {
   classifyMutant as classifyMutantApi,
   adoptCandidateTest as adoptCandidateApi,
@@ -119,6 +120,7 @@ export const MutationLabView = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
+  const [isAiFixModalOpen, setIsAiFixModalOpen] = useState(false);
 
   // 3D Tilt refs
   const heroRef = useRef(null);
@@ -844,6 +846,18 @@ export const MutationLabView = ({
                   <span>Refresh Report</span>
                 </button>
               )}
+
+              {report?.survivedCount > 0 && !isRunning && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiFixModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-[#EDFF72] text-[#121212] font-extrabold text-xs flex items-center gap-1.5 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  title="Generate killer test cases with AI to eliminate surviving mutants"
+                >
+                  <Sparkles className="w-3.5 h-3.5 fill-current text-[#121212]" />
+                  <span>AI Auto-Heal ({report.survivedCount} Survived)</span>
+                </button>
+              )}
             </div>
 
             {/* Live Progress Bar during active run */}
@@ -1117,8 +1131,10 @@ export const MutationLabView = ({
           runId={report?._id || runId}
           candidates={report?.candidateTests || []}
           mutants={rawMutants}
+          report={report}
           onAdoptCandidate={handleAdoptCandidate}
           onRejectCandidate={handleRejectCandidate}
+          onOpenAiFixModal={() => setIsAiFixModalOpen(true)}
           onNavigateToStudio={() => onNavigate && onNavigate('test-cases')}
           onSelectMutant={(id) => {
             setSelectedMutantId(id);
@@ -1325,6 +1341,16 @@ export const MutationLabView = ({
       <div className={`tf-toast ${toastMsg ? 'on' : ''}`} role="status">
         {toastMsg}
       </div>
+
+      {/* 1-Click AI Auto-Heal & Killer Test Generator Modal */}
+      <AiAutoFixModal
+        isOpen={isAiFixModalOpen}
+        onClose={() => setIsAiFixModalOpen(false)}
+        question={currentQ}
+        report={report}
+        onRunStarted={handleTriggerRun}
+        showToast={showToast}
+      />
     </div>
   );
 };

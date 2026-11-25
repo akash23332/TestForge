@@ -133,3 +133,10 @@ export const geminiCircuitBreaker = new CircuitBreaker({
   failureThreshold: 4,
   cooldownMs: 30000
 });
+
+// Global default singleton for the Groq Provider
+export const groqCircuitBreaker = new CircuitBreaker({
+  name: 'GroqGlobalBreaker',
+  failureThreshold: 3,
+  cooldownMs: 20000
+});

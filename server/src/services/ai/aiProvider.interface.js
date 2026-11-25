@@ -56,6 +56,41 @@ export class AIProvider {
   async generateMcqs(options) {
     throw new Error(`generateMcqs() not implemented in provider '${this.name}'`);
   }
+
+  /**
+   * Generates comprehensive educational explanation for a coding question or MCQ.
+   * @param {Object} options
+   * @param {Object} options.question
+   * @param {string} [options.language]
+   * @param {string} [options.studentCode]
+   * @returns {Promise<{ explanation: string, breakdown?: Array<Object>, keyTakeaways?: Array<string> }>}
+   */
+  async generateExplanation(options) {
+    throw new Error(`generateExplanation() not implemented in provider '${this.name}'`);
+  }
+
+  /**
+   * Generates progressive, non-spoiling hints for a problem.
+   * @param {Object} options
+   * @param {Object} options.question
+   * @param {string} [options.studentCode]
+   * @param {number} [options.hintLevel=1]
+   * @returns {Promise<{ hints: Array<{ level: number, title: string, hint: string }> }>}
+   */
+  async generateHints(options) {
+    throw new Error(`generateHints() not implemented in provider '${this.name}'`);
+  }
+
+  /**
+   * Evaluates problem clarity, edge cases, and constraint rigor, returning actionable improvements.
+   * @param {Object} options
+   * @param {Object} options.question
+   * @param {string} [options.instructions]
+   * @returns {Promise<{ suggestions: Array<string>, refinedStatement?: string, missingEdgeCases?: Array<string> }>}
+   */
+  async improveQuestion(options) {
+    throw new Error(`improveQuestion() not implemented in provider '${this.name}'`);
+  }
 }
 
 export default AIProvider;

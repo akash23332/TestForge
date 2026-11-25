@@ -1,4 +1,6 @@
 import { GeminiProvider } from './providers/gemini.provider.js';
+import { GroqProvider } from './providers/groq.provider.js';
+import { aiProviderManager } from './aiProviderManager.js';
 import {
   validateGeneratedQuestion,
   validateRegeneratedSolution,
@@ -7,12 +9,15 @@ import {
 import { checkDuplicateAgainstHistory } from './duplicateDetector.service.js';
 import { config } from '../../config/env.js';
 import { ApiError } from '../../utils/apiError.js';
+import { getBackendAiTimeout } from '../../config/aiTimeouts.js';
 
 export class QuestionGeneratorService {
   constructor() {
     this.providers = new Map();
-    // Register Gemini as default provider
+    // Register available providers
     this.registerProvider('gemini', new GeminiProvider());
+    this.registerProvider('groq', new GroqProvider());
+    this.registerProvider('auto', aiProviderManager);
 
     // In-memory session history store: sessionKey -> Array<Question> (max 5)
     this.sessionHistory = new Map();
@@ -33,8 +38,9 @@ export class QuestionGeneratorService {
    * @returns {import('./aiProvider.interface.js').AIProvider}
    */
   getProvider(name) {
-    const target = (name || config.ai?.provider || 'gemini').toLowerCase();
-    const provider = this.providers.get(target);
+    const configured = (config.ai?.provider || 'auto').toLowerCase();
+    const target = (name || configured).toLowerCase();
+    const provider = this.providers.get(target) || this.providers.get('auto') || this.providers.get('gemini');
     if (!provider) {
       throw ApiError.badRequest(
         `AI provider '${target}' is not registered. Available providers: [${Array.from(this.providers.keys()).join(', ')}]`,
@@ -105,7 +111,11 @@ export class QuestionGeneratorService {
   async generateQuestion(options = {}) {
     const provider = this.getProvider(options.provider);
     const sessionKey = options.sessionKey || options.userId || null;
-    const maxAttempts = options.maxAttempts || 3;
+    const difficulty = options.difficulty || 'Medium';
+    // For Medium/Hard questions, cap blind attempts to 2 to prevent exceeding total timeout budget
+    const maxAttempts = options.maxAttempts || (difficulty === 'Hard' ? 2 : difficulty === 'Medium' ? 2 : 3);
+    const overallBudgetMs = options.timeoutMs || getBackendAiTimeout({ task: 'CODING_QUESTION', difficulty });
+    const startTime = Date.now();
 
     // Combine server-side session history and client-provided recent questions
     const serverHistory = sessionKey ? this.getSessionHistory(sessionKey) : [];
@@ -121,18 +131,47 @@ export class QuestionGeneratorService {
     const activeExclusionHistory = combinedHistory.slice(-5);
 
     let lastDuplicateResult = null;
+    let lastValidatedQuestion = null;
     let attemptsCount = 0;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       attemptsCount = attempt;
+      const elapsed = Date.now() - startTime;
+      const remainingTime = overallBudgetMs - elapsed;
+
+      // Budget safeguard: if remaining time is insufficient for a full generation (< 16s)
+      // and we already have a validated question from an earlier attempt, return it safely
+      if (attempt > 1 && remainingTime < 16000 && lastValidatedQuestion) {
+        console.warn(
+          `[QuestionGeneratorService] Time budget remaining (${remainingTime}ms) insufficient for additional attempts. Utilizing validated candidate with diversity annotation.`
+        );
+        if (sessionKey) {
+          this.recordQuestionInHistory(sessionKey, lastValidatedQuestion);
+        }
+        return {
+          ...lastValidatedQuestion,
+          _diversityMeta: {
+            attemptsUsed: attemptsCount,
+            isUnique: false,
+            similarityScore: lastDuplicateResult?.score || 0.65,
+            reason: lastDuplicateResult?.reason,
+            historyComparedCount: activeExclusionHistory.length
+          }
+        };
+      }
+
+      // Budget per attempt
+      const attemptTimeout = Math.max(15000, remainingTime - 3000);
 
       const rawOutput = await provider.generateQuestion({
         ...options,
+        timeoutMs: attemptTimeout,
         recentQuestions: activeExclusionHistory,
         regenerationFeedback: lastDuplicateResult ? lastDuplicateResult.reason : null
       });
 
       const validatedQuestion = validateGeneratedQuestion(rawOutput, options);
+      lastValidatedQuestion = validatedQuestion;
 
       // Perform duplicate detection against exclusion history
       const dupCheck = checkDuplicateAgainstHistory(validatedQuestion, activeExclusionHistory);

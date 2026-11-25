@@ -28,7 +28,12 @@ const envSchema = Joi.object({
   GEMINI_FALLBACK_MODEL: Joi.string().optional().allow('').default('gemini-3.5-flash-lite'),
   GEMINI_MAX_RETRIES: Joi.number().optional().default(3),
   GEMINI_MAX_CONCURRENT: Joi.number().optional().default(2),
-  AI_PROVIDER: Joi.string().optional().allow('').default('gemini'),
+  GROQ_API_KEY: Joi.string().optional().allow(''),
+  GROQ_MODEL: Joi.string().optional().allow('').default('openai/gpt-oss-120b'),
+  GROQ_FALLBACK_MODEL: Joi.string().optional().allow('').default('openai/gpt-oss-20b'),
+  GROQ_MAX_RETRIES: Joi.number().optional().default(2),
+  GROQ_MAX_CONCURRENT: Joi.number().optional().default(3),
+  AI_PROVIDER: Joi.string().valid('auto', 'groq', 'gemini', '').optional().default('auto'),
   REDIS_URL: Joi.string().optional().allow('').default('redis://127.0.0.1:6379'),
   VALKEY_URL: Joi.string().optional().allow(''),
   EXECUTION_PROVIDER: Joi.string().valid('mock', 'local', 'render_sandbox', 'onlinecompiler').default(
@@ -82,7 +87,12 @@ export const config = {
     apiKey: envVars.LLM_API_KEY || null
   },
   ai: {
-    provider: envVars.AI_PROVIDER || envVars.LLM_PROVIDER || 'gemini',
+    provider: envVars.AI_PROVIDER || envVars.LLM_PROVIDER || 'auto',
+    groqApiKey: envVars.GROQ_API_KEY || null,
+    groqModel: envVars.GROQ_MODEL || 'openai/gpt-oss-120b',
+    groqFallbackModel: envVars.GROQ_FALLBACK_MODEL || 'openai/gpt-oss-20b',
+    groqMaxRetries: Number(envVars.GROQ_MAX_RETRIES) || 2,
+    groqMaxConcurrent: Number(envVars.GROQ_MAX_CONCURRENT) || 3,
     geminiApiKey: envVars.GEMINI_API_KEY || envVars.LLM_API_KEY || null,
     geminiModel: envVars.GEMINI_MODEL || 'gemini-3.5-flash',
     geminiFallbackModel: envVars.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite',

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { GeminiProvider } from './providers/gemini.provider.js';
+import { aiProviderManager } from './aiProviderManager.js';
 import { TestCase } from '../../models/TestCase.js';
 import { validateSingleTestCase, parseInputArguments } from '../codeRunner.service.js';
 import { ApiError } from '../../utils/apiError.js';
@@ -43,7 +44,7 @@ export const computeInputHash = (canonicalInput) => {
 
 export class TestCaseGeneratorService {
   constructor(provider = null) {
-    this.provider = provider || new GeminiProvider();
+    this.provider = provider || aiProviderManager;
   }
 
   /**

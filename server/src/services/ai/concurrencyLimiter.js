@@ -92,5 +92,12 @@ export class ConcurrencyLimiter {
 // Global default singleton
 export const geminiConcurrencyLimiter = new ConcurrencyLimiter({
   maxConcurrent: 2,
-  queueTimeoutMs: 25000
+  queueTimeoutMs: 65000
+});
+
+// Groq concurrency limiter (allows up to 3 concurrent requests)
+export const groqConcurrencyLimiter = new ConcurrencyLimiter({
+  name: 'GroqConcurrencyLimiter',
+  maxConcurrent: 3,
+  queueTimeoutMs: 65000
 });

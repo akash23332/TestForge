@@ -208,10 +208,55 @@ export const rejectCandidateTest = async (questionId, runId, candidateId, option
   }
 };
 
+/**
+ * Request AI to generate killer test cases specifically crafted to kill surviving mutants.
+ * @param {string} questionId
+ * @param {Object} options
+ * @returns {Promise<{ candidates: Array, totalGenerated: number, acceptedCount: number }>}
+ */
+export const generateAiKillerTests = async (questionId, options = {}) => {
+  if (!questionId) throw new Error('Question ID is required');
+  try {
+    const res = await api.post(`/questions/${questionId}/ai-generate-tests`, {
+      count: options.count || 5,
+      category: options.category || 'boundary',
+      instructions: options.instructions || 'Synthesize boundary/edge-case tests to kill surviving mutants',
+      visibility: options.visibility || 'hidden'
+    });
+    return res.data?.data || res.data;
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+    throw new Error(msg || 'Failed to generate killer tests with AI');
+  }
+};
+
+/**
+ * Batch save test cases to the question, with optional replacement of existing test cases.
+ * @param {string} questionId
+ * @param {Array} testCases
+ * @param {boolean} [replaceExisting=false]
+ * @returns {Promise<Array>}
+ */
+export const batchSaveTestCases = async (questionId, testCases = [], replaceExisting = false) => {
+  if (!questionId) throw new Error('Question ID is required');
+  try {
+    const res = await api.post(`/questions/${questionId}/tests/batch`, {
+      testCases,
+      replaceExisting: Boolean(replaceExisting)
+    });
+    return res.data?.data || res.data;
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+    throw new Error(msg || 'Failed to save test cases');
+  }
+};
+
 export default {
   startMutationRun,
   getMutationReport,
   classifyMutant,
   adoptCandidateTest,
-  rejectCandidateTest
+  rejectCandidateTest,
+  generateAiKillerTests,
+  batchSaveTestCases
 };

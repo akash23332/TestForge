@@ -1,5 +1,6 @@
 import { questionGeneratorService } from '../services/ai/questionGenerator.service.js';
 import { mcqGeneratorService } from '../services/ai/mcqGenerator.service.js';
+import { aiProviderManager } from '../services/ai/aiProviderManager.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
 
@@ -179,9 +180,77 @@ export const generateMcq = async (req, res, next) => {
   }
 };
 
+/**
+ * Generates an educational explanation for a coding question or MCQ.
+ */
+export const generateExplanation = async (req, res, next) => {
+  try {
+    const { question, language, studentCode } = req.body;
+    if (!question || typeof question !== 'object') {
+      throw ApiError.badRequest('Question context is required for explanation generation.');
+    }
+
+    const result = await aiProviderManager.generateExplanation({
+      question,
+      language,
+      studentCode
+    });
+
+    return ApiResponse.success(res, 200, result, 'Explanation generated successfully.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Generates progressive non-spoiling hints.
+ */
+export const generateHints = async (req, res, next) => {
+  try {
+    const { question, studentCode, hintLevel = 1 } = req.body;
+    if (!question || typeof question !== 'object') {
+      throw ApiError.badRequest('Question context is required for hints generation.');
+    }
+
+    const result = await aiProviderManager.generateHints({
+      question,
+      studentCode,
+      hintLevel: Number(hintLevel) || 1
+    });
+
+    return ApiResponse.success(res, 200, result, 'Hints generated successfully.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Analyzes question clarity, edge cases, and constraint rigor.
+ */
+export const improveQuestion = async (req, res, next) => {
+  try {
+    const { question, instructions = '' } = req.body;
+    if (!question || typeof question !== 'object') {
+      throw ApiError.badRequest('Question context is required for question improvement.');
+    }
+
+    const result = await aiProviderManager.improveQuestion({
+      question,
+      instructions
+    });
+
+    return ApiResponse.success(res, 200, result, 'Question analysis and improvements generated successfully.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   generateQuestion,
   regenerateSection,
   clearSessionHistory,
-  generateMcq
+  generateMcq,
+  generateExplanation,
+  generateHints,
+  improveQuestion
 };

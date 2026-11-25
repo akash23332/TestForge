@@ -42,6 +42,7 @@ import {
   Cpu
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getAiTimeout } from '../../lib/aiTimeouts';
 
 // Helper to smoothly count up numbers matching Question Bank / Create Question
 const AnimatedCount = ({ value, duration = 800 }) => {
@@ -515,13 +516,18 @@ export const TestCaseStudioView = ({
     setBatchSaveError(null);
     try {
       const existingInStudio = testCases.map((t) => t.input).filter(Boolean);
-      const res = await api.post(`/questions/${currentQ._id}/ai-generate-tests`, {
-        count: aiCaseCount,
-        category: aiCategory,
-        visibility: aiVisibility,
-        prompt: aiPrompt,
-        excludeInputs: existingInStudio
-      });
+      const testCaseTimeout = getAiTimeout({ task: 'TEST_CASES' });
+      const res = await api.post(
+        `/questions/${currentQ._id}/ai-generate-tests`,
+        {
+          count: aiCaseCount,
+          category: aiCategory,
+          visibility: aiVisibility,
+          prompt: aiPrompt,
+          excludeInputs: existingInStudio
+        },
+        { timeout: testCaseTimeout }
+      );
 
       const rawCandidates = res.data?.data?.candidates || res.data?.candidates || [];
       if (!rawCandidates.length) {
@@ -623,13 +629,18 @@ export const TestCaseStudioView = ({
       const studioInputs = testCases.map((t) => t.input).filter(Boolean);
       const excludeInputs = Array.from(new Set([...candidateInputs, ...studioInputs]));
 
-      const res = await api.post(`/questions/${currentQ._id}/ai-generate-tests`, {
-        count: 1,
-        category: target.category || (aiCategory === 'all' ? 'edge_case' : aiCategory),
-        visibility: target.visibility || aiVisibility,
-        prompt: `Generate a distinct, novel alternative test case different from existing inputs. ${aiPrompt || ''}`.trim(),
-        excludeInputs
-      });
+      const singleTimeout = getAiTimeout({ task: 'TEST_CASES' });
+      const res = await api.post(
+        `/questions/${currentQ._id}/ai-generate-tests`,
+        {
+          count: 1,
+          category: target.category || (aiCategory === 'all' ? 'edge_case' : aiCategory),
+          visibility: target.visibility || aiVisibility,
+          prompt: `Generate a distinct, novel alternative test case different from existing inputs. ${aiPrompt || ''}`.trim(),
+          excludeInputs
+        },
+        { timeout: singleTimeout }
+      );
 
       const newItems = res.data?.data?.candidates || res.data?.candidates || [];
       if (newItems.length > 0) {

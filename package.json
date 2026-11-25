@@ -23,5 +23,8 @@
     "mongodb"
   ],
   "author": "TestForge Development Team",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "groq-sdk": "^1.6.0"
+  }
 }

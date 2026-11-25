@@ -182,6 +182,7 @@ MANDATORY VARIATION RULES:
 3. For the requested topic ("${topic || 'Algorithms and Data Structures'}"), select a DIFFERENT algorithmic sub-pattern or problem-solving archetype.
 4. Invent a completely fresh, creative problem context, narrative framing, and distinct input/output relationships.
 5. All teacher requirements (topic: "${topic || 'Algorithms and Data Structures'}", difficulty: "${difficulty}", executionMode: "${normMode}", language: "${normLang}") MUST be 100% strictly preserved.
+6. Choose a completely distinct problem title and unique functionName (different from any of the excluded questions above).
 `;
   }
 

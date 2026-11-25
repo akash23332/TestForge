@@ -5,7 +5,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 30000
+  timeout: 60000 // Global default 60s (specific AI requests override via getAiTimeout)
 });
 
 // Interceptor to attach JWT token or scoped Attempt Session token if present in localStorage
@@ -22,12 +22,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const errorData = error.response?.data?.error;
-    const formattedMessage = errorData?.message || error.message || 'An unexpected error occurred';
+    const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
+
+    let formattedMessage = errorData?.message || error.message || 'An unexpected error occurred';
+    if (isTimeout) {
+      formattedMessage = 'The AI generation request took longer than expected to formulate. Your existing work is safe. Please retry or adjust parameters.';
+    }
+
     return Promise.reject({
       ...error,
       customMessage: formattedMessage,
-      code: errorData?.code || 'NETWORK_ERROR',
-      details: errorData?.details
+      code: isTimeout ? 'TIMEOUT_EXCEEDED' : (errorData?.code || 'NETWORK_ERROR'),
+      details: errorData?.details,
+      isTimeout
     });
   }
 );

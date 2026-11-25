@@ -70,6 +70,10 @@ const startServer = async () => {
       console.log(`  - Client Origin: ${config.clientOrigin}`);
     });
 
+    // Ensure server-level HTTP request timeout accommodates complex AI reasoning (3 minutes)
+    server.timeout = 180000;
+    server.keepAliveTimeout = 65000;
+
     // Graceful shutdown handling
     const shutdown = async (signal) => {
       console.log(`\n\x1b[33m[TestForge] Received ${signal}. Closing server gracefully...\x1b[0m`);

@@ -367,6 +367,136 @@ export class GeminiProvider extends AIProvider {
 
     return data;
   }
+
+  /**
+   * Generates comprehensive educational explanation.
+   */
+  async generateExplanation(options = {}) {
+    const { question, language, studentCode } = options;
+    const promptText = `You are an expert computer science professor.
+Analyze the following coding problem or question and provide a clear, educational, step-by-step explanation.
+
+Problem Title: ${question?.title || 'Coding Problem'}
+Problem Statement: ${question?.statement || question?.q || 'N/A'}
+Language: ${language || question?.language || 'python'}
+${studentCode ? `Student Code Attempt:\n\`\`\`\n${studentCode}\n\`\`\`` : ''}
+
+Provide a JSON object with:
+- "explanation": Comprehensive, lucid explanation of the concept, optimal algorithm, and time/space complexity.
+- "keyTakeaways": Array of 2 to 4 bullet points summarizing the core computer science concepts.`;
+
+    const schema = {
+      type: 'OBJECT',
+      properties: {
+        explanation: { type: 'STRING' },
+        keyTakeaways: { type: 'ARRAY', items: { type: 'STRING' } }
+      },
+      required: ['explanation']
+    };
+
+    const { data } = await this._executeWithRetryAndFallback({
+      taskName: 'generateExplanation',
+      promptText,
+      responseSchema: schema,
+      temperature: 0.2,
+      timeoutMs: options.timeoutMs || 35000,
+      maxRetries: options.maxRetries
+    });
+    return data;
+  }
+
+  /**
+   * Generates progressive non-spoiling hints.
+   */
+  async generateHints(options = {}) {
+    const { question, studentCode, hintLevel = 1 } = options;
+    const promptText = `You are a mentor guiding a student through a coding challenge.
+Problem Title: ${question?.title || 'Coding Challenge'}
+Problem Statement: ${question?.statement || 'N/A'}
+${studentCode ? `Current Student Code:\n\`\`\`\n${studentCode}\n\`\`\`` : ''}
+
+Generate progressive hints that guide without revealing the full solution directly.
+Target hint level requested: ${hintLevel} (1: subtle conceptual clue, 2: algorithmic strategy/data structure, 3: pseudocode walkthrough).
+
+Return a JSON object:
+{
+  "hints": [
+    { "level": 1, "title": "Conceptual Clue", "hint": "..." },
+    { "level": 2, "title": "Algorithmic Strategy", "hint": "..." },
+    { "level": 3, "title": "Logic Breakdown", "hint": "..." }
+  ]
+}`;
+
+    const schema = {
+      type: 'OBJECT',
+      properties: {
+        hints: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              level: { type: 'INTEGER' },
+              title: { type: 'STRING' },
+              hint: { type: 'STRING' }
+            },
+            required: ['level', 'title', 'hint']
+          }
+        }
+      },
+      required: ['hints']
+    };
+
+    const { data } = await this._executeWithRetryAndFallback({
+      taskName: 'generateHints',
+      promptText,
+      responseSchema: schema,
+      temperature: 0.3,
+      timeoutMs: options.timeoutMs || 30000,
+      maxRetries: options.maxRetries
+    });
+    return data;
+  }
+
+  /**
+   * Reviews and suggests improvements for question clarity and edge case coverage.
+   */
+  async improveQuestion(options = {}) {
+    const { question, instructions = '' } = options;
+    const promptText = `You are an assessment quality reviewer.
+Review the following question draft for clarity, ambiguity, constraint consistency, and edge case gaps.
+
+Problem Title: ${question?.title || 'Untitled'}
+Statement: ${question?.statement || 'N/A'}
+Constraints: ${question?.constraints || 'None specified'}
+${instructions ? `Teacher Review Instructions: ${instructions}` : ''}
+
+Return a JSON object:
+{
+  "suggestions": ["Suggestion 1", "Suggestion 2"],
+  "refinedStatement": "Optional improved version of the statement if needed",
+  "missingEdgeCases": ["Edge case 1 (e.g. empty array)", "Edge case 2 (e.g. negative numbers)"]
+}`;
+
+    const schema = {
+      type: 'OBJECT',
+      properties: {
+        suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
+        refinedStatement: { type: 'STRING' },
+        missingEdgeCases: { type: 'ARRAY', items: { type: 'STRING' } }
+      },
+      required: ['suggestions']
+    };
+
+    const { data } = await this._executeWithRetryAndFallback({
+      taskName: 'improveQuestion',
+      promptText,
+      responseSchema: schema,
+      temperature: 0.2,
+      timeoutMs: options.timeoutMs || 35000,
+      maxRetries: options.maxRetries
+    });
+    return data;
+  }
 }
 
 export default GeminiProvider;

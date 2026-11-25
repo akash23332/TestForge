@@ -509,6 +509,11 @@ export const batchSaveTestCasesHandler = async (req, res, next) => {
         );
       }
 
+      // If replaceExisting is requested, atomically clear prior test cases before inserting new batch
+      if (req.body.replaceExisting) {
+        await TestCase.deleteMany({ questionId: question._id }, { session });
+      }
+
       const savedDocs = await TestCase.insertMany(docsToInsert, { session, ordered: true });
       await session.commitTransaction();
 
