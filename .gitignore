@@ -3,6 +3,9 @@
 .env
 .env.*
 !.env.example
+!.env.production
+!client/.env.production
+!client/.env.example
 dist/
 build/
 coverage/

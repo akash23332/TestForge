@@ -1,7 +1,32 @@
 import axios from 'axios';
 
+/**
+ * Resolves the centralized API base URL for TestForge.
+ * - Reads VITE_API_URL from environment variables (e.g. from Vercel or .env.production).
+ * - Normalizes trailing slashes and guarantees exactly one '/api/v1' path prefix without duplication.
+ * - In production, defaults directly to the Render backend (https://testforge-api-eayz.onrender.com/api/v1)
+ *   to prevent silent Vercel-relative 404 errors.
+ * - In local development, falls back to relative '/api/v1' (proxied by Vite to http://localhost:5001).
+ */
+export const getBaseUrl = (envApiUrl = import.meta.env.VITE_API_URL, isProd = import.meta.env.PROD) => {
+  const trimmed = typeof envApiUrl === 'string' ? envApiUrl.trim() : '';
+
+  if (trimmed) {
+    const cleanUrl = trimmed.replace(/\/+$/, '');
+    return cleanUrl.endsWith('/api/v1') ? cleanUrl : `${cleanUrl}/api/v1`;
+  }
+
+  // Production fallback: strictly route to the live Render backend
+  if (isProd) {
+    return 'https://testforge-api-eayz.onrender.com/api/v1';
+  }
+
+  // Development fallback: relative path handled by Vite dev server proxy
+  return '/api/v1';
+};
+
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   },
